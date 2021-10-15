@@ -38,7 +38,7 @@ jobs:
           cd ../airrohr-update-loader && pwd && ls -l && platformio run && ls -l builds/
       - name: Tar Results
         run: |
-          tar czvf airrohr-firmware-builds.tar.gz -C airrohr-firmware/builds/ .
+          tar czvf airrohr-firmware-builds.tar.gz -C ../airrohr-firmware/builds/ .
       - name: Store airrohr-firmware
         uses: actions/upload-artifact@v2
         with:
