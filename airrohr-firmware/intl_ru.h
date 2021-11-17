@@ -40,7 +40,7 @@ const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_COORD_LAT[] PROGMEM = "Широта";
 const char INTL_COORD_LON[] PROGMEM = "Долгота";
 const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентификацию для входа в интерфейс сенсора";
-#define INTL_REPORT_ISSUE "Report an issue"
+#define INTL_REPORT_ISSUE "Сообщить о проблеме"
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "Название WiFi устройства в режиме конфигурации";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Имя";

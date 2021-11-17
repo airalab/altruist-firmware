@@ -2212,11 +2212,11 @@ static int chooseRobonomicsServer(const LoggerEntry logger) {
 	int min_sensors = 255;
 	const __FlashStringHelper* contentType;
 	int result = 0;
+	String s_url = FPSTR(URL_ROBONOMICS);
 
 	for (int i = 0; i < NUM_ROBONOMICS_HOSTS; i++) {
 
-		String s_Host = HOST_ROBONOMICS[i];
-		String s_url = URL_ROBONOMICS[i];
+		String s_Host = FPSTR(HOST_ROBONOMICS[i]);
 
 		switch (logger) {
 		case Loggeraircms:
@@ -4385,7 +4385,7 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		data_4_robonomics += data_to_send;
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
 		num_of_host = chooseRobonomicsServer(LoggerRobonomics);
-		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host], URL_ROBONOMICS[num_of_host]);
+		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host], URL_ROBONOMICS);
 	}
 
 	if (cfg::send2csv) {
