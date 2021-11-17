@@ -136,7 +136,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 namespace cfg {
 	unsigned debug = DEBUG;
 
-	unsigned time_for_wifi_config = 600000;
+	unsigned time_for_wifi_config = 15000;
 	unsigned sending_intervall_ms = 145000;
 
 	char current_lang[3];
@@ -817,6 +817,22 @@ static bool writeConfig() {
 
 	return true;
 }
+
+/*****************************************************************
+ * write data to the file                                        *
+ *****************************************************************/
+
+static void writeDataFile(String data) {
+	File dataFile = SPIFFS.open(F("/data.json"), "a");
+	if (dataFile) {
+		dataFile.println(data);
+		dataFile.close();
+		debug_outln_info(F("Data written successfully."));
+	} else {
+		debug_outln_error(F("failed to open data file for writing"));
+	}
+}
+
 
 /*****************************************************************
  * Prepare information for data Loggers                          *
@@ -2479,6 +2495,8 @@ static void fetchSensorHTU21D(String& s) {
 		last_value_HTU21D_H = h;
 		add_Value2Json(s, F("HTU21D_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_HTU21D_T);
 		add_Value2Json(s, F("HTU21D_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_HTU21D_H);
+		String values = "HTU " + String(last_value_HTU21D_T) + " " + String(last_value_HTU21D_H);
+		writeDataFile(values);
 	}
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 
@@ -2548,8 +2566,10 @@ static void fetchSensorBMX280(String& s) {
 	} else {
 		last_value_BMX280_T = t + readCorrectionOffset(cfg::temp_correction);
 		last_value_BMX280_P = p;
+		// writeDataFile(String(last_value_BMX280_P));
 		if (bmx280.sensorID() == BME280_SENSOR_ID) {
 			add_Value2Json(s, F("BME280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
+			// writeDataFile(s);
 			add_Value2Json(s, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
 			last_value_BME280_H = h;
 			add_Value2Json(s, F("BME280_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_BME280_H);
@@ -2558,6 +2578,11 @@ static void fetchSensorBMX280(String& s) {
 			add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
 		}
 	}
+	String kk = "BME " + String(last_value_BMX280_T) + " " + String(last_value_BMX280_P);
+	if (bmx280.sensorID() == BME280_SENSOR_ID) {
+		kk += " " + String(last_value_BME280_H);
+	}
+	writeDataFile(kk);
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
 }
@@ -2678,6 +2703,8 @@ static void fetchSensorSDS(String& s) {
 		if (sds_val_count > 0) {
 			last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
 			last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
+			String values = "SDS " + String(last_value_SDS_P1) + " " + String(last_value_SDS_P2);
+			writeDataFile(values);
 			add_Value2Json(s, F("SDS_P1"), F("PM10:  "), last_value_SDS_P1);
 			add_Value2Json(s, F("SDS_P2"), F("PM2.5: "), last_value_SDS_P2);
 			debug_outln_info(FPSTR(DBG_TXT_SEP));
@@ -4486,6 +4513,7 @@ void setup(void) {
 	starttime = millis();									// store the start time
 	last_update_attempt = time_point_device_start_ms = starttime;
 	last_display_millis = starttime_SDS = starttime;
+	writeDataFile("Start measuring");
 
 	// debug_outln_info(F("Sending to "), FPSTR(HOST_ROBONOMICS[num_of_robonomics_API]));
 
@@ -4688,6 +4716,21 @@ void loop(void) {
 			sum_send_time += sendSensorCommunity(result_GPS, GPS_API_PIN, F("GPS"), "GPS_");
 			result = emptyString;
 		}
+		debug_outln_info(data);
+		// writeDataFile("hello");
+		File f1 = SPIFFS.open(F("/data.json"), "r");
+		debug_outln_info(F("Reading Data from File:"), String(f1.size()));
+			//Data from file
+		int i;
+		char st;
+		for(i=0;i<f1.size();i++) //Read upto complete file size
+		{
+			st = char(f1.read());
+			Debug.print(st);
+		}
+		f1.close();  //Close file
+		debug_outln_info(F("File Closed"));
+
 		add_Value2Json(data, F("samples"), String(sample_count));
 		add_Value2Json(data, F("min_micro"), String(min_micro));
 		add_Value2Json(data, F("max_micro"), String(max_micro));

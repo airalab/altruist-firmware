@@ -2,6 +2,8 @@
     "files.associations": {
         "array": "c",
         "string": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "*.ipp": "c",
+        "functional": "c"
     }
 }
