@@ -4,6 +4,9 @@
         "string": "c",
         "string_view": "c",
         "*.ipp": "c",
-        "functional": "c"
+        "functional": "c",
+        "bitset": "c",
+        "initializer_list": "c",
+        "utility": "c"
     }
 }

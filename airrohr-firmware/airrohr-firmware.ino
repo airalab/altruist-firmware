@@ -176,6 +176,8 @@ namespace cfg {
 	bool gps_read = GPS_READ;
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
 
+	bool file_write = FILE_WRITE;
+
 	// send to "APIs"
 	bool send2dusti = SEND2SENSORCOMMUNITY;
 	bool send2madavi = SEND2MADAVI;
@@ -567,6 +569,22 @@ static void display_debug(const String& text1, const String& text2) {
 		lcd_2004->print(text1);
 		lcd_2004->setCursor(0, 1);
 		lcd_2004->print(text2);
+	}
+}
+
+/*****************************************************************
+ * init writing file                                             *
+ *****************************************************************/
+
+static void initFileWriting() {
+	File f1 = SPIFFS.open(F("/data.json"), "r");
+	int file_size = f1.size();
+	f1.close();
+	debug_outln_info(F("Data file size: "), String(file_size));
+	if (file_size > 100000) {
+		if (SPIFFS.remove(F("/data.json"))) {
+			debug_outln_info(F("Data file removed"));
+		}
 	}
 }
 
@@ -1142,6 +1160,7 @@ static void webserver_config_send_body_get(String& page_content) {
 	add_form_checkbox(Config_has_lcd2004, FPSTR(INTL_LCD2004_3F));
 	add_form_checkbox(Config_display_wifi_info, FPSTR(INTL_DISPLAY_WIFI_INFO));
 	add_form_checkbox(Config_display_device_info, FPSTR(INTL_DISPLAY_DEVICE_INFO));
+	add_form_checkbox(Config_file_write, FPSTR(INTL_FILE_WRITE));
 
 	server.sendContent(page_content);
 	page_content = FPSTR(WEB_BR_LF_B);
@@ -2092,6 +2111,7 @@ static void wifiConfig() {
 	debug_outln_info_bool(F("DNMS: "), cfg::dnms_read);
 	debug_outln_info_bool(F("CCS811: "), cfg::ccs811_read);
 	debug_outln_info_bool(F("CCS811_27: "), cfg::ccs811_27_read);
+	debug_outln_info_bool(F("write file: "), cfg::file_write);
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_info_bool(F("SensorCommunity: "), cfg::send2dusti);
 	debug_outln_info_bool(F("Madavi: "), cfg::send2madavi);
@@ -2228,11 +2248,11 @@ static int chooseRobonomicsServer(const LoggerEntry logger) {
 	int min_sensors = 255;
 	const __FlashStringHelper* contentType;
 	int result = 0;
+	String s_url = FPSTR(URL_ROBONOMICS);
 
 	for (int i = 0; i < NUM_ROBONOMICS_HOSTS; i++) {
 
-		String s_Host = HOST_ROBONOMICS[i];
-		String s_url = URL_ROBONOMICS[i];
+		String s_Host = FPSTR(HOST_ROBONOMICS[i]);
 
 		switch (logger) {
 		case Loggeraircms:
@@ -2250,18 +2270,25 @@ static int chooseRobonomicsServer(const LoggerEntry logger) {
 		HTTPClient http;
 
 		if (http.begin(*client, s_Host, loggerConfigs[logger].destport, s_url, !!loggerConfigs[logger].session)) {
-			const char * headerKeys[] = {"sensors-count"} ;
-			const size_t numberOfHeaders = 1;
+			const char * headerKeys[] = {"sensors-count", "on-server"} ;
+			const size_t numberOfHeaders = 2;
 			http.collectHeaders(headerKeys, numberOfHeaders);
+			http.addHeader("Sensor-id", String(esp_chipid));
 
 			result = http.GET();
 
 			if (result >= HTTP_CODE_OK && result <= HTTP_CODE_ALREADY_REPORTED) {
 				debug_outln_info(F("Succeeded GET request - "), s_Host);
 				String header = http.header("sensors-count");
+				String on_server = http.header("on-server");
 				const char *num_of_sensors = header.c_str();
 				int num = atoi(num_of_sensors);
 				debug_outln_info(F("Amount of sensors - "), num_of_sensors);
+				debug_outln_info(F("Sensor on server - "), on_server);
+				if (on_server == "True") {
+					num_of_robonomics_host = i;
+					break;
+				}
 				if (num < min_sensors) {
 					min_sensors = num;
 					num_of_robonomics_host = i;
@@ -2495,8 +2522,10 @@ static void fetchSensorHTU21D(String& s) {
 		last_value_HTU21D_H = h;
 		add_Value2Json(s, F("HTU21D_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_HTU21D_T);
 		add_Value2Json(s, F("HTU21D_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_HTU21D_H);
-		String values = "HTU " + String(last_value_HTU21D_T) + " " + String(last_value_HTU21D_H);
-		writeDataFile(values);
+		if (cfg::file_write) {
+			String values = "HTU " + String(last_value_HTU21D_T) + " " + String(last_value_HTU21D_H);
+			writeDataFile(values);
+		}
 	}
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 
@@ -2566,10 +2595,8 @@ static void fetchSensorBMX280(String& s) {
 	} else {
 		last_value_BMX280_T = t + readCorrectionOffset(cfg::temp_correction);
 		last_value_BMX280_P = p;
-		// writeDataFile(String(last_value_BMX280_P));
 		if (bmx280.sensorID() == BME280_SENSOR_ID) {
 			add_Value2Json(s, F("BME280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
-			// writeDataFile(s);
 			add_Value2Json(s, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
 			last_value_BME280_H = h;
 			add_Value2Json(s, F("BME280_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_BME280_H);
@@ -2578,11 +2605,13 @@ static void fetchSensorBMX280(String& s) {
 			add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
 		}
 	}
-	String kk = "BME " + String(last_value_BMX280_T) + " " + String(last_value_BMX280_P);
-	if (bmx280.sensorID() == BME280_SENSOR_ID) {
-		kk += " " + String(last_value_BME280_H);
+	if (cfg::file_write) {
+		String kk = "BME " + String(last_value_BMX280_T) + " " + String(last_value_BMX280_P);
+		if (bmx280.sensorID() == BME280_SENSOR_ID) {
+			kk += " " + String(last_value_BME280_H);
+		}
+		writeDataFile(kk);
 	}
-	writeDataFile(kk);
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
 }
@@ -2703,8 +2732,10 @@ static void fetchSensorSDS(String& s) {
 		if (sds_val_count > 0) {
 			last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
 			last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
-			String values = "SDS " + String(last_value_SDS_P1) + " " + String(last_value_SDS_P2);
-			writeDataFile(values);
+			if (cfg::file_write) {
+				String values = "SDS " + String(last_value_SDS_P1) + " " + String(last_value_SDS_P2);
+				writeDataFile(values);
+			}
 			add_Value2Json(s, F("SDS_P1"), F("PM10:  "), last_value_SDS_P1);
 			add_Value2Json(s, F("SDS_P2"), F("PM2.5: "), last_value_SDS_P2);
 			debug_outln_info(FPSTR(DBG_TXT_SEP));
@@ -4226,6 +4257,11 @@ static void powerOnTestSensors() {
 		initSensorCCS811();
 	}
 
+	if (cfg::file_write) {
+		debug_outln_info(F("Init file writing..."));
+		initFileWriting();
+	}
+
 	if (cfg::dht_read) {
 		dht.begin();										// Start DHT
 		debug_outln_info(F("Read DHT..."));
@@ -4412,7 +4448,7 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		data_4_robonomics += data_to_send;
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
 		num_of_host = chooseRobonomicsServer(LoggerRobonomics);
-		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host], URL_ROBONOMICS[num_of_host]);
+		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host], URL_ROBONOMICS);
 	}
 
 	if (cfg::send2csv) {
@@ -4513,7 +4549,9 @@ void setup(void) {
 	starttime = millis();									// store the start time
 	last_update_attempt = time_point_device_start_ms = starttime;
 	last_display_millis = starttime_SDS = starttime;
-	writeDataFile("Start measuring");
+	if (cfg::file_write) {
+		writeDataFile("Start measuring");
+	}
 
 	// debug_outln_info(F("Sending to "), FPSTR(HOST_ROBONOMICS[num_of_robonomics_API]));
 
@@ -4713,23 +4751,23 @@ void loop(void) {
 		}
 		if (cfg::gps_read) {
 			data += result_GPS;
-			sum_send_time += sendSensorCommunity(result_GPS, GPS_API_PIN, F("GPS"), "GPS_");
+			// sum_send_time += sendSensorCommunity(result_GPS, GPS_API_PIN, F("GPS"), "GPS_");
 			result = emptyString;
 		}
-		debug_outln_info(data);
-		// writeDataFile("hello");
-		File f1 = SPIFFS.open(F("/data.json"), "r");
-		debug_outln_info(F("Reading Data from File:"), String(f1.size()));
-			//Data from file
-		int i;
-		char st;
-		for(i=0;i<f1.size();i++) //Read upto complete file size
-		{
-			st = char(f1.read());
-			Debug.print(st);
+
+		if (cfg::file_write) {
+			File f1 = SPIFFS.open(F("/data.json"), "r");
+			debug_outln_info(F("Reading Data from File. Size: "), String(f1.size()));
+			int i;
+			char st;
+			for(i=0;i<f1.size();i++) //Read upto complete file size
+			{
+				st = char(f1.read());
+				Debug.print(st);
+			}
+			f1.close();  //Close file
+			debug_outln_info(F("File Closed"));
 		}
-		f1.close();  //Close file
-		debug_outln_info(F("File Closed"));
 
 		add_Value2Json(data, F("samples"), String(sample_count));
 		add_Value2Json(data, F("min_micro"), String(min_micro));
