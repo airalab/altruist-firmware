@@ -100,7 +100,7 @@ static const char HOST_ROBONOMICS_1[] PROGMEM = "1.connectivity.robonomics.netwo
 static const char HOST_ROBONOMICS_2[] PROGMEM = "2.connectivity.robonomics.network";
 static const char* const HOST_ROBONOMICS[] PROGMEM = {HOST_ROBONOMICS_0, HOST_ROBONOMICS_1, HOST_ROBONOMICS_2};
 static const char URL_ROBONOMICS[] PROGMEM = "";
-#define PORT_ROBONOMICS 8001
+#define PORT_ROBONOMICS 65
 #define NUM_ROBONOMICS_HOSTS 3
 
 // define own InfluxDB
