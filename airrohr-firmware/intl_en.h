@@ -55,6 +55,7 @@ const char INTL_LCD1602_3F[] PROGMEM = "LCD 1602 (I2C: 0x3F)";
 const char INTL_LCD2004_27[] PROGMEM = "LCD 2004 (I2C: 0x27)";
 const char INTL_LCD2004_3F[] PROGMEM = "LCD 2004 (I2C: 0x3F)";
 const char INTL_DISPLAY_WIFI_INFO[] PROGMEM = "Display Wifi info";
+const char INTL_FILE_WRITE[] PROGMEM = "Write data to flash";
 const char INTL_DISPLAY_DEVICE_INFO[] PROGMEM = "Display device info";
 const char INTL_DEBUG_LEVEL[] PROGMEM = "Debug&nbsp;level";
 const char INTL_MEASUREMENT_INTERVAL[] PROGMEM = "Measuring interval (sec)";
