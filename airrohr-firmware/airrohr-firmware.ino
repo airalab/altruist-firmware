@@ -60,7 +60,7 @@
 #include <pgmspace.h>
 
 // increment on change
-#define SOFTWARE_VERSION_STR "R_2021-135"
+#define SOFTWARE_VERSION_STR "R_2021-136"
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
 /*****************************************************************
@@ -136,7 +136,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 namespace cfg {
 	unsigned debug = DEBUG;
 
-	unsigned time_for_wifi_config = 15000;
+	unsigned time_for_wifi_config = 600000;
 	unsigned sending_intervall_ms = 145000;
 
 	char current_lang[3];
@@ -3625,7 +3625,6 @@ static bool fwDownloadStreamFile(WiFiClient& client, const String& url, const St
 }
 
 static void twoStageOTAUpdate() {
-
 	if (!cfg::auto_update) return;
 
 #if defined(ESP8266)
@@ -4527,6 +4526,7 @@ void setup(void) {
 	createLoggerConfigs();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
 	debug_outln_info(F("\nMAC Id: "), esp_mac_id);
+	twoStageOTAUpdate();
 
 	if (cfg::gps_read) {
 #if defined(ESP8266)

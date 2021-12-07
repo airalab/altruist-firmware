@@ -232,7 +232,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define DHT_API_PIN 7
 
 // HTU21D, temperature, humidity
-#define HTU21D_READ 1
+#define HTU21D_READ 0
 #define HTU21D_API_PIN 7
 
 // PPD42NS, the cheaper version of the particle sensor
@@ -273,7 +273,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define BMP_API_PIN 3
 
 // BMP280/BME280, temperature, pressure (humidity on BME280)
-#define BMX280_READ 1
+#define BMX280_READ 0
 #define BMP280_API_PIN 3
 #define BME280_API_PIN 11
 
@@ -303,7 +303,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define MHZ19_READ 0
 
 // automatic firmware updates
-#define AUTO_UPDATE 0
+#define AUTO_UPDATE 1
 
 // use beta firmware
 #define USE_BETA 0
