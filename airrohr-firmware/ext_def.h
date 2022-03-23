@@ -124,6 +124,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // SoftSerial TX PIN is D2 and goes to SDS RX
 #define PM_SERIAL_RX D1
 #define PM_SERIAL_TX D2
+#define PM_RESTART D8
 
 // define pins for I2C
 #define I2C_PIN_SCL D4

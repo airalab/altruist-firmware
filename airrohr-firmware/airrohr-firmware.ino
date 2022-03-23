@@ -1479,8 +1479,9 @@ static void sensor_restart() {
 #pragma GCC diagnostic pop
 
 		serialSDS.end();
+		digitalWrite(PM_RESTART, LOW);
 		debug_outln_info(F("Restart."));
-		delay(500);
+		delay(5000);
 		ESP.restart();
 		// should not be reached
 		while(true) { yield(); }
@@ -4260,6 +4261,9 @@ static void powerOnTestSensors() {
 	}
 
 	if (cfg::sds_read) {
+		pinMode(PM_RESTART, OUTPUT);
+		digitalWrite(PM_RESTART, HIGH);
+		delay(500);
 		debug_outln_info(F("Read SDS...: "), SDS_version_date());
 		SDS_cmd(PmSensorCmd::ContinuousMode);
 		delay(100);
