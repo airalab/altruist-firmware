@@ -92,7 +92,7 @@ const char WEB_PAGE_FOOTER[] PROGMEM = "<br/><br/>"
 		"</div><footer class='footer'><div style='padding:16px'>"
 		"<a href='https://codefor.de/stuttgart/' target='_blank' rel='noreferrer' style='color:#3ba;'>"
 		"&copy; Open Knowledge Lab Stuttgart a.o. (Code for Germany)</a>&nbsp;&nbsp("
-                "<a href='https://github.com/opendata-stuttgart/sensors-software/labels/bug' target='_blank' rel='noreferrer'>" INTL_REPORT_ISSUE "</a>"
+                "<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer'>" INTL_REPORT_ISSUE "</a>"
 		")</div></footer></body></html>\r\n";
 
 const char WEB_ROOT_PAGE_CONTENT[] PROGMEM = "<a class='b' href='/values'>{t}</a><br/>\

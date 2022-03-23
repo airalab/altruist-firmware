@@ -1044,8 +1044,99 @@ static bool webserver_request_auth() {
 }
 
 static void sendHttpRedirect() {
-	server.sendHeader(F("Location"), F("http://192.168.4.1/config"));
+	server.sendHeader(F("Location"), F("http://192.168.4.1/guest"));
 	server.send(302, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), emptyString);
+}
+
+/*****************************************************************
+ * Webserver config: show config page                            *
+ *****************************************************************/
+
+static void webserver_guest_send_body_get(String& page_content) {
+	auto add_form_checkbox = [&page_content](const ConfigShapeId cfgid, const String& info) {
+		page_content += form_checkbox(cfgid, info, true);
+	};
+
+	auto add_form_checkbox_sensor = [&add_form_checkbox](const ConfigShapeId cfgid, __const __FlashStringHelper* info) {
+		add_form_checkbox(cfgid, add_sensor_type(info));
+	};
+
+	debug_outln_info(F("begin webserver_config_body_get ..."));
+	page_content += F("<form method='POST' action='/guest' style='width:100%;'>\n"
+	"<input class='radio' id='r1' name='group' type='radio' checked>"
+    "<input class='radio' id='r2' name='group' type='radio'>"
+    "<input class='radio' id='r3' name='group' type='radio'>"
+    "<input class='radio' id='r4' name='group' type='radio'>");
+
+	if (wificonfig_loop) {  // scan for wlan ssids
+		page_content += F("<div id='wifilist'>" INTL_WIFI_NETWORKS "</div><br/>");
+	}
+	page_content += FPSTR(TABLE_TAG_OPEN);
+	add_form_input(page_content, Config_wlanssid, FPSTR(INTL_FS_WIFI_NAME), LEN_WLANSSID-1);
+	add_form_input(page_content, Config_wlanpwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
+	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+	page_content += F("<hr/>");
+
+	page_content += FPSTR(WEB_GPS);
+	//page_content += FPSTR(BR_TAG);
+
+	page_content += FPSTR(TABLE_TAG_OPEN);
+	add_form_input(page_content, Config_lat_gps, FPSTR(INTL_COORD_LAT), LEN_GPS_LAT-1);
+	add_form_input(page_content, Config_lon_gps, FPSTR(INTL_COORD_LON), LEN_GPS_LON-1);
+	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+
+	// Paginate page after ~ 1500 Bytes
+	server.sendContent(page_content);
+	page_content = emptyString;
+
+	page_content += F("</div></div>");
+	page_content += form_submit(FPSTR(INTL_SAVE_AND_RESTART));
+	page_content += FPSTR(BR_TAG);
+	page_content += FPSTR(WEB_BR_FORM);
+	if (wificonfig_loop) {  // scan for wlan ssids
+		page_content += F("<script>window.setTimeout(load_wifi_list,1000);</script>");
+	}
+
+	server.sendContent(page_content);
+	page_content = emptyString;
+}
+
+/*****************************************************************
+ * Webserver guest: first page, set wi-fi and coordinates                             *
+ *****************************************************************/
+static void webserver_guest() {
+	if (!webserver_request_auth())
+	{ return; }
+
+	debug_outln_info(F("ws: guest ..."));
+
+	server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
+	server.sendHeader(F("Pragma"), F("no-cache"));
+	server.sendHeader(F("Expires"), F("0"));
+	// Enable Pagination (Chunked Transfer)
+	server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+
+	RESERVE_STRING(page_content, XLARGE_STR);
+
+	start_html_page(page_content, FPSTR(INTL_CONFIGURATION));
+	if (wificonfig_loop) {  // scan for wlan ssids
+		page_content += FPSTR(WEB_CONFIG_SCRIPT);
+	}
+
+	if (server.method() == HTTP_GET) {
+		webserver_guest_send_body_get(page_content);
+	} else {
+		webserver_config_send_body_post(page_content);
+	}
+	// end_html_page(page_content);
+
+	if (server.method() == HTTP_POST) {
+		display_debug(F("Writing config"), emptyString);
+		if (writeConfig()) {
+			display_debug(F("Writing config"), F("and restarting"));
+			sensor_restart();
+		}
+	}
 }
 
 /*****************************************************************
@@ -1335,36 +1426,40 @@ static void webserver_config_send_body_post(String& page_content) {
 }
 
 static void webserver_config() {
-	if (!webserver_request_auth())
-	{ return; }
-
-	debug_outln_info(F("ws: config page ..."));
-
-	server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
-	server.sendHeader(F("Pragma"), F("no-cache"));
-	server.sendHeader(F("Expires"), F("0"));
-	// Enable Pagination (Chunked Transfer)
-	server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-
-	RESERVE_STRING(page_content, XLARGE_STR);
-
-	start_html_page(page_content, FPSTR(INTL_CONFIGURATION));
-	if (wificonfig_loop) {  // scan for wlan ssids
-		page_content += FPSTR(WEB_CONFIG_SCRIPT);
-	}
-
-	if (server.method() == HTTP_GET) {
-		webserver_config_send_body_get(page_content);
+	if (WiFi.status() != WL_CONNECTED) {
+		sendHttpRedirect();
 	} else {
-		webserver_config_send_body_post(page_content);
-	}
-	end_html_page(page_content);
+		if (!webserver_request_auth())
+		{ return; }
 
-	if (server.method() == HTTP_POST) {
-		display_debug(F("Writing config"), emptyString);
-		if (writeConfig()) {
-			display_debug(F("Writing config"), F("and restarting"));
-			sensor_restart();
+		debug_outln_info(F("ws: config page ..."));
+
+		server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
+		server.sendHeader(F("Pragma"), F("no-cache"));
+		server.sendHeader(F("Expires"), F("0"));
+		// Enable Pagination (Chunked Transfer)
+		server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+
+		RESERVE_STRING(page_content, XLARGE_STR);
+
+		start_html_page(page_content, FPSTR(INTL_CONFIGURATION));
+		if (wificonfig_loop) {  // scan for wlan ssids
+			page_content += FPSTR(WEB_CONFIG_SCRIPT);
+		}
+
+		if (server.method() == HTTP_GET) {
+			webserver_config_send_body_get(page_content);
+		} else {
+			webserver_config_send_body_post(page_content);
+		}
+		end_html_page(page_content);
+
+		if (server.method() == HTTP_POST) {
+			display_debug(F("Writing config"), emptyString);
+			if (writeConfig()) {
+				display_debug(F("Writing config"), F("and restarting"));
+				sensor_restart();
+			}
 		}
 	}
 }
@@ -1979,6 +2074,7 @@ static void webserver_not_found() {
  * Webserver setup                                               *
  *****************************************************************/
 static void setup_webserver() {
+	server.on("/guest", webserver_guest);
 	server.on("/", webserver_root);
 	server.on(F("/config"), webserver_config);
 	server.on(F("/wifi"), webserver_wifi);
