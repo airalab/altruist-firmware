@@ -122,6 +122,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "ext_def.h"
 #include "html-content.h"
 #include "SparkFunCCS811.h"
+#include "radSens1v2.h"
 
 
 /******************************************************************
@@ -159,6 +160,7 @@ namespace cfg {
 	bool htu21d_read = HTU21D_READ;
 	bool ppd_read = PPD_READ;
 	bool sds_read = SDS_READ;
+	bool gc_read = GC_READ;
 	bool ccs811_27_read = CCS811_27_READ;
 	bool ccs811_read = CCS811_READ;
 	bool pms_read = PMS_READ;
@@ -345,6 +347,12 @@ CCS811 ccs811(CCS811_ADDR);
 CCS811 ccs811_27(CCS811_27_ADDR);
 
 /*****************************************************************
+ * Radiation sensor declaration                                            *
+ *****************************************************************/
+
+ClimateGuard_RadSens1v2 radSens;
+
+/*****************************************************************
  * Variable Definitions for PPD24NS                              *
  * P1 for PM10 & P2 for PM25                                     *
  *****************************************************************/
@@ -474,6 +482,7 @@ unsigned long SPS30_read_timer = 0;
 bool sps30_init_failed = false;
 
 bool ccs811_init_failed = false;
+bool gc_init_failed = false;
 
 float last_value_PPD_P1 = -1.0;
 float last_value_PPD_P2 = -1.0;
@@ -481,6 +490,7 @@ float last_value_SDS_P1 = -1.0;
 float last_value_SDS_P2 = -1.0;
 float last_value_CCS811_CO2 = -1.0;
 float last_value_CCS811_TVOC = -1.0;
+float last_value_gc = -1.0;
 float last_value_PMS_P0 = -1.0;
 float last_value_PMS_P1 = -1.0;
 float last_value_PMS_P2 = -1.0;
@@ -1282,7 +1292,7 @@ static void webserver_config_send_body_get(String& page_content) {
 	add_form_checkbox_sensor(Config_sds_read, FPSTR(INTL_SDS011));
 	add_form_checkbox_sensor(Config_hpm_read, FPSTR(INTL_HPM));
 	add_form_checkbox_sensor(Config_sps30_read, FPSTR(INTL_SPS30));
-
+	add_form_checkbox_sensor(Config_gc_read, FPSTR(INTL_GC));
 	add_form_checkbox(Config_ccs811_27_read, FPSTR(INTL_CCS811_27));
 	add_form_checkbox(Config_ccs811_read, FPSTR(INTL_CCS811_3F));
 
@@ -1611,6 +1621,10 @@ static void webserver_values() {
 	if (cfg::sds_read) {
 		add_table_pm_value(FPSTR(SENSORS_SDS011), FPSTR(WEB_PM25), last_value_SDS_P2);
 		add_table_pm_value(FPSTR(SENSORS_SDS011), FPSTR(WEB_PM10), last_value_SDS_P1);
+		page_content += FPSTR(EMPTY_ROW);
+	}
+	if (cfg::gc_read) {
+		add_table_pm_value(FPSTR(SENSORS_GC), FPSTR(WEB_PM25), last_value_gc);
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::ccs811_read) {
@@ -2198,6 +2212,7 @@ static void wifiConfig() {
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_info_bool(F("PPD: "), cfg::ppd_read);
 	debug_outln_info_bool(F("SDS: "), cfg::sds_read);
+	debug_outln_info_bool(F("GC: "), cfg::gc_read);
 	debug_outln_info_bool(F("PMS: "), cfg::pms_read);
 	debug_outln_info_bool(F("HPM: "), cfg::hpm_read);
 	debug_outln_info_bool(F("SPS30: "), cfg::sps30_read);
@@ -2857,6 +2872,25 @@ static void fetchSensorSDS(String& s) {
 		}
 	}
 }
+
+/*****************************************************************
+ * read Cajoe Geiger Counter sensor values                                     *
+ *****************************************************************/
+
+static void init_GS() {
+	debug_outln_info(F("Trying RadSens on "), RS_DEFAULT_I2C_ADDRESS);
+	if (radSens.radSens_init() == false) {
+		gc_init_failed = true;
+		debug_outln_error(F("RadSens error starting measurement"));
+		return;
+	}
+}
+
+static void fetchSensorGC(String& s) {
+		last_value_gc = radSens.getRadIntensyDynamic();
+		add_Value2Json(s, F("GC"), String(last_value_gc));
+		debug_outln_info(F("GC "), last_value_gc);
+	}
 
 /*****************************************************************
  * read Plantronic PM sensor sensor values                       *
@@ -4254,6 +4288,11 @@ static void initDNMS() {
 }
 
 static void powerOnTestSensors() {
+
+	if (cfg::gc_read) {
+		init_GS();
+	}
+
 	if (cfg::ppd_read) {
 		pinMode(PPD_PIN_PM1, INPUT_PULLUP);					// Listen at the designated PIN
 		pinMode(PPD_PIN_PM2, INPUT_PULLUP);					// Listen at the designated PIN
@@ -4662,8 +4701,7 @@ void setup(void) {
  *****************************************************************/
 void loop(void) {
 	String result_PPD, result_SDS, result_PMS, result_HPM, result_CCS;
-	String result_GPS, result_DNMS;
-
+	String result_GPS, result_DNMS, result_GC;
 
 	unsigned sum_send_time = 0;
 
@@ -4778,6 +4816,10 @@ void loop(void) {
 		if (cfg::sds_read) {
 			data += result_SDS;
 			sum_send_time += sendSensorCommunity(result_SDS, SDS_API_PIN, FPSTR(SENSORS_SDS011), "SDS_");
+		}
+		if (cfg::gc_read && (! gc_init_failed)) {
+			fetchSensorGC(result_GC);
+			data += result_GC;
 		}
 		if (((cfg::ccs811_read) || (cfg::ccs811_27_read)) && (! ccs811_init_failed)) {
 			data += result_CCS;

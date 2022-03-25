@@ -8,6 +8,7 @@
         "bitset": "c",
         "initializer_list": "c",
         "utility": "c",
-        "cstdlib": "cpp"
+        "cstdlib": "cpp",
+        "radsens1v2.h": "c"
     }
 }

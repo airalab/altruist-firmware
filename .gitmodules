@@ -8,3 +8,6 @@
 [submodule "airrohr-firmware/lib/SparkFun_CCS811_Arduino_Lib"]
 	path = airrohr-firmware/lib/SparkFun_CCS811_Arduino_Lib
 	url = https://github.com/sparkfun/SparkFun_CCS811_Arduino_Library.git
+[submodule "airrohr-firmware/lib/RadSens1v2"]
+	path = airrohr-firmware/lib/RadSens1v2
+	url = https://github.com/maaad/RadSens1v2.git

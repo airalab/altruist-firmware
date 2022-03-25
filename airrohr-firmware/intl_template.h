@@ -20,6 +20,7 @@ const char INTL_SAVE[] PROGMEM = "";
 const char INTL_SENSORS[] PROGMEM = "";
 const char INTL_MORE_SENSORS[] PROGMEM = "";
 const char INTL_SDS011[] PROGMEM = "SDS011 ({pm})";
+const char INTL_GC[] PROGMEM = "Geiger Counter ({pm})";
 const char INTL_PMS[] PROGMEM = "Plantower PMS(1,3,5,6,7)003 ({pm})";
 const char INTL_HPM[] PROGMEM = "Honeywell PM ({pm})";
 const char INTL_NPM[] PROGMEM = "Tera Sensor Next PM ({pm})";

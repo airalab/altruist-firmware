@@ -134,6 +134,10 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define GPS_SERIAL_RX D5
 #define GPS_SERIAL_TX D6
 
+// define serial pin for geiger counter
+#define PIN_TICK    D2
+#define LOG_PERIOD 10
+
 // PPD42NS, the cheaper version of the particle sensor
 #define PPD_PIN_PM1 GPS_SERIAL_TX
 #define PPD_PIN_PM2 GPS_SERIAL_RX
@@ -239,6 +243,9 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // PPD42NS, the cheaper version of the particle sensor
 #define PPD_READ 0
 #define PPD_API_PIN 5
+
+// Geiger Counter
+#define GC_READ 0
 
 // SDS011, the more expensive version of the particle sensor
 #define SDS_READ 1

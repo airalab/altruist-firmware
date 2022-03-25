@@ -13,6 +13,7 @@ Bool		dht_read
 Bool		htu21d_read
 Bool		ppd_read
 Bool		sds_read
+Bool        gc_read
 Bool		ccs811_read
 Bool		ccs811_27_read
 Bool		file_write
