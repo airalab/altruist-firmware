@@ -1593,6 +1593,14 @@ static void webserver_values() {
 		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 1, 0), F("µg/m³"));
 	};
 
+	auto add_table_gc_value = [&page_content](const __FlashStringHelper* sensor, const __FlashStringHelper* param, const float& value) {
+		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 1, 0), F("μR/h"));
+	};
+
+	auto add_table_co2_value = [&page_content](const __FlashStringHelper* sensor, const __FlashStringHelper* param, const float& value) {
+		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 1, 0), F("ppm"));
+	};
+
 	auto add_table_nc_value = [&page_content](const __FlashStringHelper* sensor, const __FlashStringHelper* param, const float value) {
 		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 1, 0), F("#/cm³"));
 	};
@@ -1624,11 +1632,11 @@ static void webserver_values() {
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::gc_read) {
-		add_table_pm_value(FPSTR(SENSORS_GC), FPSTR(WEB_PM25), last_value_gc);
+		add_table_gc_value(FPSTR(SENSORS_GC), FPSTR(WEB_GC), last_value_gc);
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::ccs811_read) {
-		add_table_pm_value(FPSTR(SENSORS_CCS811), FPSTR(WEB_CO2), last_value_CCS811_CO2);
+		add_table_co2_value(FPSTR(SENSORS_CCS811), FPSTR(WEB_CO2), last_value_CCS811_CO2);
 		add_table_pm_value(FPSTR(SENSORS_CCS811), FPSTR(WEB_TVOC), last_value_CCS811_TVOC);
 		page_content += FPSTR(EMPTY_ROW);
 	}
