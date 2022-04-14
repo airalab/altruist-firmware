@@ -1632,7 +1632,7 @@ static void webserver_values() {
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::gc_read) {
-		add_table_gc_value(FPSTR(SENSORS_GC), FPSTR(WEB_GC), last_value_gc);
+		add_table_gc_value(FPSTR(SENSORS_GC), FPSTR(INTL_RADIATION), last_value_gc);
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::ccs811_read) {

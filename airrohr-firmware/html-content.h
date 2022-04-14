@@ -148,7 +148,6 @@ const char WEB_REPLN_REPLV[] PROGMEM = "\"{n}\":\"{v}\",";
 const char WEB_PM1[] PROGMEM = "PM1";
 const char WEB_PM25[] PROGMEM = "PM2.5";
 const char WEB_PM10[] PROGMEM = "PM10";
-const char WEB_GC[] PROGMEM = "radiation";
 const char WEB_CO2[] PROGMEM = "eCO2";
 const char WEB_TVOC[] PROGMEM = "eTVOC";
 const char WEB_PM4[] PROGMEM = "PM4";

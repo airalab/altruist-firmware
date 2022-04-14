@@ -15,7 +15,7 @@ const char INTL_CONFIGURATION[] PROGMEM = "Configuration";
 #define INTL_LANGUAGE "Language"
 const char INTL_NO_NETWORKS[] PROGMEM =  "No WiFi Network Found";
 const char INTL_NETWORKS_FOUND[] PROGMEM = "Found Networks: ";
-const char INTL_AB_HIER_NUR_ANDERN[] PROGMEM = "Advanced settings (оnly if you know what you are doing)";
+const char INTL_AB_HIER_NUR_ANDERN[] PROGMEM = "Advanced settings (only if you know what you are doing)";
 const char INTL_SAVE[] PROGMEM = "Save";
 const char INTL_SENSORS[] PROGMEM = "Sensors";
 const char INTL_MORE_SENSORS[] PROGMEM = "More Sensors";
@@ -105,6 +105,7 @@ const char INTL_PARTICULATE_MATTER[] PROGMEM = "particulate matter";
 const char INTL_TEMPERATURE[] PROGMEM = "temperature";
 const char INTL_HUMIDITY[] PROGMEM = "humidity";
 const char INTL_PRESSURE[] PROGMEM = "air pressure";
+const char INTL_RADIATION[] PROGMEM = "Radiation";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";
 const char INTL_LA_MIN[] PROGMEM = "LA min";
 const char INTL_LA_MAX[] PROGMEM = "LA max";
