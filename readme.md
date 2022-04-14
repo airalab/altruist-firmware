@@ -5,7 +5,7 @@ firmware beta branch: [![Build Status](https://travis-ci.com/opendata-stuttgart/
 
 ## airrohr-firmware
 
-The maintained main firmware for the Luftdaten.Info Sensor. 
+The maintained main firmware for the Luftdaten.Info Sensor. .
 
 ## airrohr-update-loader
 
