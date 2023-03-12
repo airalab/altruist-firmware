@@ -122,7 +122,8 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "ext_def.h"
 #include "html-content.h"
 #include "SparkFunCCS811.h"
-#include "radSens1v2.h"
+#include "CG_RadSens.h"
+//#include "radSens1v2.h"
 
 
 /******************************************************************
@@ -350,7 +351,7 @@ CCS811 ccs811_27(CCS811_27_ADDR);
  * Radiation sensor declaration                                            *
  *****************************************************************/
 
-ClimateGuard_RadSens1v2 radSens;
+CG_RadSens radSens(RS_DEFAULT_I2C_ADDRESS); 
 
 /*****************************************************************
  * Variable Definitions for PPD24NS                              *
@@ -2887,7 +2888,7 @@ static void fetchSensorSDS(String& s) {
 
 static void init_GS() {
 	debug_outln_info(F("Trying RadSens on "), RS_DEFAULT_I2C_ADDRESS);
-	if (radSens.radSens_init() == false) {
+	if (radSens.init() == false) {
 		gc_init_failed = true;
 		debug_outln_error(F("RadSens error starting measurement"));
 		return;
