@@ -4611,7 +4611,7 @@ static unsigned long sendDataToOptionalApis(const String &data) {
  *****************************************************************/
 
 void setup(void) {
-	Debug.begin(9600);		// Output to Serial at 9600 baud
+	Debug.begin(115200);		// Output to Serial at 115200 from web console 
 #if defined (ESP8266)
 	serialSDS.begin(
 #if !NPM_READ
