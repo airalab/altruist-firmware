@@ -120,6 +120,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "./utils.h"
 #include "defines.h"
 #include "ext_def.h"
+#include "robonomics_servers.h"
 #include "html-content.h"
 #include "SparkFunCCS811.h"
 #include "radSens1v2.h"
@@ -225,6 +226,7 @@ namespace cfg {
 	unsigned port_custom = PORT_CUSTOM;
 	char user_custom[LEN_USER_CUSTOM] = USER_CUSTOM;
 	char pwd_custom[LEN_CFG_PASSWORD] = PWD_CUSTOM;
+	char donated_by[LEN_DONATED_BY];
 
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
@@ -237,6 +239,7 @@ namespace cfg {
 		strcpy_P(host_influx, HOST_INFLUX);
 		strcpy_P(url_influx, URL_INFLUX);
 		strcpy_P(measurement_name_influx, MEASUREMENT_NAME_INFLUX);
+		strcpy_P(donated_by, DONATED_BY);
 
 		if (!*fs_ssid) {
 			strcpy(fs_ssid, SSID_BASENAME);
@@ -4590,9 +4593,12 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		data_to_send.remove(0, 1);
 		String data_4_robonomics(F("{\"esp8266id\": \""));
 		data_4_robonomics += esp_chipid;
+		data_4_robonomics += "\", \"donated_by\": \"";
+		data_4_robonomics += cfg::donated_by;
 		data_4_robonomics += "\", ";
 		data_4_robonomics += data_to_send;
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
+		debug_outln_info(F("robonomics: "), data_4_robonomics);
 		num_of_host = chooseRobonomicsServer(LoggerRobonomics);
 		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host], URL_ROBONOMICS);
 	}

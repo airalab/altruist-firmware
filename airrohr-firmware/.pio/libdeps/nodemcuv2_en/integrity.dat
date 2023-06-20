@@ -1,0 +1,17 @@
+576@1.1.4
+ESP8266HTTPClient
+Adafruit BMP085 Library@1.0.1
+DNSServer
+1@2.3.5
+Adafruit SHT31 Library@1.1.6
+1655@1.0.2
+ESP8266_SSD1306@4.1.0
+Wire
+ESP8266WiFi
+Adafruit HTU21DF Library@1.0.2
+ESP8266mDNS
+ArduinoJson@6.16.1
+EspSoftwareSerial
+Hash
+DallasTemperature@3.8.0
+ESP8266WebServer

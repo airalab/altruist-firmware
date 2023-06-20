@@ -70,6 +70,7 @@ String		user_influx
 Password		pwd_influx
 String		measurement_name_influx
 Bool		ssl_influx
+String      donated_by
 """
 
 with open("airrohr-cfg.h", "w") as h:
