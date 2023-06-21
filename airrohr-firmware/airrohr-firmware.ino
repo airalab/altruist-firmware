@@ -1113,6 +1113,10 @@ static void webserver_guest_send_body_get(String& page_content) {
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 	page_content += F("<hr/>");
 
+	page_content += FPSTR(TABLE_TAG_OPEN);
+	page_content += form_select_reg();
+	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+
 	page_content += FPSTR(WEB_GPS);
 	//page_content += FPSTR(BR_TAG);
 
@@ -1299,7 +1303,7 @@ static void webserver_config_send_body_get(String& page_content) {
 	page_content += form_select_lang();
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 
-		page_content += FPSTR(TABLE_TAG_OPEN);
+	page_content += FPSTR(TABLE_TAG_OPEN);
 	page_content += form_select_reg();
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 
