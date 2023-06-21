@@ -96,6 +96,8 @@ static const char URL_CUSTOM[] PROGMEM = "";
 #define SSL_CUSTOM 0
 
 // Robonomics
+#include "./intl.h"
+static const char CURRENT_REG[] PROGMEM = "Global";
 static const char URL_ROBONOMICS[] PROGMEM = "";
 #define PORT_ROBONOMICS 65
 

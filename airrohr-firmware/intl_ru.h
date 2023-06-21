@@ -121,4 +121,13 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_PARAMETER "Параметр"
 #define INTL_VALUE "Значение"
 
+#define INTL_REGION "Регион"
+#define INTL_REGION_GLOBAL "Весь мир"
+#define INTL_REGION_EU "Европа"
+#define INTL_REGION_AS "Азия"
+#define INTL_REGION_AF "Африка"
+#define INTL_REGION_AU "Австралия"
+#define INTL_REGION_NA "Северная Америка"
+#define INTL_REGION_SA "Южная Америка"
+
 #include "./airrohr-logo-common.h"

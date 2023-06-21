@@ -142,6 +142,7 @@ namespace cfg {
 	unsigned sending_intervall_ms = 145000;
 
 	char current_lang[3];
+	char current_reg[20];
 
 	// credentials for basic auth of internal web server
 	bool www_basicauth_enabled = WWW_BASICAUTH_ENABLED;
@@ -230,6 +231,7 @@ namespace cfg {
 
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
+		strcpy(cfg::current_reg, CURRENT_REG);
 		strcpy_P(www_username, WWW_USERNAME);
 		strcpy_P(www_password, WWW_PASSWORD);
 		strcpy_P(wlanssid, WLANSSID);
@@ -1019,6 +1021,27 @@ static String form_select_lang() {
 	return s;
 }
 
+static String form_select_reg() {
+	String s_select = F(" selected='selected'");
+	String s = F(	"<tr>"
+					"<td>" INTL_REGION ":&nbsp;</td>"
+					"<td>"
+					"<select id='current_reg' name='current_reg'>"
+					"<option value='" INTL_REGION_GLOBAL "'>" INTL_REGION_GLOBAL "</option>"
+					"<option value='" INTL_REGION_EU "'>" INTL_REGION_EU "</option>"
+					"<option value='" INTL_REGION_AS "'>" INTL_REGION_AS "</option>"
+					"<option value='" INTL_REGION_AF "'>" INTL_REGION_AF "</option>"
+					"<option value='" INTL_REGION_AU "'>" INTL_REGION_AU "</option>"
+					"<option value='" INTL_REGION_NA "'>" INTL_REGION_NA "</option>"
+					"<option value='" INTL_REGION_SA "'>" INTL_REGION_SA "</option>"
+					"</select>"
+					"</td>"
+					"</tr>");
+
+	s.replace("'" + String(cfg::current_reg) + "'>", "'" + String(cfg::current_reg) + "'" + s_select + ">");
+	return s;
+}
+
 static void add_warning_first_cycle(String& page_content) {
 	String s = FPSTR(INTL_TIME_TO_FIRST_MEASUREMENT);
 	unsigned int time_to_first = cfg::sending_intervall_ms - msSince(starttime);
@@ -1274,6 +1297,10 @@ static void webserver_config_send_body_get(String& page_content) {
 
 	page_content += FPSTR(TABLE_TAG_OPEN);
 	page_content += form_select_lang();
+	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+
+		page_content += FPSTR(TABLE_TAG_OPEN);
+	page_content += form_select_reg();
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 
 	page_content += F("<script>"
@@ -2365,17 +2392,32 @@ static WiFiClient* getNewLoggerWiFiClient(const LoggerEntry logger) {
 /*****************************************************************
  * choose server to send data                                    *
  *****************************************************************/
-static int chooseRobonomicsServer(const LoggerEntry logger) {
+static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 
-	int num_of_robonomics_host = 0;
+	int num_of_robonomics_host = 255;
 	int min_sensors = 255;
 	const __FlashStringHelper* contentType;
 	int result = 0;
 	String s_url = FPSTR(URL_ROBONOMICS);
+	int numRobonomicsHosts = sizeof(HOST_ROBONOMICS) / sizeof(HOST_ROBONOMICS[0]);
+	debug_outln_info(F("Number of hosts - "), numRobonomicsHosts);
 
-	for (int i = 0; i < NUM_ROBONOMICS_HOSTS; i++) {
+	for (int i = 0; i < numRobonomicsHosts; i++) {
 
-		String s_Host = FPSTR(HOST_ROBONOMICS[i]);
+		if (onlyGlobal) {
+			if (strcmp(HOST_ROBONOMICS[i][1], INTL_REGION_GLOBAL) == 0) {
+				String s_Host = FPSTR(HOST_ROBONOMICS[i][0]);
+			} else {
+				continue;
+			}
+		} else if (strcmp(cfg::current_reg, INTL_REGION_GLOBAL) == 0) {
+			String s_Host = FPSTR(HOST_ROBONOMICS[i][0]);
+		} else if (strcmp(cfg::current_reg, HOST_ROBONOMICS[i][1]) == 0) {
+			String s_Host = FPSTR(HOST_ROBONOMICS[i][0]);
+		} else {
+			continue;
+		}
+		String s_Host = FPSTR(HOST_ROBONOMICS[i][0]);
 
 		switch (logger) {
 		case Loggeraircms:
@@ -2426,7 +2468,7 @@ static int chooseRobonomicsServer(const LoggerEntry logger) {
 			debug_outln_info(F("Failed connecting to "), s_Host);
 		}
 	}
-	debug_outln_info(F("Min sensors host - "), HOST_ROBONOMICS[num_of_robonomics_host]);
+	debug_outln_info(F("Min sensors host - "), HOST_ROBONOMICS[num_of_robonomics_host][0]);
 	return num_of_robonomics_host;
 }
 
@@ -4300,6 +4342,8 @@ static void initDNMS() {
 
 static void powerOnTestSensors() {
 
+	debug_outln_info(F("Current reg: "), cfg::current_reg);
+
 	if (cfg::gc_read) {
 		init_GS();
 	}
@@ -4599,8 +4643,11 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		data_4_robonomics += data_to_send;
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
 		debug_outln_info(F("robonomics: "), data_4_robonomics);
-		num_of_host = chooseRobonomicsServer(LoggerRobonomics);
-		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host], URL_ROBONOMICS);
+		num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
+		if (num_of_host == 255) {
+			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
+		}
+		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
 	}
 
 	if (cfg::send2csv) {
