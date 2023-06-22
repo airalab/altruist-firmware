@@ -13,6 +13,7 @@ const char INTL_CONFIGURATION[] PROGMEM = "Конфигурация";
 #define INTL_WIFI_SETTINGS "Доступы к локальной сети Wi-Fi"
 #define INTL_WIFI_NETWORKS "Загрузить сети Wi-Fi ..."
 #define INTL_LANGUAGE "Язык"
+#define INTL_NO_WLAN_PWD "Сеть WiFi без пароля"
 const char INTL_NO_NETWORKS[] PROGMEM =  "Cетей не найдено";
 const char INTL_NETWORKS_FOUND[] PROGMEM = "Найденые сети: ";
 const char INTL_AB_HIER_NUR_ANDERN[] PROGMEM = "Изменяйте значения ниже если действительно знаете что делаете";

@@ -13,6 +13,7 @@ const char INTL_CONFIGURATION[] PROGMEM = "Configuration";
 #define INTL_WIFI_SETTINGS "WiFi Settings"
 #define INTL_WIFI_NETWORKS "Loading wifi networks ..."
 #define INTL_LANGUAGE "Language"
+#define INTL_NO_WLAN_PWD "Check it if WiFi network has no password"
 const char INTL_NO_NETWORKS[] PROGMEM =  "No WiFi Network Found";
 const char INTL_NETWORKS_FOUND[] PROGMEM = "Found Networks: ";
 const char INTL_AB_HIER_NUR_ANDERN[] PROGMEM = "Advanced settings (only if you know what you are doing)";

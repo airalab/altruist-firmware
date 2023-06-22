@@ -153,6 +153,7 @@ namespace cfg {
 	// wifi credentials
 	char wlanssid[LEN_WLANSSID];
 	char wlanpwd[LEN_CFG_PASSWORD];
+	bool wlannopwd = WLANNOPWD;
 
 	// credentials of the sensor in access point mode
 	char fs_ssid[LEN_FS_SSID] = FS_SSID;
@@ -1112,6 +1113,7 @@ static void webserver_guest_send_body_get(String& page_content) {
 	add_form_input(page_content, Config_wlanssid, FPSTR(INTL_FS_WIFI_NAME), LEN_WLANSSID-1);
 	add_form_input(page_content, Config_wlanpwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+	page_content += form_checkbox(Config_wlannopwd, FPSTR(INTL_NO_WLAN_PWD), false);
 	page_content += F("<hr/>");
 
 	page_content += FPSTR(TABLE_TAG_OPEN);
@@ -1243,6 +1245,7 @@ static void webserver_config_send_body_get(String& page_content) {
 	add_form_input(page_content, Config_wlanssid, FPSTR(INTL_FS_WIFI_NAME), LEN_WLANSSID-1);
 	add_form_input(page_content, Config_wlanpwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+	page_content += form_checkbox(Config_wlannopwd, FPSTR(INTL_NO_WLAN_PWD), false);
 	page_content += F("<hr/>\n<br/><b>");
 
 	page_content += FPSTR(INTL_AB_HIER_NUR_ANDERN);
@@ -2248,7 +2251,12 @@ static void wifiConfig() {
 
 	debug_outln_info(FPSTR(DBG_TXT_CONNECTING_TO), cfg::wlanssid);
 
-	WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+	if (cfg::wlannopwd) {
+		debug_outln_info(F("No password"));
+		WiFi.begin(cfg::wlanssid);
+	} else {
+		WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+	}
 
 	debug_outln_info(F("---- Result Webconfig ----"));
 	debug_outln_info(F("WLANSSID: "), cfg::wlanssid);
@@ -2337,7 +2345,12 @@ static void connectWifi() {
 	WiFi.setHostname(cfg::fs_ssid);
 #endif
 
-	WiFi.begin(cfg::wlanssid, cfg::wlanpwd); // Start WiFI
+	if (cfg::wlannopwd) {
+		debug_outln_info(F("No password"));
+		WiFi.begin(cfg::wlanssid);
+	} else {
+		WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+	} // Start WiFI
 
 	debug_outln_info(FPSTR(DBG_TXT_CONNECTING_TO), cfg::wlanssid);
 
