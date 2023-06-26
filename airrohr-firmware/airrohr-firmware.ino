@@ -2428,8 +2428,6 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 			} else {
 				continue;
 			}
-		} else if (strcmp(cfg::current_reg, INTL_REGION_GLOBAL) == 0) {
-			String s_Host = FPSTR(HOST_ROBONOMICS[i][0]);
 		} else if (strcmp(cfg::current_reg, HOST_ROBONOMICS[i][1]) == 0) {
 			String s_Host = FPSTR(HOST_ROBONOMICS[i][0]);
 		} else {
