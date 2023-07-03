@@ -11,7 +11,26 @@
 
 ## Contributing
 
-Please refer to [Contributing README](./Contributing.md) for details.
+To add your Connectivity Robonomics Server to sensors firmware fork this repository and edit [robonomics_servers.h](./robonomics_servers.h) file. Add your server in a list in the following format:
+```bash
+{"<server_address>", <Region>}
+```
+Use one of the following variables fo region:
+```
+INTL_REGION_GLOBAL - Global Servers
+INTL_REGION_EU - Europe
+INTL_REGION_AS - Asia
+INTL_REGION_AF - Africa
+INTL_REGION_AU - Australia
+INTL_REGION_NA - North America
+INTL_REGION_SA - South America
+```
+For example:
+```
+{"connectivity.robonomics.network", INTL_REGION_GLOBAL}
+```
+
+Then make a pull request.
 
 ## WiFi configuration
 For German Version see: [Konfiguration der Sensoren](https://github.com/opendata-stuttgart/meta/wiki/Konfiguration-der-Sensoren)
