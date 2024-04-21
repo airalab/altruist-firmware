@@ -89,7 +89,9 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HardwareSerial.h>
-#include <hwcrypto/sha.h>
+// #include <hwcrypto/sha.h>
+// #include <esp32/sha.h>
+#include "sha/sha_parallel_engine.h"
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #endif
@@ -125,6 +127,12 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "SparkFunCCS811.h"
 #include "CG_RadSens.h"
 //#include "radSens1v2.h"
+
+#if defined(LILYGO_T_A7670X)
+#include "LilyGO_defines.h"
+#include <TinyGsmClient.h>
+#include <ArduinoHttpClient.h>
+#endif
 
 
 /******************************************************************
@@ -182,7 +190,7 @@ namespace cfg {
 	bool gps_read = GPS_READ;
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
 
-	bool file_write = FILE_WRITE;
+	bool file_write_data = FILE_WRITE_DATA;
 
 	// send to "APIs"
 	bool send2dusti = SEND2SENSORCOMMUNITY;
@@ -342,6 +350,10 @@ DallasTemperature ds18b20(&oneWire);
  * GPS declaration                                               *
  *****************************************************************/
 TinyGPSPlus gps;
+#if defined(LILYGO_T_A7670X)
+TinyGsm GSMmodem(SerialAT);
+TinyGsmClient GSMModemClient(GSMmodem);
+#endif
 
 /*****************************************************************
  * CCS811 declaration                                               *
@@ -588,6 +600,43 @@ static void display_debug(const String& text1, const String& text2) {
 		lcd_2004->print(text2);
 	}
 }
+
+/*****************************************************************
+ * init builtin GPS for LilyGO                                            *
+ *****************************************************************/
+#if defined(LILYGO_T_A7670X)
+static void initLilyGOModem() {
+#ifdef BOARD_POWERON_PIN
+    pinMode(BOARD_POWERON_PIN, OUTPUT);
+    digitalWrite(BOARD_POWERON_PIN, HIGH);
+#endif
+
+    // Set modem reset pin ,reset modem
+    pinMode(MODEM_RESET_PIN, OUTPUT);
+    digitalWrite(MODEM_RESET_PIN, !MODEM_RESET_LEVEL); delay(100);
+    digitalWrite(MODEM_RESET_PIN, MODEM_RESET_LEVEL); delay(2600);
+    digitalWrite(MODEM_RESET_PIN, !MODEM_RESET_LEVEL);
+
+    // Turn on modem
+    pinMode(BOARD_PWRKEY_PIN, OUTPUT);
+    digitalWrite(BOARD_PWRKEY_PIN, LOW);
+    delay(100);
+    digitalWrite(BOARD_PWRKEY_PIN, HIGH);
+    delay(1000);
+    digitalWrite(BOARD_PWRKEY_PIN, LOW);
+
+    // Set modem baud
+    SerialAT.begin(115200, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
+
+	debug_outln_info(F("Start modem..."));
+    delay(3000);
+
+    while (!GSMmodem.init()) {
+        debug_outln_info(F("Failed to restart modem, delaying 10s and retrying"));
+    }
+    debug_outln_info(F("Modem Enabled"));
+}
+#endif
 
 /*****************************************************************
  * init writing file                                             *
@@ -1165,6 +1214,7 @@ static void webserver_guest() {
 	if (wificonfig_loop) {  // scan for wlan ssids
 		page_content += FPSTR(WEB_CONFIG_SCRIPT);
 	}
+	page_content += FPSTR(WEB_GET_LOCATION);
 
 	if (server.method() == HTTP_GET) {
 		webserver_guest_send_body_get(page_content);
@@ -1295,7 +1345,7 @@ static void webserver_config_send_body_get(String& page_content) {
 	add_form_checkbox(Config_has_lcd2004, FPSTR(INTL_LCD2004_3F));
 	add_form_checkbox(Config_display_wifi_info, FPSTR(INTL_DISPLAY_WIFI_INFO));
 	add_form_checkbox(Config_display_device_info, FPSTR(INTL_DISPLAY_DEVICE_INFO));
-	add_form_checkbox(Config_file_write, FPSTR(INTL_FILE_WRITE));
+	add_form_checkbox(Config_file_write_data, FPSTR(INTL_FILE_WRITE_DATA));
 
 	server.sendContent(page_content);
 	page_content = FPSTR(WEB_BR_LF_B);
@@ -1527,7 +1577,7 @@ static void sensor_restart() {
 #pragma GCC diagnostic pop
 
 		serialSDS.end();
-		digitalWrite(PM_RESTART, LOW);
+		// digitalWrite(PM_RESTART, LOW);
 		debug_outln_info(F("Restart."));
 		delay(5000);
 		ESP.restart();
@@ -2274,7 +2324,7 @@ static void wifiConfig() {
 	debug_outln_info_bool(F("DNMS: "), cfg::dnms_read);
 	debug_outln_info_bool(F("CCS811: "), cfg::ccs811_read);
 	debug_outln_info_bool(F("CCS811_27: "), cfg::ccs811_27_read);
-	debug_outln_info_bool(F("write file: "), cfg::file_write);
+	debug_outln_info_bool(F("write file: "), cfg::file_write_data);
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_info_bool(F("SensorCommunity: "), cfg::send2dusti);
 	debug_outln_info_bool(F("Madavi: "), cfg::send2madavi);
@@ -2296,11 +2346,68 @@ static void waitForWifiToConnect(int maxRetries) {
 	}
 }
 
+static void startAPwithWebServer() {
+	debug_outln_info(F("Starting WiFiManager"));
+	debug_outln_info(F("AP ID: "), String(cfg::fs_ssid));
+	debug_outln_info(F("Password: "), String(cfg::fs_pwd));
+
+	wificonfig_loop = true;
+
+	WiFi.disconnect(true);
+	debug_outln_info(F("scan for wifi networks..."));
+	int8_t scanReturnCode = WiFi.scanNetworks(false /* scan async */, true /* show hidden networks */);
+	if (scanReturnCode < 0) {
+		debug_outln_error(F("WiFi scan failed. Treating as empty. "));
+		count_wifiInfo = 0;
+	}
+	else {
+		count_wifiInfo = (uint8_t) scanReturnCode;
+	}
+
+	delete [] wifiInfo;
+	wifiInfo = new struct_wifiInfo[std::max(count_wifiInfo, (uint8_t) 1)];
+
+	for (unsigned i = 0; i < count_wifiInfo; i++) {
+		String SSID;
+		uint8_t* BSSID;
+
+		memset(&wifiInfo[i], 0, sizeof(struct_wifiInfo));
+#if defined(ESP8266)
+		WiFi.getNetworkInfo(i, SSID, wifiInfo[i].encryptionType,
+			wifiInfo[i].RSSI, BSSID, wifiInfo[i].channel,
+			wifiInfo[i].isHidden);
+#else
+		WiFi.getNetworkInfo(i, SSID, wifiInfo[i].encryptionType,
+			wifiInfo[i].RSSI, BSSID, wifiInfo[i].channel);
+#endif
+		SSID.toCharArray(wifiInfo[i].ssid, sizeof(wifiInfo[0].ssid));
+	}
+
+	WiFi.mode(WIFI_AP);
+	const IPAddress apIP(192, 168, 4, 1);
+	WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+	WiFi.softAP(cfg::fs_ssid, cfg::fs_pwd, selectChannelForAp());
+	// In case we create a unique password at first start
+	debug_outln_info(F("AP Password is: "), cfg::fs_pwd);
+
+	DNSServer dnsServer;
+	// Ensure we don't poison the client DNS cache
+	dnsServer.setTTL(0);
+	dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+	dnsServer.start(53, "*", apIP);							// 53 is port for DNS server
+
+	setup_webserver();
+}
+
 /*****************************************************************
  * WiFi auto connecting script                                   *
  *****************************************************************/
-
+#if defined(ESP8266)
 static WiFiEventHandler disconnectEventHandler;
+#endif
+#if defined(ESP32)
+static WiFiEventId_t disconnectEventHandler;
+#endif
 
 static void connectWifi() {
 	display_debug(F("Connecting to"), String(cfg::wlanssid));
@@ -2317,6 +2424,13 @@ static void connectWifi() {
 		last_disconnect_reason = evt.reason;
 	});
 #endif
+#if defined(ESP32)
+	disconnectEventHandler = WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info)
+										  {
+											  last_disconnect_reason = info.wifi_sta_disconnected.reason;
+										  },
+										  WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+#endif
 	if (WiFi.getAutoConnect()) {
 		WiFi.setAutoConnect(false);
 	}
@@ -2325,15 +2439,15 @@ static void connectWifi() {
 	}
 
 	// Use 13 channels if locale is not "EN"
-	wifi_country_t wifi;
-	wifi.policy = WIFI_COUNTRY_POLICY_MANUAL;
-	strcpy(wifi.cc, INTL_LANG);
-	wifi.nchan = (INTL_LANG[0] == 'E' && INTL_LANG[1] == 'N') ? 11 : 13;
-	wifi.schan = 1;
+	// wifi_country_t wifi;
+	// wifi.policy = WIFI_COUNTRY_POLICY_MANUAL;
+	// strcpy(wifi.cc, INTL_LANG);
+	// wifi.nchan = (INTL_LANG[0] == 'E' && INTL_LANG[1] == 'N') ? 11 : 13;
+	// wifi.schan = 1;
 
-#if defined(ESP8266)
-	wifi_set_country(&wifi);
-#endif
+// #if defined(ESP8266)
+// 	wifi_set_country(&wifi);
+// #endif
 
 	WiFi.mode(WIFI_STA);
 
@@ -2360,11 +2474,11 @@ static void connectWifi() {
 		String fss(cfg::fs_ssid);
 		display_debug(fss.substring(0, 16), fss.substring(16));
 
-		wifi.policy = WIFI_COUNTRY_POLICY_AUTO;
+		// wifi.policy = WIFI_COUNTRY_POLICY_AUTO;
 
-#if defined(ESP8266)
-		wifi_set_country(&wifi);
-#endif
+// #if defined(ESP8266)
+// 		wifi_set_country(&wifi);
+// #endif
 
 		wifiConfig();
 		if (WiFi.status() != WL_CONNECTED) {
@@ -2446,6 +2560,43 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 			contentType = FPSTR(TXT_CONTENT_TYPE_JSON);
 			break;
 		}
+#if defined(LILYGO_T_A7670X)
+		const char *num_of_sensors = "";
+		String on_server = "";
+		int num = 0;
+		HttpClient http(GSMModemClient, s_Host, loggerConfigs[logger].destport);
+		http.beginRequest();
+		http.get(s_url);
+		http.sendHeader("Sensor-id", "123456");
+		http.endRequest();
+		int status = http.responseStatusCode();
+		debug_outln_info(F("Response status code: "), status);
+		if (status == 200) {
+			while (http.headerAvailable()) {
+				String headerName  = http.readHeaderName();
+				String headerValue = http.readHeaderValue();
+				if (headerName == "sensors-count") {
+					num_of_sensors = headerValue.c_str();
+					num = atoi(num_of_sensors);
+				}
+				if (headerName == "on-server") {
+					on_server = headerValue;
+				}
+			}
+			debug_outln_info(F("Amount of sensors - "), num_of_sensors);
+			debug_outln_info(F("Sensor on server - "), on_server);
+			if (on_server == "True") {
+				num_of_robonomics_host = i;
+				break;
+			}
+			if (num < min_sensors) {
+				min_sensors = num;
+				num_of_robonomics_host = i;
+			}
+		} else if (status >= HTTP_CODE_BAD_REQUEST) {
+			debug_outln_info(F("Request failed with error: "), String(status));
+		}
+#else
 		std::unique_ptr<WiFiClient> client(getNewLoggerWiFiClient(logger));
 
 		HTTPClient http;
@@ -2479,13 +2630,51 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 				debug_outln_info(F("Details:"), http.getString());
 			}
 			http.end();
-
 		} else {
 			debug_outln_info(F("Failed connecting to "), s_Host);
 		}
+#endif
 	}
 	debug_outln_info(F("Min sensors host - "), HOST_ROBONOMICS[num_of_robonomics_host][0]);
 	return num_of_robonomics_host;
+}
+
+// Your GPRS credentials, if any
+const char apn[]      = "internet.yota";
+const char gprsUser[] = "";
+const char gprsPass[] = "";
+
+void initGPRSModem() {
+    // Unlock your SIM card with a PIN if needed
+    if (GSM_PIN && GSMmodem.getSimStatus() != 3) {
+        GSMmodem.simUnlock(GSM_PIN);
+    }
+
+    SerialMon.print("Waiting for network...");
+    if (!GSMmodem.waitForNetwork()) {
+        SerialMon.println(" fail");
+        delay(10000);
+        return;
+    }
+    SerialMon.println(" success");
+
+    if (GSMmodem.isNetworkConnected()) {
+        SerialMon.println("Network connected");
+    }
+
+    // GPRS connection parameters are usually set after network registration
+    SerialMon.print(F("Connecting to "));
+    SerialMon.print(apn);
+    if (!GSMmodem.gprsConnect(apn, gprsUser, gprsPass)) {
+        SerialMon.println(" fail");
+        delay(10000);
+        return;
+    }
+    SerialMon.println(" success");
+
+    if (GSMmodem.isGprsConnected()) {
+        SerialMon.println("GPRS connected");
+    }
 }
 
 /*****************************************************************
@@ -2511,6 +2700,36 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 		contentType = FPSTR(TXT_CONTENT_TYPE_JSON);
 		break;
 	}
+	bool send_success = false;
+
+#if defined(LILYGO_T_A7670X)
+	HttpClient http(GSMModemClient, s_Host, loggerConfigs[logger].destport);
+	http.beginRequest();
+	http.post(s_url);
+	if (logger == LoggerCustom && (*cfg::user_custom || *cfg::pwd_custom)) {
+		http.sendBasicAuth(cfg::user_custom, cfg::pwd_custom);
+	}
+	if (logger == LoggerInflux && (*cfg::user_influx || *cfg::pwd_influx)) {
+		http.sendBasicAuth(cfg::user_influx, cfg::pwd_influx);
+	}
+	http.sendHeader(F("Content-Type"), contentType);
+	http.sendHeader(F("X-Sensor"), String(F(SENSOR_BASENAME)) + esp_chipid);
+	http.sendHeader(F("X-MAC-ID"), String(F(SENSOR_BASENAME)) + esp_mac_id);
+	if (pin) {
+		http.sendHeader(F("X-PIN"), String(pin));
+	}
+	http.beginBody();
+	http.print(data);
+	http.endRequest();
+	result = http.responseStatusCode();
+	if (result >= HTTP_CODE_OK && result <= HTTP_CODE_ALREADY_REPORTED) {
+		debug_outln_info(F("Succeeded - "), s_Host);
+		send_success = true;
+	} else if (result >= HTTP_CODE_BAD_REQUEST) {
+		debug_outln_info(F("Request failed with error: "), String(result));
+	}
+	http.stop();
+#else
 
 	std::unique_ptr<WiFiClient> client(getNewLoggerWiFiClient(logger));
 
@@ -2518,7 +2737,6 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 	http.setTimeout(20 * 1000);
 	http.setUserAgent(SOFTWARE_VERSION + '/' + esp_chipid + '/' + esp_mac_id);
     http.setReuse(false);
-	bool send_success = false;
 	if (logger == LoggerCustom && (*cfg::user_custom || *cfg::pwd_custom)) {
 		http.setAuthorization(cfg::user_custom, cfg::pwd_custom);
 	}
@@ -2546,6 +2764,7 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 	} else {
 		debug_outln_info(F("Failed connecting to "), s_Host);
 	}
+#endif
 
 	if (!send_success && result != 0) {
 		loggerConfigs[logger].errors++;
@@ -2703,7 +2922,7 @@ static void fetchSensorHTU21D(String& s) {
 		last_value_HTU21D_H = h;
 		add_Value2Json(s, F("HTU21D_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_HTU21D_T);
 		add_Value2Json(s, F("HTU21D_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_HTU21D_H);
-		if (cfg::file_write) {
+		if (cfg::file_write_data) {
 			String values = "HTU " + String(last_value_HTU21D_T) + " " + String(last_value_HTU21D_H);
 			writeDataFile(values);
 		}
@@ -2786,7 +3005,7 @@ static void fetchSensorBMX280(String& s) {
 			add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
 		}
 	}
-	if (cfg::file_write) {
+	if (cfg::file_write_data) {
 		String kk = "BME " + String(last_value_BMX280_T) + " " + String(last_value_BMX280_P);
 		if (bmx280.sensorID() == BME280_SENSOR_ID) {
 			kk += " " + String(last_value_BME280_H);
@@ -2913,7 +3132,7 @@ static void fetchSensorSDS(String& s) {
 		if (sds_val_count > 0) {
 			last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
 			last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
-			if (cfg::file_write) {
+			if (cfg::file_write_data) {
 				String values = "SDS " + String(last_value_SDS_P1) + " " + String(last_value_SDS_P2);
 				writeDataFile(values);
 			}
@@ -3689,6 +3908,57 @@ static void fetchSensorDNMS(String& s) {
 /*****************************************************************
  * read GPS sensor values                                        *
  *****************************************************************/
+#if defined(LILYGO_T_A7670X)
+static void fetchSensorGPSLilyGO(String& s) {
+	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), "GPS");
+	debug_outln_info(F("Enabling GPS/GNSS/GLONASS"));
+    while (!GSMmodem.enableGPS(MODEM_GPS_ENABLE_GPIO)) {
+        debug_outln_info(F("."));
+    }
+    debug_outln_info(F("GPS Enabled"));
+	float lat2 = 0;
+    float lon2 = 0;
+    float speed2 = 0;
+    float alt2 = 0;
+    int vsat2 = 0;
+    int usat2 = 0;
+    float accuracy2 = 0;
+    int year2 = 0;
+    int month2 = 0;
+    int day2 = 0;
+    int hour2 = 0;
+    int min2 = 0;
+    int sec2 = 0;
+	uint8_t fixMode = 0;
+	if (GSMmodem.getGPS(&fixMode, &lat2, &lon2, &speed2, &alt2, &vsat2, &usat2, &accuracy2,
+						&year2, &month2, &day2, &hour2, &min2, &sec2)) {
+		last_value_GPS_lat = (double) lat2;
+		last_value_GPS_lon = (double) lon2;
+		last_value_GPS_alt = alt2;
+		char gps_datetime[37];
+		snprintf_P(gps_datetime, sizeof(gps_datetime), PSTR("%04d-%02d-%02dT%02d:%02d:%02d"),
+			year2, month2, day2, hour2, min2, sec2);
+		last_value_GPS_timestamp = gps_datetime;
+	} else {
+		debug_outln_info(F("Couldn't get GPS/GNSS/GLONASS location"));
+		last_value_GPS_lat = atof(cfg::lat_gps);
+		last_value_GPS_lon = atof(cfg::lon_gps);
+	}
+	if (send_now) {
+		debug_outln_info(F("Lat: "), String(last_value_GPS_lat, 6));
+		debug_outln_info(F("Lng: "), String(last_value_GPS_lon, 6));
+		debug_outln_info(F("DateTime: "), last_value_GPS_timestamp);
+
+		add_Value2Json(s, F("GPS_lat"), String(last_value_GPS_lat, 6));
+		add_Value2Json(s, F("GPS_lon"), String(last_value_GPS_lon, 6));
+
+		add_Value2Json(s, F("GPS_height"), F("Altitude: "), last_value_GPS_alt);
+		add_Value2Json(s, F("GPS_timestamp"), last_value_GPS_timestamp);
+		debug_outln_info(FPSTR(DBG_TXT_SEP));
+	}
+}
+#endif
+
 static __noinline void fetchSensorGPS(String& s) {
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), "GPS");
 	bool flag = true;
@@ -4285,7 +4555,9 @@ static void init_display() {
 	// modifying the I2C speed to 400k, which overwhelms some of the
 	// sensors.
 	Wire.setClock(100000);
+	#if defined(ESP8266)
 	Wire.setClockStretchLimit(150000);
+	#endif
 }
 
 /*****************************************************************
@@ -4371,8 +4643,8 @@ static void powerOnTestSensors() {
 	}
 
 	if (cfg::sds_read) {
-		pinMode(PM_RESTART, OUTPUT);
-		digitalWrite(PM_RESTART, HIGH);
+		// pinMode(PM_RESTART, OUTPUT);
+		// digitalWrite(PM_RESTART, HIGH);
 		delay(500);
 		debug_outln_info(F("Read SDS...: "), SDS_version_date());
 		SDS_cmd(PmSensorCmd::ContinuousMode);
@@ -4380,6 +4652,7 @@ static void powerOnTestSensors() {
 		debug_outln_info(F("Stopping SDS011..."));
 		is_SDS_running = SDS_cmd(PmSensorCmd::Stop);
 	}
+
 
 	if (cfg::pms_read) {
 		debug_outln_info(F("Read PMS(1,3,5,6,7)003..."));
@@ -4466,7 +4739,7 @@ static void powerOnTestSensors() {
 		initSensorCCS811();
 	}
 
-	if (cfg::file_write) {
+	if (cfg::file_write_data) {
 		debug_outln_info(F("Init file writing..."));
 		initFileWriting();
 	}
@@ -4733,27 +5006,33 @@ void setup(void) {
 		SOFTWARE_VERSION += F("-STF");
 	}
 #endif
-
+	
 	init_config();
 	init_display();
 	setupNetworkTime();
+#if defined(LILYGO_T_A7670X)
+	startAPwithWebServer();
+	initLilyGOModem();
+#else
 	connectWifi();
 	setup_webserver();
+#endif
 	createLoggerConfigs();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
 	debug_outln_info(F("\nMAC Id: "), esp_mac_id);
 	twoStageOTAUpdate();
-
 	if (cfg::gps_read) {
-#if defined(ESP8266)
+#ifndef LILYGO_T_A7670X
+	#if defined(ESP8266)
 		serialGPS = new SoftwareSerial;
 		serialGPS->begin(9600, SWSERIAL_8N1, GPS_SERIAL_RX, GPS_SERIAL_TX, false, 128);
-#endif
-#if defined(ESP32)
+	#endif
+	#if defined(ESP32)
 		serialGPS->begin(9600, SERIAL_8N1, GPS_SERIAL_RX, GPS_SERIAL_TX);
-#endif
-		debug_outln_info(F("Read GPS..."));
+	#endif
 		disable_unneeded_nmea();
+#endif
+	debug_outln_info(F("Read GPS..."));
 	}
 
 	powerOnTestSensors();
@@ -4765,7 +5044,7 @@ void setup(void) {
 	starttime = millis();									// store the start time
 	last_update_attempt = time_point_device_start_ms = starttime;
 	last_display_millis = starttime_SDS = starttime;
-	if (cfg::file_write) {
+	if (cfg::file_write_data) {
 		writeDataFile("Start measuring");
 	}
 
@@ -4866,7 +5145,11 @@ void loop(void) {
 
 		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now) {
 			// getting GPS coordinates
+			#if defined(LILYGO_T_A7670X)
+			fetchSensorGPSLilyGO(result_GPS);
+			#else
 			fetchSensorGPS(result_GPS);
+			#endif
 			starttime_GPS = act_milli;
 		}
 	}
@@ -4974,7 +5257,7 @@ void loop(void) {
 			result = emptyString;
 		}
 
-		if (cfg::file_write) {
+		if (cfg::file_write_data) {
 			File f1 = SPIFFS.open(F("/data.json"), "r");
 			debug_outln_info(F("Reading Data from File. Size: "), String(f1.size()));
 			int i;

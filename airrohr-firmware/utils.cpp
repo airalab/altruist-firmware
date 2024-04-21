@@ -216,7 +216,7 @@ bool launchUpdateLoader(const String& md5) {
  *****************************************************************/
 String check_display_value(double value, double undef, uint8_t len, uint8_t str_len) {
 	RESERVE_STRING(s, 15);
-	s = (value != undef ? String(value, len) : String("-"));
+	s = (value != undef ? String(value, (int8_t)len) : String("-"));
 	while (s.length() < str_len) {
 		s = " " + s;
 	}

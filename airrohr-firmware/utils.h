@@ -38,7 +38,18 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HardwareSerial.h>
-#include <hwcrypto/sha.h>
+// #include <hwcrypto/sha.h>
+// #include <esp32/sha.h>
+// #include "sha/sha_parallel_engine.h"
+  #if ESP_IDF_VERSION_MAJOR >= 4
+    #if ( ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(1, 0, 6) )
+      #include "sha/sha_parallel_engine.h"
+    #else
+      #include <esp32/sha.h>
+    #endif  
+  #else
+    //#include <hwcrypto/sha.h>
+  #endif
 #include <freertos/queue.h>
 #endif
 

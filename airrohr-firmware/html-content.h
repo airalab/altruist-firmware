@@ -110,6 +110,14 @@ function setSSID(ssid){document.getElementById('wlanssid').value=ssid.innerText|
 function load_wifi_list(){var x=new XMLHttpRequest();x.open('GET','/wifi');x.onload = function(){if (x.status === 200) {document.getElementById('wifilist').innerHTML = x.responseText;}};x.send();}\
 </script>";
 
+const char WEB_GET_LOCATION[] PROGMEM = "<button onclick='getLocation()'>Try It</button>\
+<p id='demo'></p>\
+<script>\
+const x = document.getElementById('demo');\
+function getLocation() {if(navigator.geolocation){navigator.geolocation.getCurrentPosition(showPosition);} else {x.innerHTML = 'Geolocation is not supported by this browser.';}}\
+function showPosition(position){x.innerHTML = 'Latitude: ' + position.coords.latitude + '<br>Longitude: ' + position.coords.longitude;}\
+</script>";
+
 const char WEB_REMOVE_CONFIG_CONTENT[] PROGMEM = "<h3>" INTL_CONFIGURATION_REALLY_DELETE "</h3>\
 <table><tr><td><form method='POST' action='/removeConfig'>\
 <input type='submit' class='s_red' name='submit' value='" INTL_DELETE "'/></form></td>\

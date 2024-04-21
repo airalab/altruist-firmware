@@ -164,6 +164,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define PM_SERIAL_RX D27
 #define PM_SERIAL_TX D33
 #define PIN_CS D13
+#define PM_RESTART D8
 
 #if defined(FLIP_I2C_PMSERIAL) // exchange the pins of the ports to use external i2c connector for gps
 #define I2C_PIN_SCL D23
@@ -262,7 +263,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define CCS811_27_READ 0
 
 // Write file
-#define FILE_WRITE 0
+#define FILE_WRITE_DATA 0
 
 // Honeywell PM sensor
 #define HPM_READ 0
@@ -313,7 +314,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define MHZ19_READ 0
 
 // automatic firmware updates
-#define AUTO_UPDATE 1
+#define AUTO_UPDATE 0
 
 // use beta firmware
 #define USE_BETA 0

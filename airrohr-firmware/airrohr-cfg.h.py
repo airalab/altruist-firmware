@@ -17,7 +17,7 @@ Bool		sds_read
 Bool        gc_read
 Bool		ccs811_read
 Bool		ccs811_27_read
-Bool		file_write
+Bool		file_write_data
 Bool		pms_read
 Bool		hpm_read
 Bool		npm_read
