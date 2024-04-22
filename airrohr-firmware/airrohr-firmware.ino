@@ -148,7 +148,7 @@ namespace cfg {
 	unsigned debug = DEBUG;
 
 	unsigned time_for_wifi_config = 600000;
-	unsigned sending_intervall_ms = 145000;
+	unsigned sending_intervall_ms = 30000;
 
 	char current_lang[3];
 	char current_reg[20];
@@ -2564,13 +2564,18 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 		const char *num_of_sensors = "";
 		String on_server = "";
 		int num = 0;
+		initGPRSModem();
 		HttpClient http(GSMModemClient, s_Host, loggerConfigs[logger].destport);
+		debug_outln_info(F("Start get request to host "), s_Host);
 		http.beginRequest();
+		if (s_url == "") {
+			s_url = "/";
+		}
 		http.get(s_url);
 		http.sendHeader("Sensor-id", "123456");
 		http.endRequest();
 		int status = http.responseStatusCode();
-		debug_outln_info(F("Response status code: "), status);
+		debug_outln_info(F("Response status code: "), String(status));
 		if (status == 200) {
 			while (http.headerAvailable()) {
 				String headerName  = http.readHeaderName();
@@ -2583,7 +2588,7 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 					on_server = headerValue;
 				}
 			}
-			debug_outln_info(F("Amount of sensors - "), num_of_sensors);
+			debug_outln_info(F("Amount of sensors - "), String(num));
 			debug_outln_info(F("Sensor on server - "), on_server);
 			if (on_server == "True") {
 				num_of_robonomics_host = i;
@@ -2636,6 +2641,9 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 #endif
 	}
 	debug_outln_info(F("Min sensors host - "), HOST_ROBONOMICS[num_of_robonomics_host][0]);
+#if defined(LILYGO_T_A7670X)
+	stopGPRSModem();
+#endif
 	return num_of_robonomics_host;
 }
 
@@ -2677,6 +2685,11 @@ void initGPRSModem() {
     }
 }
 
+void stopGPRSModem() {
+    GSMmodem.gprsDisconnect();
+    SerialMon.println(F("GPRS disconnected"));
+}
+
 /*****************************************************************
  * send data to rest api                                         *
  *****************************************************************/
@@ -2703,8 +2716,14 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 	bool send_success = false;
 
 #if defined(LILYGO_T_A7670X)
+	initGPRSModem();
+	// s_Host = "libp2p-relay-1.robonomics.network";
+	// int port = 80;
 	HttpClient http(GSMModemClient, s_Host, loggerConfigs[logger].destport);
 	http.beginRequest();
+	if (s_url == "") {
+		s_url = "/sensors";
+	}
 	http.post(s_url);
 	if (logger == LoggerCustom && (*cfg::user_custom || *cfg::pwd_custom)) {
 		http.sendBasicAuth(cfg::user_custom, cfg::pwd_custom);
@@ -2715,20 +2734,28 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 	http.sendHeader(F("Content-Type"), contentType);
 	http.sendHeader(F("X-Sensor"), String(F(SENSOR_BASENAME)) + esp_chipid);
 	http.sendHeader(F("X-MAC-ID"), String(F(SENSOR_BASENAME)) + esp_mac_id);
+	http.sendHeader(F("User-Agent"), SOFTWARE_VERSION + '/' + esp_chipid + '/' + esp_mac_id);
+	http.sendHeader(F("Connection"), "close");
+	http.sendHeader(F("Content-Length"), data.length());
 	if (pin) {
 		http.sendHeader(F("X-PIN"), String(pin));
 	}
+	debug_outln_info(F("Data to send - "), data);
 	http.beginBody();
 	http.print(data);
 	http.endRequest();
 	result = http.responseStatusCode();
+	debug_outln_info(F("Result code "), String(result));
 	if (result >= HTTP_CODE_OK && result <= HTTP_CODE_ALREADY_REPORTED) {
 		debug_outln_info(F("Succeeded - "), s_Host);
 		send_success = true;
+		String body = http.responseBody();
+		debug_outln_info(F("Response:"), body);
 	} else if (result >= HTTP_CODE_BAD_REQUEST) {
 		debug_outln_info(F("Request failed with error: "), String(result));
 	}
 	http.stop();
+	stopGPRSModem();
 #else
 
 	std::unique_ptr<WiFiClient> client(getNewLoggerWiFiClient(logger));
@@ -3912,38 +3939,49 @@ static void fetchSensorDNMS(String& s) {
 static void fetchSensorGPSLilyGO(String& s) {
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), "GPS");
 	debug_outln_info(F("Enabling GPS/GNSS/GLONASS"));
+	int connection_count = 0;
     while (!GSMmodem.enableGPS(MODEM_GPS_ENABLE_GPIO)) {
         debug_outln_info(F("."));
+		connection_count++;
+		if (connection_count >= 5) {
+			debug_outln_info(F("Can't enable GPS"));
+			last_value_GPS_lat = atof(cfg::lat_gps);
+			last_value_GPS_lon = atof(cfg::lon_gps);
+			break;
+		}
     }
-    debug_outln_info(F("GPS Enabled"));
-	float lat2 = 0;
-    float lon2 = 0;
-    float speed2 = 0;
-    float alt2 = 0;
-    int vsat2 = 0;
-    int usat2 = 0;
-    float accuracy2 = 0;
-    int year2 = 0;
-    int month2 = 0;
-    int day2 = 0;
-    int hour2 = 0;
-    int min2 = 0;
-    int sec2 = 0;
-	uint8_t fixMode = 0;
-	if (GSMmodem.getGPS(&fixMode, &lat2, &lon2, &speed2, &alt2, &vsat2, &usat2, &accuracy2,
-						&year2, &month2, &day2, &hour2, &min2, &sec2)) {
-		last_value_GPS_lat = (double) lat2;
-		last_value_GPS_lon = (double) lon2;
-		last_value_GPS_alt = alt2;
-		char gps_datetime[37];
-		snprintf_P(gps_datetime, sizeof(gps_datetime), PSTR("%04d-%02d-%02dT%02d:%02d:%02d"),
-			year2, month2, day2, hour2, min2, sec2);
-		last_value_GPS_timestamp = gps_datetime;
-	} else {
-		debug_outln_info(F("Couldn't get GPS/GNSS/GLONASS location"));
-		last_value_GPS_lat = atof(cfg::lat_gps);
-		last_value_GPS_lon = atof(cfg::lon_gps);
+	if (connection_count < 5) {
+		debug_outln_info(F("GPS Enabled"));
+		float lat2 = 0;
+		float lon2 = 0;
+		float speed2 = 0;
+		float alt2 = 0;
+		int vsat2 = 0;
+		int usat2 = 0;
+		float accuracy2 = 0;
+		int year2 = 0;
+		int month2 = 0;
+		int day2 = 0;
+		int hour2 = 0;
+		int min2 = 0;
+		int sec2 = 0;
+		uint8_t fixMode = 0;
+		if (GSMmodem.getGPS(&fixMode, &lat2, &lon2, &speed2, &alt2, &vsat2, &usat2, &accuracy2,
+							&year2, &month2, &day2, &hour2, &min2, &sec2)) {
+			last_value_GPS_lat = (double) lat2;
+			last_value_GPS_lon = (double) lon2;
+			last_value_GPS_alt = alt2;
+			char gps_datetime[37];
+			snprintf_P(gps_datetime, sizeof(gps_datetime), PSTR("%04d-%02d-%02dT%02d:%02d:%02d"),
+				year2, month2, day2, hour2, min2, sec2);
+			last_value_GPS_timestamp = gps_datetime;
+		} else {
+			debug_outln_info(F("Couldn't get GPS/GNSS/GLONASS location"));
+			last_value_GPS_lat = atof(cfg::lat_gps);
+			last_value_GPS_lon = atof(cfg::lon_gps);
+		}
 	}
+	GSMmodem.disableGPS();
 	if (send_now) {
 		debug_outln_info(F("Lat: "), String(last_value_GPS_lat, 6));
 		debug_outln_info(F("Lng: "), String(last_value_GPS_lon, 6));
@@ -5145,11 +5183,11 @@ void loop(void) {
 
 		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now) {
 			// getting GPS coordinates
-			#if defined(LILYGO_T_A7670X)
+#if defined(LILYGO_T_A7670X)
 			fetchSensorGPSLilyGO(result_GPS);
-			#else
+#else
 			fetchSensorGPS(result_GPS);
-			#endif
+#endif
 			starttime_GPS = act_milli;
 		}
 	}
@@ -5293,13 +5331,14 @@ void loop(void) {
 		}
 
 		// reconnect to WiFi if disconnected
+#ifndef LILYGO_T_A7670X
 		if (WiFi.status() != WL_CONNECTED) {
 			debug_outln_info(F("Connection lost, reconnecting "));
 			WiFi_error_count++;
 			WiFi.reconnect();
 			waitForWifiToConnect(20);
 		}
-
+#endif
 		// only do a restart after finishing sending
 		if (msSince(time_point_device_start_ms) > DURATION_BEFORE_FORCED_RESTART_MS) {
 			sensor_restart();
