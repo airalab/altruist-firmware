@@ -280,6 +280,7 @@ ESP8266WebServer server(80);
 #if defined(ESP32)
 WebServer server(80);
 #endif
+DNSServer dnsServer;
 
 #include "./airrohr-cfg.h"
 
@@ -1236,25 +1237,27 @@ static void webserver_guest() {
  * Webserver root: show all options                              *
  *****************************************************************/
 static void webserver_root() {
+#ifndef LILYGO_T_A7670X
 	if (WiFi.status() != WL_CONNECTED) {
 		sendHttpRedirect();
-	} else {
-		if (!webserver_request_auth())
-		{ return; }
-
-		RESERVE_STRING(page_content, XLARGE_STR);
-		start_html_page(page_content, emptyString);
-		debug_outln_info(F("ws: root ..."));
-
-		// Enable Pagination
-		page_content += FPSTR(WEB_ROOT_PAGE_CONTENT);
-		page_content.replace(F("{t}"), FPSTR(INTL_CURRENT_DATA));
-		page_content.replace(F("{s}"), FPSTR(INTL_DEVICE_STATUS));
-		page_content.replace(F("{conf}"), FPSTR(INTL_CONFIGURATION));
-		page_content.replace(F("{restart}"), FPSTR(INTL_RESTART_SENSOR));
-		page_content.replace(F("{debug}"), FPSTR(INTL_DEBUG_LEVEL));
-		end_html_page(page_content);
+		return;
 	}
+#endif
+	if (!webserver_request_auth())
+	{ return; }
+
+	RESERVE_STRING(page_content, XLARGE_STR);
+	start_html_page(page_content, emptyString);
+	debug_outln_info(F("ws: root ..."));
+
+	// Enable Pagination
+	page_content += FPSTR(WEB_ROOT_PAGE_CONTENT);
+	page_content.replace(F("{t}"), FPSTR(INTL_CURRENT_DATA));
+	page_content.replace(F("{s}"), FPSTR(INTL_DEVICE_STATUS));
+	page_content.replace(F("{conf}"), FPSTR(INTL_CONFIGURATION));
+	page_content.replace(F("{restart}"), FPSTR(INTL_RESTART_SENSOR));
+	page_content.replace(F("{debug}"), FPSTR(INTL_DEBUG_LEVEL));
+	end_html_page(page_content);
 }
 
 /*****************************************************************
@@ -1524,40 +1527,42 @@ static void webserver_config_send_body_post(String& page_content) {
 }
 
 static void webserver_config() {
+#ifndef LILYGO_T_A7670X
 	if (WiFi.status() != WL_CONNECTED) {
 		sendHttpRedirect();
+		return;
+	}
+#endif
+	if (!webserver_request_auth())
+	{ return; }
+
+	debug_outln_info(F("ws: config page ..."));
+
+	server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
+	server.sendHeader(F("Pragma"), F("no-cache"));
+	server.sendHeader(F("Expires"), F("0"));
+	// Enable Pagination (Chunked Transfer)
+	server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+
+	RESERVE_STRING(page_content, XLARGE_STR);
+
+	start_html_page(page_content, FPSTR(INTL_CONFIGURATION));
+	if (wificonfig_loop) {  // scan for wlan ssids
+		page_content += FPSTR(WEB_CONFIG_SCRIPT);
+	}
+
+	if (server.method() == HTTP_GET) {
+		webserver_config_send_body_get(page_content);
 	} else {
-		if (!webserver_request_auth())
-		{ return; }
+		webserver_config_send_body_post(page_content);
+	}
+	end_html_page(page_content);
 
-		debug_outln_info(F("ws: config page ..."));
-
-		server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
-		server.sendHeader(F("Pragma"), F("no-cache"));
-		server.sendHeader(F("Expires"), F("0"));
-		// Enable Pagination (Chunked Transfer)
-		server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-
-		RESERVE_STRING(page_content, XLARGE_STR);
-
-		start_html_page(page_content, FPSTR(INTL_CONFIGURATION));
-		if (wificonfig_loop) {  // scan for wlan ssids
-			page_content += FPSTR(WEB_CONFIG_SCRIPT);
-		}
-
-		if (server.method() == HTTP_GET) {
-			webserver_config_send_body_get(page_content);
-		} else {
-			webserver_config_send_body_post(page_content);
-		}
-		end_html_page(page_content);
-
-		if (server.method() == HTTP_POST) {
-			display_debug(F("Writing config"), emptyString);
-			if (writeConfig()) {
-				display_debug(F("Writing config"), F("and restarting"));
-				sensor_restart();
-			}
+	if (server.method() == HTTP_POST) {
+		display_debug(F("Writing config"), emptyString);
+		if (writeConfig()) {
+			display_debug(F("Writing config"), F("and restarting"));
+			sensor_restart();
 		}
 	}
 }
@@ -1654,10 +1659,12 @@ static void webserver_wifi() {
  * Webserver root: show latest values                            *
  *****************************************************************/
 static void webserver_values() {
+#ifndef LILYGO_T_A7670X
 	if (WiFi.status() != WL_CONNECTED) {
 		sendHttpRedirect();
 		return;
 	}
+#endif
 
 	RESERVE_STRING(page_content, XLARGE_STR);
 	start_html_page(page_content, FPSTR(INTL_CURRENT_DATA));
@@ -2273,7 +2280,7 @@ static void wifiConfig() {
 	// In case we create a unique password at first start
 	debug_outln_info(F("AP Password is: "), cfg::fs_pwd);
 
-	DNSServer dnsServer;
+	// DNSServer dnsServer;
 	// Ensure we don't poison the client DNS cache
 	dnsServer.setTTL(0);
 	dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
@@ -2390,7 +2397,7 @@ static void startAPwithWebServer() {
 	// In case we create a unique password at first start
 	debug_outln_info(F("AP Password is: "), cfg::fs_pwd);
 
-	DNSServer dnsServer;
+	// DNSServer dnsServer;
 	// Ensure we don't poison the client DNS cache
 	dnsServer.setTTL(0);
 	dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
@@ -2717,12 +2724,10 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 
 #if defined(LILYGO_T_A7670X)
 	initGPRSModem();
-	// s_Host = "libp2p-relay-1.robonomics.network";
-	// int port = 80;
 	HttpClient http(GSMModemClient, s_Host, loggerConfigs[logger].destport);
 	http.beginRequest();
 	if (s_url == "") {
-		s_url = "/sensors";
+		s_url = "/";
 	}
 	http.post(s_url);
 	if (logger == LoggerCustom && (*cfg::user_custom || *cfg::pwd_custom)) {
@@ -4959,6 +4964,7 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 	}
 
 	if (cfg::send2robonomics) {
+		int model = 3;
 		int num_of_host;
 		String data_to_send = data;
 		data_to_send.remove(0, 1);
@@ -4966,6 +4972,8 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		data_4_robonomics += esp_chipid;
 		data_4_robonomics += "\", \"donated_by\": \"";
 		data_4_robonomics += cfg::donated_by;
+		data_4_robonomics += "\", \"model\": \"";
+		data_4_robonomics += String(model);
 		data_4_robonomics += "\", ";
 		data_4_robonomics += data_to_send;
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
@@ -4974,6 +4982,7 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		if (num_of_host == 255) {
 			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
 		}
+		// num_of_host = 2;
 		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
 	}
 
@@ -5184,7 +5193,9 @@ void loop(void) {
 		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now) {
 			// getting GPS coordinates
 #if defined(LILYGO_T_A7670X)
-			fetchSensorGPSLilyGO(result_GPS);
+			if (send_now) {
+				fetchSensorGPSLilyGO(result_GPS);
+			}
 #else
 			fetchSensorGPS(result_GPS);
 #endif
@@ -5198,6 +5209,9 @@ void loop(void) {
 		last_display_millis = act_milli;
 	}
 
+#if defined(LILYGO_T_A7670X)
+	dnsServer.processNextRequest();
+#endif
 	server.handleClient();
 	yield();
 
