@@ -234,6 +234,38 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #endif
 
 
+//  === pin assignments for LilyGO board ===================================
+#if defined(LILYGO_T_A7670X)
+// define pin for one wire sensors
+#define ONEWIRE_PIN D27
+
+// define serial interface pins for particle sensors
+// Serial confusion: These definitions are based on SoftSerial
+// TX (transmitting) pin on one side goes to RX (receiving) pin on other side
+// SoftSerial RX PIN is D1 and goes to SDS TX
+// SoftSerial TX PIN is D2 and goes to SDS RX
+#define PM_SERIAL_RX D32
+#define PM_SERIAL_TX D33
+#define PM_RESTART D34
+
+// define pins for I2C
+#define I2C_PIN_SCL D22
+#define I2C_PIN_SDA D21
+
+// define serial interface pins for GPS modules
+#define GPS_SERIAL_RX D14
+#define GPS_SERIAL_TX D15
+
+// define serial pin for geiger counter
+#define PIN_TICK    D35
+#define LOG_PERIOD 10
+
+// PPD42NS, the cheaper version of the particle sensor
+#define PPD_PIN_PM1 GPS_SERIAL_TX
+#define PPD_PIN_PM2 GPS_SERIAL_RX
+#endif
+
+
 // DHT22, temperature, humidity
 #define DHT_READ 0
 #define DHT_TYPE DHT22

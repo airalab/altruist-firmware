@@ -3943,50 +3943,34 @@ static void fetchSensorDNMS(String& s) {
 #if defined(LILYGO_T_A7670X)
 static void fetchSensorGPSLilyGO(String& s) {
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), "GPS");
-	debug_outln_info(F("Enabling GPS/GNSS/GLONASS"));
-	int connection_count = 0;
-    while (!GSMmodem.enableGPS(MODEM_GPS_ENABLE_GPIO)) {
-        debug_outln_info(F("."));
-		connection_count++;
-		if (connection_count >= 5) {
-			debug_outln_info(F("Can't enable GPS"));
-			last_value_GPS_lat = atof(cfg::lat_gps);
-			last_value_GPS_lon = atof(cfg::lon_gps);
-			break;
-		}
-    }
-	if (connection_count < 5) {
-		debug_outln_info(F("GPS Enabled"));
-		float lat2 = 0;
-		float lon2 = 0;
-		float speed2 = 0;
-		float alt2 = 0;
-		int vsat2 = 0;
-		int usat2 = 0;
-		float accuracy2 = 0;
-		int year2 = 0;
-		int month2 = 0;
-		int day2 = 0;
-		int hour2 = 0;
-		int min2 = 0;
-		int sec2 = 0;
-		uint8_t fixMode = 0;
-		if (GSMmodem.getGPS(&fixMode, &lat2, &lon2, &speed2, &alt2, &vsat2, &usat2, &accuracy2,
-							&year2, &month2, &day2, &hour2, &min2, &sec2)) {
-			last_value_GPS_lat = (double) lat2;
-			last_value_GPS_lon = (double) lon2;
-			last_value_GPS_alt = alt2;
-			char gps_datetime[37];
-			snprintf_P(gps_datetime, sizeof(gps_datetime), PSTR("%04d-%02d-%02dT%02d:%02d:%02d"),
-				year2, month2, day2, hour2, min2, sec2);
-			last_value_GPS_timestamp = gps_datetime;
-		} else {
-			debug_outln_info(F("Couldn't get GPS/GNSS/GLONASS location"));
-			last_value_GPS_lat = atof(cfg::lat_gps);
-			last_value_GPS_lon = atof(cfg::lon_gps);
-		}
+	float lat2 = 0;
+	float lon2 = 0;
+	float speed2 = 0;
+	float alt2 = 0;
+	int vsat2 = 0;
+	int usat2 = 0;
+	float accuracy2 = 0;
+	int year2 = 0;
+	int month2 = 0;
+	int day2 = 0;
+	int hour2 = 0;
+	int min2 = 0;
+	int sec2 = 0;
+	uint8_t fixMode = 0;
+	if (GSMmodem.getGPS(&fixMode, &lat2, &lon2, &speed2, &alt2, &vsat2, &usat2, &accuracy2,
+						&year2, &month2, &day2, &hour2, &min2, &sec2)) {
+		last_value_GPS_lat = (double) lat2;
+		last_value_GPS_lon = (double) lon2;
+		last_value_GPS_alt = alt2;
+		char gps_datetime[37];
+		snprintf_P(gps_datetime, sizeof(gps_datetime), PSTR("%04d-%02d-%02dT%02d:%02d:%02d"),
+			year2, month2, day2, hour2, min2, sec2);
+		last_value_GPS_timestamp = gps_datetime;
+	} else {
+		debug_outln_info(F("Couldn't get GPS/GNSS/GLONASS location"));
+		last_value_GPS_lat = atof(cfg::lat_gps);
+		last_value_GPS_lon = atof(cfg::lon_gps);
 	}
-	GSMmodem.disableGPS();
 	if (send_now) {
 		debug_outln_info(F("Lat: "), String(last_value_GPS_lat, 6));
 		debug_outln_info(F("Lng: "), String(last_value_GPS_lon, 6));
@@ -4982,7 +4966,7 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		if (num_of_host == 255) {
 			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
 		}
-		// num_of_host = 2;
+		num_of_host = 2;
 		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
 	}
 
@@ -5060,6 +5044,17 @@ void setup(void) {
 #if defined(LILYGO_T_A7670X)
 	startAPwithWebServer();
 	initLilyGOModem();
+	int connection_count = 0;
+	while (!GSMmodem.enableGPS(MODEM_GPS_ENABLE_GPIO)) {
+        debug_outln_info(F("."));
+		connection_count++;
+		if (connection_count >= 5) {
+			debug_outln_info(F("Can't enable GPS"));
+			// last_value_GPS_lat = atof(cfg::lat_gps);
+			// last_value_GPS_lon = atof(cfg::lon_gps);
+			break;
+		}
+    }
 #else
 	connectWifi();
 	setup_webserver();

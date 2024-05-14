@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.ino": "cpp",
         "array": "c",
         "string": "c",
         "string_view": "c",
@@ -9,6 +10,7 @@
         "initializer_list": "c",
         "utility": "c",
         "cstdlib": "cpp",
-        "radsens1v2.h": "c"
+        "radsens1v2.h": "c",
+        "*.tpp": "cpp"
     }
 }

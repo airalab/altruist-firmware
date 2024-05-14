@@ -136,7 +136,8 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define D27 27
 #define D32 32
 #define D33 33
-#define D34_INPUTONLY 34
+#define D34 34
+#define D34_INPUTONLY D34
 #define D35_INPUTONLY 35
 #define D36_INPUTONLY 36
 #define D39_INPUTONLY 39
@@ -145,4 +146,11 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define RF69_FREQ 868.0
 #define CLIENT_ADDRESS 2
 #define SERVER_ADDRESS 100
+#endif
+
+#if defined(LILYGO_T_A7670X)
+#define D2 2
+#define D14 14
+#define D15 15
+#define D35 35
 #endif
