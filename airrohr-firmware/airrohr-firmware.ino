@@ -288,6 +288,7 @@ DNSServer dnsServer;
  * Variables for Robonomics                                      *
  *****************************************************************/
 int num_of_robonomics_API = 0;
+bool gps_value_correct = true;
 
 /*****************************************************************
  * Variables for Noise Measurement DNMS                          *
@@ -3972,16 +3973,21 @@ static void fetchSensorGPSLilyGO(String& s) {
 		last_value_GPS_lon = atof(cfg::lon_gps);
 	}
 	if (send_now) {
-		debug_outln_info(F("Lat: "), String(last_value_GPS_lat, 6));
-		debug_outln_info(F("Lng: "), String(last_value_GPS_lon, 6));
-		debug_outln_info(F("DateTime: "), last_value_GPS_timestamp);
+		if (last_value_GPS_lat > 0 && last_value_GPS_lon > 0) {
+			gps_value_correct = true;
+			debug_outln_info(F("Lat: "), String(last_value_GPS_lat, 6));
+			debug_outln_info(F("Lng: "), String(last_value_GPS_lon, 6));
+			debug_outln_info(F("DateTime: "), last_value_GPS_timestamp);
 
-		add_Value2Json(s, F("GPS_lat"), String(last_value_GPS_lat, 6));
-		add_Value2Json(s, F("GPS_lon"), String(last_value_GPS_lon, 6));
+			add_Value2Json(s, F("GPS_lat"), String(last_value_GPS_lat, 6));
+			add_Value2Json(s, F("GPS_lon"), String(last_value_GPS_lon, 6));
 
-		add_Value2Json(s, F("GPS_height"), F("Altitude: "), last_value_GPS_alt);
-		add_Value2Json(s, F("GPS_timestamp"), last_value_GPS_timestamp);
-		debug_outln_info(FPSTR(DBG_TXT_SEP));
+			add_Value2Json(s, F("GPS_height"), F("Altitude: "), last_value_GPS_alt);
+			add_Value2Json(s, F("GPS_timestamp"), last_value_GPS_timestamp);
+			debug_outln_info(FPSTR(DBG_TXT_SEP));
+		} else {
+			gps_value_correct = false;
+		}
 	}
 }
 #endif
@@ -4948,26 +4954,30 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 	}
 
 	if (cfg::send2robonomics) {
-		int model = 3;
-		int num_of_host;
-		String data_to_send = data;
-		data_to_send.remove(0, 1);
-		String data_4_robonomics(F("{\"esp8266id\": \""));
-		data_4_robonomics += esp_chipid;
-		data_4_robonomics += "\", \"donated_by\": \"";
-		data_4_robonomics += cfg::donated_by;
-		data_4_robonomics += "\", \"model\": \"";
-		data_4_robonomics += String(model);
-		data_4_robonomics += "\", ";
-		data_4_robonomics += data_to_send;
-		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
-		debug_outln_info(F("robonomics: "), data_4_robonomics);
-		num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
-		if (num_of_host == 255) {
-			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
+		if (gps_value_correct) {
+			int model = 3;
+			int num_of_host;
+			String data_to_send = data;
+			data_to_send.remove(0, 1);
+			String data_4_robonomics(F("{\"esp8266id\": \""));
+			data_4_robonomics += esp_chipid;
+			data_4_robonomics += "\", \"donated_by\": \"";
+			data_4_robonomics += cfg::donated_by;
+			data_4_robonomics += "\", \"model\": \"";
+			data_4_robonomics += String(model);
+			data_4_robonomics += "\", ";
+			data_4_robonomics += data_to_send;
+			debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
+			debug_outln_info(F("robonomics: "), data_4_robonomics);
+			num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
+			if (num_of_host == 255) {
+				num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
+			}
+			num_of_host = 2;
+			sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
+		} else {
+			debug_outln_info(F("Incorrect GPS, don't send to Robonomics"));
 		}
-		num_of_host = 2;
-		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
 	}
 
 	if (cfg::send2csv) {
