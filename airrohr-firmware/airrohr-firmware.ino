@@ -1634,6 +1634,7 @@ static void webserver_values() {
 	start_html_page(page_content, FPSTR(INTL_CURRENT_DATA));
 	const String unit_Deg("°");
 	const String unit_P("hPa");
+	const String unit_DB("db");
 	const String unit_NC();
 	const String unit_LA(F("dB(A)"));
 
@@ -1748,7 +1749,7 @@ static void webserver_values() {
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::dbmeter_read) {
-		add_table_t_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE), last_value_DBMETER);
+		add_table_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE), String(last_value_DBMETER), unit_DB);
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::bmp_read) {
