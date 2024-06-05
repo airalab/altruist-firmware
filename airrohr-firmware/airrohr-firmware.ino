@@ -114,6 +114,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "./bmx280_i2c.h"
 #include "./sps30_i2c.h"
 #include "./dnms_i2c.h"
+#include "./dbmeter_regs.h"
 
 #include "./intl.h"
 
@@ -162,6 +163,7 @@ namespace cfg {
 	// (in)active sensors
 	bool dht_read = DHT_READ;
 	bool htu21d_read = HTU21D_READ;
+	bool dbmeter_read = DBMETER_READ;
 	bool ppd_read = PPD_READ;
 	bool sds_read = SDS_READ;
 	bool gc_read = GC_READ;
@@ -258,6 +260,7 @@ LoggerConfig loggerConfigs[LoggerCount];
 
 long int sample_count = 0;
 bool htu21d_init_failed = false;
+bool dbmeter_init_failed = false;
 bool bmp_init_failed = false;
 bool bmx280_init_failed = false;
 bool sht3x_init_failed = false;
@@ -411,6 +414,8 @@ float last_value_HTU21D_T = -128.0;
 float last_value_HTU21D_H = -1.0;
 float last_value_SHT3X_T = -128.0;
 float last_value_SHT3X_H = -1.0;
+
+uint8_t last_value_DBMETER = 0;
 
 uint32_t sds_pm10_sum = 0;
 uint32_t sds_pm25_sum = 0;
@@ -626,6 +631,21 @@ static void initSensorCCS811() {
 			debug_outln_error(F("CCS811 error starting measurement"));
 			return;
 		}
+	}
+}
+
+/*****************************************************************
+ * init DB Meter sensor                                            *
+ *****************************************************************/
+
+static void initDBMeter() {
+	// Read version register
+	uint8_t version = dbmeter_readreg(DBM_REG_VERSION);
+	if (version != 255) {
+		debug_outln_info(F("DB Meter version = "), String(version));
+	} else {
+		debug_outln_info(F("Check DB Meter wiring..."));
+		dbmeter_init_failed = true;
 	}
 }
 
@@ -1340,6 +1360,7 @@ static void webserver_config_send_body_get(String& page_content) {
 
 	add_form_checkbox_sensor(Config_dht_read, FPSTR(INTL_DHT22));
 	add_form_checkbox_sensor(Config_htu21d_read, FPSTR(INTL_HTU21D));
+	add_form_checkbox_sensor(Config_dbmeter_read, FPSTR(INTL_DBMETER));
 	add_form_checkbox_sensor(Config_bmx280_read, FPSTR(INTL_BMX280));
 	add_form_checkbox_sensor(Config_sht3x_read, FPSTR(INTL_SHT3X));
 
@@ -1724,6 +1745,10 @@ static void webserver_values() {
 	if (cfg::htu21d_read) {
 		add_table_t_value(FPSTR(SENSORS_HTU21D), FPSTR(INTL_TEMPERATURE), last_value_HTU21D_T);
 		add_table_h_value(FPSTR(SENSORS_HTU21D), FPSTR(INTL_HUMIDITY), last_value_HTU21D_H);
+		page_content += FPSTR(EMPTY_ROW);
+	}
+	if (cfg::dbmeter_read) {
+		add_table_t_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_TEMPERATURE), last_value_DBMETER);
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::bmp_read) {
@@ -2270,6 +2295,7 @@ static void wifiConfig() {
 	debug_outln_info_bool(F("DHT: "), cfg::dht_read);
 	debug_outln_info_bool(F("DS18B20: "), cfg::ds18b20_read);
 	debug_outln_info_bool(F("HTU21D: "), cfg::htu21d_read);
+	debug_outln_info_bool(F("DBMETER: "), cfg::dbmeter_read);
 	debug_outln_info_bool(F("BMP: "), cfg::bmp_read);
 	debug_outln_info_bool(F("DNMS: "), cfg::dnms_read);
 	debug_outln_info_bool(F("CCS811: "), cfg::ccs811_read);
@@ -2711,6 +2737,34 @@ static void fetchSensorHTU21D(String& s) {
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_HTU21D));
+}
+
+/*****************************************************************
+ * read DB meter sensor values                                     *
+ *****************************************************************/
+static void fetchSensorDBMeter(String& s) {
+	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DBMETER));
+	Wire.setClock(10000);
+	uint8_t db = dbmeter_readreg(DBM_REG_DECIBEL);
+	if (db == 255) {
+		last_value_DBMETER = 0;
+		debug_outln_error(F("DB Meter read failed"));
+	} else {
+		last_value_DBMETER = db;
+		add_Value2Json(s, F("DB_Meter"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER);
+	}
+	Wire.setClock(100000);
+	debug_outln_info(FPSTR(DBG_TXT_SEP));
+	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_DBMETER));
+}
+
+uint8_t dbmeter_readreg (uint8_t regaddr) {
+	Wire.beginTransmission(DBM_ADDR);
+	Wire.write(regaddr);
+	Wire.endTransmission();
+	Wire.requestFrom(DBM_ADDR, 1);
+	delay(10);
+	return Wire.read();
 }
 
 /*****************************************************************
@@ -4484,6 +4538,11 @@ static void powerOnTestSensors() {
 			debug_outln_error(F("Check HTU21D wiring"));
 			htu21d_init_failed = true;
 		}
+	}
+
+	if (cfg::dbmeter_read) {
+		debug_outln_info(F("Read DB Meter..."));
+		initDBMeter();
 	}
 
 	if (cfg::bmp_read) {
