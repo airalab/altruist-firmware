@@ -105,6 +105,7 @@ const char INTL_TIME_SINCE_LAST_MEASUREMENT[] PROGMEM = " секунд посл�
 const char INTL_PARTICLES_PER_LITER[] PROGMEM = "Частицы/ литр";
 const char INTL_PARTICULATE_MATTER[] PROGMEM = "Датчик пыли";
 const char INTL_TEMPERATURE[] PROGMEM = "Температура";
+const char INTL_NOISE[] PROGMEM = "Шум";
 const char INTL_HUMIDITY[] PROGMEM = "Относительная влажность";
 const char INTL_PRESSURE[] PROGMEM = "Давление воздуха";
 const char INTL_RADIATION[] PROGMEM = "Радиация";

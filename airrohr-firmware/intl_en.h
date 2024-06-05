@@ -105,6 +105,7 @@ const char INTL_TIME_SINCE_LAST_MEASUREMENT[] PROGMEM = " seconds since last mea
 const char INTL_PARTICLES_PER_LITER[] PROGMEM = "particles/liter";
 const char INTL_PARTICULATE_MATTER[] PROGMEM = "particulate matter";
 const char INTL_TEMPERATURE[] PROGMEM = "temperature";
+const char INTL_NOISE[] PROGMEM = "noise";
 const char INTL_HUMIDITY[] PROGMEM = "humidity";
 const char INTL_PRESSURE[] PROGMEM = "air pressure";
 const char INTL_RADIATION[] PROGMEM = "Radiation";

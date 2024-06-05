@@ -1748,7 +1748,7 @@ static void webserver_values() {
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::dbmeter_read) {
-		add_table_t_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_TEMPERATURE), last_value_DBMETER);
+		add_table_t_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE), last_value_DBMETER);
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::bmp_read) {
