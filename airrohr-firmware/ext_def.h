@@ -250,7 +250,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define GC_READ 0
 
 // Becibel Meter
-#define DBMETER_READ 1
+#define DBMETER_READ 0
 
 // SDS011, the more expensive version of the particle sensor
 #define SDS_READ 1
