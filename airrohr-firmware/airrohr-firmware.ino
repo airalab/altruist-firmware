@@ -2764,7 +2764,7 @@ static void fetchSensorDBMeter(String& s) {
 		if (send_now) {
 			debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
 			debug_outln_info(FPSTR(DBG_TXT_SEP));
-			add_Value2Json(s, F("DB_Meter"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
+			add_Value2Json(s, F("PCBA_noise"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
 			last_value_DBMETER_max = 0;
 		}
 	}
