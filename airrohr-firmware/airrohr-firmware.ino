@@ -2755,6 +2755,7 @@ static void fetchSensorDBMeter(String& s) {
 		add_Value2Json(s, F("DB_Meter"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER);
 	}
 	Wire.setClock(100000);
+	debug_outln_info(F("Noise: "), last_value_DBMETER);
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_DBMETER));
 }
@@ -4838,7 +4839,7 @@ void setup(void) {
  *****************************************************************/
 void loop(void) {
 	String result_PPD, result_SDS, result_PMS, result_HPM, result_CCS;
-	String result_GPS, result_DNMS, result_GC;
+	String result_GPS, result_DNMS, result_GC, result_DB;
 
 	unsigned sum_send_time = 0;
 
@@ -4957,6 +4958,10 @@ void loop(void) {
 		if (cfg::gc_read && (! gc_init_failed)) {
 			fetchSensorGC(result_GC);
 			data += result_GC;
+		}
+		if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
+			fetchSensorDBMeter(result_DB);
+			data += result_DB;
 		}
 		if (((cfg::ccs811_read) || (cfg::ccs811_27_read)) && (! ccs811_init_failed)) {
 			data += result_CCS;
