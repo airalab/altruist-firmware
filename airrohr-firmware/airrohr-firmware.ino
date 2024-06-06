@@ -379,6 +379,7 @@ bool send_now = false;
 unsigned long starttime;
 unsigned long time_point_device_start_ms;
 unsigned long starttime_SDS;
+unsigned long starttime_DB;
 unsigned long starttime_GPS;
 unsigned long starttime_NPM;
 unsigned long last_NPM;
@@ -416,6 +417,7 @@ float last_value_SHT3X_T = -128.0;
 float last_value_SHT3X_H = -1.0;
 
 uint8_t last_value_DBMETER = 0;
+uint8_t last_value_DBMETER_max = 0;
 
 uint32_t sds_pm10_sum = 0;
 uint32_t sds_pm25_sum = 0;
@@ -1750,6 +1752,7 @@ static void webserver_values() {
 	}
 	if (cfg::dbmeter_read) {
 		add_table_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE), String(last_value_DBMETER), unit_DB);
+		add_table_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE_MAX), String(last_value_DBMETER_max), unit_DB);
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::bmp_read) {
@@ -2749,14 +2752,23 @@ static void fetchSensorDBMeter(String& s) {
 	uint8_t db = dbmeter_readreg(DBM_REG_DECIBEL);
 	if (db == 255) {
 		last_value_DBMETER = 0;
+		last_value_DBMETER_max = 0;
 		debug_outln_error(F("DB Meter read failed"));
 	} else {
 		last_value_DBMETER = db;
-		add_Value2Json(s, F("DB_Meter"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER);
+		if (last_value_DBMETER > last_value_DBMETER_max) {
+			last_value_DBMETER_max = last_value_DBMETER;
+		}
+		debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
+		debug_outln_info(F("Noise: "), last_value_DBMETER);
+		if (send_now) {
+			debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
+			debug_outln_info(FPSTR(DBG_TXT_SEP));
+			add_Value2Json(s, F("DB_Meter"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
+			last_value_DBMETER_max = 0;
+		}
 	}
 	Wire.setClock(100000);
-	debug_outln_info(F("Noise: "), last_value_DBMETER);
-	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_DBMETER));
 }
 
@@ -4825,7 +4837,7 @@ void setup(void) {
 
 	starttime = millis();									// store the start time
 	last_update_attempt = time_point_device_start_ms = starttime;
-	last_display_millis = starttime_SDS = starttime;
+	last_display_millis = starttime_SDS = starttime_DB = starttime;
 	if (cfg::file_write) {
 		writeDataFile("Start measuring");
 	}
@@ -4898,6 +4910,13 @@ void loop(void) {
 		fetchSensorPPD(result_PPD);
 	}
 
+	if ((msSince(starttime_DB) > SAMPLETIME_DBMETER_MS) || send_now) {
+		starttime_DB = act_milli;
+		if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
+			fetchSensorDBMeter(result_DB);
+		}
+	}
+
 	if ((msSince(starttime_SDS) > SAMPLETIME_SDS_MS) || send_now) {
 		starttime_SDS = act_milli;
 		if (cfg::sds_read) {
@@ -4960,7 +4979,6 @@ void loop(void) {
 			data += result_GC;
 		}
 		if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
-			fetchSensorDBMeter(result_DB);
 			data += result_DB;
 		}
 		if (((cfg::ccs811_read) || (cfg::ccs811_27_read)) && (! ccs811_init_failed)) {
