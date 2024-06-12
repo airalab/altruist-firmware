@@ -418,6 +418,9 @@ float last_value_SHT3X_H = -1.0;
 
 uint8_t last_value_DBMETER = 0;
 uint8_t last_value_DBMETER_max = 0;
+uint8_t last_value_DBMETER_sum = 0;
+uint8_t last_value_DBMETER_count = 0;
+float last_value_DBMETER_mean = 0;
 
 uint32_t sds_pm10_sum = 0;
 uint32_t sds_pm25_sum = 0;
@@ -1753,6 +1756,7 @@ static void webserver_values() {
 	if (cfg::dbmeter_read) {
 		add_table_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE), String(last_value_DBMETER), unit_DB);
 		add_table_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE_MAX), String(last_value_DBMETER_max), unit_DB);
+		add_table_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE_MEAN), String(last_value_DBMETER_mean), unit_DB);
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::bmp_read) {
@@ -2748,24 +2752,41 @@ static void fetchSensorHTU21D(String& s) {
  *****************************************************************/
 static void fetchSensorDBMeter(String& s) {
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DBMETER));
+	if (is_SDS_running) {
+		debug_outln_info(F("Don't measure noise: SDS is running"));
+		return;
+	}
 	Wire.setClock(10000);
 	uint8_t db = dbmeter_readreg(DBM_REG_DECIBEL);
 	if (db == 255) {
 		last_value_DBMETER = 0;
 		last_value_DBMETER_max = 0;
+		last_value_DBMETER_mean = 0;
+		last_value_DBMETER_count = 0;
+		last_value_DBMETER_sum = 0;
 		debug_outln_error(F("DB Meter read failed"));
 	} else {
 		last_value_DBMETER = db;
 		if (last_value_DBMETER > last_value_DBMETER_max) {
 			last_value_DBMETER_max = last_value_DBMETER;
 		}
+		last_value_DBMETER_sum += last_value_DBMETER;
+		last_value_DBMETER_count++;
 		debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
 		debug_outln_info(F("Noise: "), last_value_DBMETER);
 		if (send_now) {
+			last_value_DBMETER_mean = last_value_DBMETER_sum / last_value_DBMETER_count;
+			debug_outln_info(F("Noise sum: "), last_value_DBMETER_sum);
+			debug_outln_info(F("Noise count: "), last_value_DBMETER_count);
 			debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
+			debug_outln_info(F("Noise mean: "), last_value_DBMETER_mean);
 			debug_outln_info(FPSTR(DBG_TXT_SEP));
-			add_Value2Json(s, F("PCBA_noise"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
+			add_Value2Json(s, F("PCBA_noise_max"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
+			add_Value2Json(s, F("PCBA_noise_mean"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_mean);
 			last_value_DBMETER_max = 0;
+			last_value_DBMETER_mean = 0;
+			last_value_DBMETER_count = 0;
+			last_value_DBMETER_sum = 0;
 		}
 	}
 	Wire.setClock(100000);
