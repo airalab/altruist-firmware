@@ -2753,7 +2753,7 @@ static void fetchSensorHTU21D(String& s) {
 static void fetchSensorDBMeter(String& s) {
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DBMETER));
 	if (is_SDS_running && cfg::sds_read) {
-		debug_outln_info(F("Don't measure noise: SDS is running"));
+		debug_outln_verbose(F("Don't measure noise: SDS is running"));
 	} else {
 		Wire.setClock(10000);
 		uint8_t db = dbmeter_readreg(DBM_REG_DECIBEL);
@@ -2772,8 +2772,6 @@ static void fetchSensorDBMeter(String& s) {
 			last_value_DBMETER_sum += last_value_DBMETER;
 			last_value_DBMETER_count++;
 			last_value_DBMETER_mean = (float)last_value_DBMETER_sum / (float)last_value_DBMETER_count;
-			debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
-			debug_outln_info(F("Noise: "), last_value_DBMETER);
 		}
 		Wire.setClock(100000);
 	}
