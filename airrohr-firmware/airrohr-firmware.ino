@@ -418,7 +418,7 @@ float last_value_SHT3X_H = -1.0;
 
 uint8_t last_value_DBMETER = 0;
 uint8_t last_value_DBMETER_max = 0;
-uint8_t last_value_DBMETER_sum = 0;
+uint32_t last_value_DBMETER_sum = 0;
 uint8_t last_value_DBMETER_count = 0;
 float last_value_DBMETER_mean = 0;
 
@@ -2771,7 +2771,7 @@ static void fetchSensorDBMeter(String& s) {
 			}
 			last_value_DBMETER_sum += last_value_DBMETER;
 			last_value_DBMETER_count++;
-			last_value_DBMETER_mean = last_value_DBMETER_sum / last_value_DBMETER_count;
+			last_value_DBMETER_mean = (float)last_value_DBMETER_sum / (float)last_value_DBMETER_count;
 			debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
 			debug_outln_info(F("Noise: "), last_value_DBMETER);
 		}
