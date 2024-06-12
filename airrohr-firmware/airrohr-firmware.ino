@@ -2754,42 +2754,42 @@ static void fetchSensorDBMeter(String& s) {
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DBMETER));
 	if (is_SDS_running && cfg::sds_read) {
 		debug_outln_info(F("Don't measure noise: SDS is running"));
-		return;
-	}
-	Wire.setClock(10000);
-	uint8_t db = dbmeter_readreg(DBM_REG_DECIBEL);
-	if (db == 255) {
-		last_value_DBMETER = 0;
-		last_value_DBMETER_max = 0;
-		last_value_DBMETER_mean = 0;
-		last_value_DBMETER_count = 0;
-		last_value_DBMETER_sum = 0;
-		debug_outln_error(F("DB Meter read failed"));
 	} else {
-		last_value_DBMETER = db;
-		if (last_value_DBMETER > last_value_DBMETER_max) {
-			last_value_DBMETER_max = last_value_DBMETER;
-		}
-		last_value_DBMETER_sum += last_value_DBMETER;
-		last_value_DBMETER_count++;
-		debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
-		debug_outln_info(F("Noise: "), last_value_DBMETER);
-		if (send_now) {
-			last_value_DBMETER_mean = last_value_DBMETER_sum / last_value_DBMETER_count;
-			debug_outln_info(F("Noise sum: "), last_value_DBMETER_sum);
-			debug_outln_info(F("Noise count: "), last_value_DBMETER_count);
-			debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
-			debug_outln_info(F("Noise mean: "), last_value_DBMETER_mean);
-			debug_outln_info(FPSTR(DBG_TXT_SEP));
-			add_Value2Json(s, F("PCBA_noise_max"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
-			add_Value2Json(s, F("PCBA_noise_mean"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_mean);
+		Wire.setClock(10000);
+		uint8_t db = dbmeter_readreg(DBM_REG_DECIBEL);
+		if (db == 255) {
+			last_value_DBMETER = 0;
 			last_value_DBMETER_max = 0;
 			last_value_DBMETER_mean = 0;
 			last_value_DBMETER_count = 0;
 			last_value_DBMETER_sum = 0;
+			debug_outln_error(F("DB Meter read failed"));
+		} else {
+			last_value_DBMETER = db;
+			if (last_value_DBMETER > last_value_DBMETER_max) {
+				last_value_DBMETER_max = last_value_DBMETER;
+			}
+			last_value_DBMETER_sum += last_value_DBMETER;
+			last_value_DBMETER_count++;
+			last_value_DBMETER_mean = last_value_DBMETER_sum / last_value_DBMETER_count;
+			debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
+			debug_outln_info(F("Noise: "), last_value_DBMETER);
 		}
+		Wire.setClock(100000);
 	}
-	Wire.setClock(100000);
+	if (send_now) {
+		debug_outln_info(F("Noise sum: "), last_value_DBMETER_sum);
+		debug_outln_info(F("Noise count: "), last_value_DBMETER_count);
+		debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
+		debug_outln_info(F("Noise mean: "), last_value_DBMETER_mean);
+		debug_outln_info(FPSTR(DBG_TXT_SEP));
+		add_Value2Json(s, F("PCBA_noise_max"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
+		add_Value2Json(s, F("PCBA_noise_mean"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_mean);
+		last_value_DBMETER_max = 0;
+		last_value_DBMETER_mean = 0;
+		last_value_DBMETER_count = 0;
+		last_value_DBMETER_sum = 0;
+	}
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_DBMETER));
 }
 
