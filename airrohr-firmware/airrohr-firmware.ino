@@ -2752,7 +2752,7 @@ static void fetchSensorHTU21D(String& s) {
  *****************************************************************/
 static void fetchSensorDBMeter(String& s) {
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DBMETER));
-	if (is_SDS_running) {
+	if (is_SDS_running && cfg::sds_read) {
 		debug_outln_info(F("Don't measure noise: SDS is running"));
 		return;
 	}
