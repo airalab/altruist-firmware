@@ -2783,8 +2783,8 @@ static void fetchSensorDBMeter(String& s) {
 		debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
 		debug_outln_info(F("Noise mean: "), last_value_DBMETER_mean);
 		debug_outln_info(FPSTR(DBG_TXT_SEP));
-		add_Value2Json(s, F("PCBA_noise_max"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
-		add_Value2Json(s, F("PCBA_noise_mean"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_mean);
+		add_Value2Json(s, F("PCBA_noiseMax"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
+		add_Value2Json(s, F("PCBA_noiseMean"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_mean);
 		last_value_DBMETER_max = 0;
 		last_value_DBMETER_mean = 0;
 		last_value_DBMETER_count = 0;
