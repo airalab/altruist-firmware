@@ -36,6 +36,7 @@ enum ConfigShapeId {
 	Config_www_basicauth_enabled,
 	Config_dht_read,
 	Config_htu21d_read,
+	Config_dbmeter_read,
 	Config_ppd_read,
 	Config_sds_read,
 	Config_gc_read,
@@ -109,6 +110,7 @@ static constexpr char CFG_KEY_FS_PWD[] PROGMEM = "fs_pwd";
 static constexpr char CFG_KEY_WWW_BASICAUTH_ENABLED[] PROGMEM = "www_basicauth_enabled";
 static constexpr char CFG_KEY_DHT_READ[] PROGMEM = "dht_read";
 static constexpr char CFG_KEY_HTU21D_READ[] PROGMEM = "htu21d_read";
+static constexpr char CFG_KEY_DBMETER_READ[] PROGMEM = "dbmeter_read";
 static constexpr char CFG_KEY_PPD_READ[] PROGMEM = "ppd_read";
 static constexpr char CFG_KEY_SDS_READ[] PROGMEM = "sds_read";
 static constexpr char CFG_KEY_GC_READ[] PROGMEM = "gc_read";
@@ -182,6 +184,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_WWW_BASICAUTH_ENABLED, &cfg::www_basicauth_enabled },
 	{ Config_Type_Bool, 0, CFG_KEY_DHT_READ, &cfg::dht_read },
 	{ Config_Type_Bool, 0, CFG_KEY_HTU21D_READ, &cfg::htu21d_read },
+	{ Config_Type_Bool, 0, CFG_KEY_DBMETER_READ, &cfg::dbmeter_read },
 	{ Config_Type_Bool, 0, CFG_KEY_PPD_READ, &cfg::ppd_read },
 	{ Config_Type_Bool, 0, CFG_KEY_SDS_READ, &cfg::sds_read },
 	{ Config_Type_Bool, 0, CFG_KEY_GC_READ, &cfg::gc_read },

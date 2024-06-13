@@ -6,6 +6,7 @@ const char TXT_CONTENT_TYPE_TEXT_PLAIN[] PROGMEM = "text/plain";
 const char TXT_CONTENT_TYPE_IMAGE_PNG[] PROGMEM = "image/png";
 
 const char DBG_TXT_TEMPERATURE[] PROGMEM = "Temperature (°C): ";
+const char DBG_TXT_DECIBEL[] PROGMEM = "Noise Level (DB): ";
 const char DBG_TXT_HUMIDITY[] PROGMEM = "Humidity (%): ";
 const char DBG_TXT_PRESSURE[] PROGMEM = "Pressure (hPa): ";
 const char DBG_TXT_START_READING[] PROGMEM = "R/ ";
@@ -34,6 +35,7 @@ const char SENSORS_SPS30[] PROGMEM = "Sensirion SPS30";
 const char SENSORS_DHT22[] PROGMEM = "DHT22";
 const char SENSORS_DS18B20[] PROGMEM = "DS18B20";
 const char SENSORS_HTU21D[] PROGMEM = "HTU21D";
+const char SENSORS_DBMETER[] PROGMEM = "Noise Sensor";
 const char SENSORS_SHT3X[] PROGMEM = "SHT3x";
 const char SENSORS_BMP180[] PROGMEM = "BMP180";
 const char SENSORS_BME280[] PROGMEM = "BME280";
