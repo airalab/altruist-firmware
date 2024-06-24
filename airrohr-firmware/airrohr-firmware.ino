@@ -89,7 +89,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HardwareSerial.h>
-#include <hwcrypto/sha.h>
+#include "sha/sha_parallel_engine.h"
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #endif
@@ -2334,7 +2334,12 @@ static void waitForWifiToConnect(int maxRetries) {
  * WiFi auto connecting script                                   *
  *****************************************************************/
 
+#if defined(ESP8266)
 static WiFiEventHandler disconnectEventHandler;
+#endif
+#if defined(ESP32)
+static WiFiEventId_t disconnectEventHandler;
+#endif
 
 static void connectWifi() {
 	display_debug(F("Connecting to"), String(cfg::wlanssid));
@@ -4372,7 +4377,9 @@ static void init_display() {
 	// modifying the I2C speed to 400k, which overwhelms some of the
 	// sensors.
 	Wire.setClock(100000);
+	#if defined(ESP8266)
 	Wire.setClockStretchLimit(150000);
+	#endif
 }
 
 /*****************************************************************
