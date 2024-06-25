@@ -2550,6 +2550,11 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 		contentType = FPSTR(TXT_CONTENT_TYPE_JSON);
 		break;
 	}
+	// if (WiFi.status() != WL_CONNECTED) {
+	// 	Serial.println("Reconnecting to WiFi...");
+	// 	WiFi.disconnect();
+	// 	WiFi.reconnect();
+	// }
 
 	std::unique_ptr<WiFiClient> client(getNewLoggerWiFiClient(logger));
 
@@ -2564,10 +2569,12 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 	if (logger == LoggerInflux && (*cfg::user_influx || *cfg::pwd_influx)) {
 		http.setAuthorization(cfg::user_influx, cfg::pwd_influx);
 	}
+	bool session = !!loggerConfigs[logger].session;
 	if (http.begin(*client, s_Host, loggerConfigs[logger].destport, s_url, !!loggerConfigs[logger].session)) {
 		http.addHeader(F("Content-Type"), contentType);
 		http.addHeader(F("X-Sensor"), String(F(SENSOR_BASENAME)) + esp_chipid);
 		http.addHeader(F("X-MAC-ID"), String(F(SENSOR_BASENAME)) + esp_mac_id);
+		// http.addHeader(F("Content-Length"), String(data.length()));
 		if (pin) {
 			http.addHeader(F("X-PIN"), String(pin));
 		}
@@ -4696,6 +4703,25 @@ static void setupNetworkTime() {
 static unsigned long sendDataToOptionalApis(const String &data) {
 	unsigned long sum_send_time = 0;
 
+	if (cfg::send2robonomics) {
+		int num_of_host;
+		String data_to_send = data;
+		data_to_send.remove(0, 1);
+		String data_4_robonomics(F("{\"esp8266id\": \""));
+		data_4_robonomics += esp_chipid;
+		data_4_robonomics += "\", \"donated_by\": \"";
+		data_4_robonomics += cfg::donated_by;
+		data_4_robonomics += "\", ";
+		data_4_robonomics += data_to_send;
+		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
+		debug_outln_info(F("robonomics: "), data_4_robonomics);
+		num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
+		if (num_of_host == 255) {
+			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
+		}
+		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
+	}
+
 	if (cfg::send2madavi) {
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("madavi.de_change: "));
 		sum_send_time += sendData(LoggerMadavi, data, 0, HOST_MADAVI, URL_MADAVI);
@@ -4744,25 +4770,6 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		data_4_custom += data_to_send;
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("custom api: "));
 		sum_send_time += sendData(LoggerCustom, data_4_custom, 0, cfg::host_custom, cfg::url_custom);
-	}
-
-	if (cfg::send2robonomics) {
-		int num_of_host;
-		String data_to_send = data;
-		data_to_send.remove(0, 1);
-		String data_4_robonomics(F("{\"esp8266id\": \""));
-		data_4_robonomics += esp_chipid;
-		data_4_robonomics += "\", \"donated_by\": \"";
-		data_4_robonomics += cfg::donated_by;
-		data_4_robonomics += "\", ";
-		data_4_robonomics += data_to_send;
-		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
-		debug_outln_info(F("robonomics: "), data_4_robonomics);
-		num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
-		if (num_of_host == 255) {
-			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
-		}
-		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
 	}
 
 	if (cfg::send2csv) {

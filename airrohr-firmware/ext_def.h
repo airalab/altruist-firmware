@@ -99,7 +99,12 @@ static const char URL_CUSTOM[] PROGMEM = "";
 // Robonomics
 #include "./intl.h"
 static const char CURRENT_REG[] PROGMEM = "Global";
+#if defined(ESP8266)
 static const char URL_ROBONOMICS[] PROGMEM = "";
+#endif
+#if defined(ESP32)
+static const char URL_ROBONOMICS[] PROGMEM = "/";
+#endif
 #define PORT_ROBONOMICS 65
 
 // Donated by
@@ -164,7 +169,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define PM_SERIAL_RX D27
 #define PM_SERIAL_TX D33
 #define PIN_CS D13
-#define PM_RESTART 8
+#define PM_RESTART 25
 
 #if defined(FLIP_I2C_PMSERIAL) // exchange the pins of the ports to use external i2c connector for gps
 #define I2C_PIN_SCL D23
