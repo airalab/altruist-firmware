@@ -376,7 +376,9 @@ unsigned long lowpulseoccupancyP1 = 0;
 unsigned long lowpulseoccupancyP2 = 0;
 
 bool send_now = false;
+bool send_noise_now = false;
 unsigned long starttime;
+unsigned long starttime_noise;
 unsigned long time_point_device_start_ms;
 unsigned long starttime_SDS;
 unsigned long starttime_DB;
@@ -2764,6 +2766,7 @@ static void fetchSensorDBMeter(String& s) {
 			last_value_DBMETER_count = 0;
 			last_value_DBMETER_sum = 0;
 			debug_outln_error(F("DB Meter read failed"));
+			// debug_outln_info(F("Noise: "), last_value_DBMETER);
 		} else {
 			last_value_DBMETER = db;
 			if (last_value_DBMETER > last_value_DBMETER_max) {
@@ -2775,7 +2778,7 @@ static void fetchSensorDBMeter(String& s) {
 		}
 		Wire.setClock(100000);
 	}
-	if (send_now) {
+	if ((send_now) || (send_noise_now && !is_SDS_running)) {
 		debug_outln_info(F("Noise sum: "), last_value_DBMETER_sum);
 		debug_outln_info(F("Noise count: "), last_value_DBMETER_count);
 		debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
@@ -2783,6 +2786,7 @@ static void fetchSensorDBMeter(String& s) {
 		debug_outln_info(FPSTR(DBG_TXT_SEP));
 		add_Value2Json(s, F("PCBA_noiseMax"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
 		add_Value2Json(s, F("PCBA_noiseAvg"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_mean);
+		add_Value2Json(s, F("PCBA_noise"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER);
 		last_value_DBMETER_max = 0;
 		last_value_DBMETER_mean = 0;
 		last_value_DBMETER_count = 0;
@@ -3814,7 +3818,7 @@ static __noinline void fetchSensorGPS(String& s) {
 		last_value_GPS_lat = atof(cfg::lat_gps);
 		last_value_GPS_lon = atof(cfg::lon_gps);
 	}
-	if (send_now) {
+	if (send_now || send_noise_now) {
 
 		debug_outln_info(F("Lat: "), String(last_value_GPS_lat, 6));
 		debug_outln_info(F("Lng: "), String(last_value_GPS_lon, 6));
@@ -4766,6 +4770,29 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 	return sum_send_time;
 }
 
+static unsigned long sendDataToRobonomics(const String &data) {
+	unsigned long sum_send_time = 0;
+	if (cfg::send2robonomics) {
+		int num_of_host;
+		String data_to_send = data;
+		data_to_send.remove(0, 1);
+		String data_4_robonomics(F("{\"esp8266id\": \""));
+		data_4_robonomics += esp_chipid;
+		data_4_robonomics += "\", \"donated_by\": \"";
+		data_4_robonomics += cfg::donated_by;
+		data_4_robonomics += "\", ";
+		data_4_robonomics += data_to_send;
+		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
+		debug_outln_info(F("robonomics: "), data_4_robonomics);
+		num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
+		if (num_of_host == 255) {
+			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
+		}
+		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
+	}
+
+}
+
 /*****************************************************************
  * The Setup                                                     *
  *****************************************************************/
@@ -4855,6 +4882,7 @@ void setup(void) {
 	delay(50);
 
 	starttime = millis();									// store the start time
+	starttime_noise = millis();
 	last_update_attempt = time_point_device_start_ms = starttime;
 	last_display_millis = starttime_SDS = starttime_DB = starttime;
 	if (cfg::file_write) {
@@ -4877,13 +4905,16 @@ void loop(void) {
 	act_micro = micros();
 	act_milli = millis();
 	send_now = msSince(starttime) > cfg::sending_intervall_ms;
+	send_noise_now = msSince(starttime_noise) > 15000;
 	// Wait at least 30s for each NTP server to sync
 
-	if (!sntp_time_set && send_now &&
+	if (!sntp_time_set && send_now && send_noise_now &&
 			msSince(time_point_device_start_ms) < 1000 * 2 * 30 + 5000) {
 		debug_outln_info(F("NTP sync not finished yet, skipping send"));
 		send_now = false;
+		send_noise_now = false;
 		starttime = act_milli;
+		starttime_noise = act_milli;
 	}
 
 	sample_count++;
@@ -4929,7 +4960,7 @@ void loop(void) {
 		fetchSensorPPD(result_PPD);
 	}
 
-	if ((msSince(starttime_DB) > SAMPLETIME_DBMETER_MS) || send_now) {
+	if ((msSince(starttime_DB) > SAMPLETIME_DBMETER_MS) || send_now || send_noise_now) {
 		starttime_DB = act_milli;
 		if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
 			fetchSensorDBMeter(result_DB);
@@ -4963,7 +4994,7 @@ void loop(void) {
 			}
 		}
 
-		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now) {
+		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now || send_noise_now) {
 			// getting GPS coordinates
 			fetchSensorGPS(result_GPS);
 			starttime_GPS = act_milli;
@@ -5141,6 +5172,30 @@ void loop(void) {
 		sum_send_time = 0;
 		starttime = millis();								// store the start time
 		count_sends++;
+	} else {
+		if (send_noise_now && cfg::dbmeter_read) {
+			last_signal_strength = WiFi.RSSI();
+			RESERVE_STRING(data, LARGE_STR);
+			data = FPSTR(data_first_part);
+			RESERVE_STRING(result, MED_STR);
+
+			if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
+				data += result_DB;
+			}
+			if (cfg::gps_read) {
+				data += result_GPS;
+				result = emptyString;
+			}
+			if ((unsigned)(data.lastIndexOf(',') + 1) == data.length()) {
+				data.remove(data.length() - 1);
+			}
+			data += "]}";
+
+			yield();
+
+			sendDataToRobonomics(data);
+			starttime_noise = millis();
+		}
 	}
 #if defined(ESP8266)
 	MDNS.update();
