@@ -633,10 +633,14 @@ static void initLilyGOModem() {
 	debug_outln_info(F("Start modem..."));
     delay(3000);
 
-    while (!GSMmodem.init()) {
-        debug_outln_info(F("Failed to restart modem, delaying 10s and retrying"));
-    }
-    debug_outln_info(F("Modem Enabled"));
+    // while (!GSMmodem.init()) {
+    //     debug_outln_info(F("Failed to restart modem, delaying 10s and retrying"));
+    // }
+	if (GSMmodem.init()) {
+		debug_outln_info(F("Modem Enabled"));
+	} else {
+		debug_outln_info(F("Modem wasn't enabled"));
+	}
 }
 #endif
 
