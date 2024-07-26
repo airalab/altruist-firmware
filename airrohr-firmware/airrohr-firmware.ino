@@ -4788,6 +4788,7 @@ static unsigned long sendDataToRobonomics(const String &data) {
 		if (num_of_host == 255) {
 			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
 		}
+		num_of_host = 2;
 		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
 	}
 
@@ -4905,7 +4906,11 @@ void loop(void) {
 	act_micro = micros();
 	act_milli = millis();
 	send_now = msSince(starttime) > cfg::sending_intervall_ms;
-	send_noise_now = msSince(starttime_noise) > 15000;
+	if (cfg::dbmeter_read) {
+		send_noise_now = msSince(starttime_noise) > 5000;
+	} else {
+		send_noise_now = false;
+	}
 	// Wait at least 30s for each NTP server to sync
 
 	if (!sntp_time_set && send_now && send_noise_now &&
@@ -5010,7 +5015,7 @@ void loop(void) {
 	server.handleClient();
 	yield();
 
-	if (send_now) {
+	if (send_now || send_noise_now) {
 		last_signal_strength = WiFi.RSSI();
 		RESERVE_STRING(data, LARGE_STR);
 		data = FPSTR(data_first_part);
@@ -5134,68 +5139,49 @@ void loop(void) {
 
 		yield();
 
-		sum_send_time += sendDataToOptionalApis(data);
-
-		// https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-		sending_time = (3 * sending_time + sum_send_time) / 4;
-		if (sum_send_time > 0) {
-			debug_outln_info(F("Time for Sending (ms): "), String(sending_time));
-		}
-
-		// reconnect to WiFi if disconnected
-		if (WiFi.status() != WL_CONNECTED) {
-			debug_outln_info(F("Connection lost, reconnecting "));
-			WiFi_error_count++;
-			WiFi.reconnect();
-			waitForWifiToConnect(20);
-		}
-
-		// only do a restart after finishing sending
-		if (msSince(time_point_device_start_ms) > DURATION_BEFORE_FORCED_RESTART_MS) {
-			sensor_restart();
-		}
-
-		// time for a OTA attempt?
-		if (msSince(last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
-			twoStageOTAUpdate();
-			last_update_attempt = act_milli;
-		}
-
-		// Resetting for next sampling
-		last_data_string = std::move(data);
-		lowpulseoccupancyP1 = 0;
-		lowpulseoccupancyP2 = 0;
-		sample_count = 0;
-		last_micro = 0;
-		min_micro = 1000000000;
-		max_micro = 0;
-		sum_send_time = 0;
-		starttime = millis();								// store the start time
-		count_sends++;
-	} else {
-		if (send_noise_now && cfg::dbmeter_read) {
-			last_signal_strength = WiFi.RSSI();
-			RESERVE_STRING(data, LARGE_STR);
-			data = FPSTR(data_first_part);
-			RESERVE_STRING(result, MED_STR);
-
-			if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
-				data += result_DB;
+		if (send_now) {
+			sum_send_time += sendDataToOptionalApis(data);
+			sending_time = (3 * sending_time + sum_send_time) / 4;
+			if (sum_send_time > 0) {
+				debug_outln_info(F("Time for Sending (ms): "), String(sending_time));
 			}
-			if (cfg::gps_read) {
-				data += result_GPS;
-				result = emptyString;
-			}
-			if ((unsigned)(data.lastIndexOf(',') + 1) == data.length()) {
-				data.remove(data.length() - 1);
-			}
-			data += "]}";
 
-			yield();
+			// reconnect to WiFi if disconnected
+			if (WiFi.status() != WL_CONNECTED) {
+				debug_outln_info(F("Connection lost, reconnecting "));
+				WiFi_error_count++;
+				WiFi.reconnect();
+				waitForWifiToConnect(20);
+			}
 
+			// only do a restart after finishing sending
+			if (msSince(time_point_device_start_ms) > DURATION_BEFORE_FORCED_RESTART_MS) {
+				sensor_restart();
+			}
+
+			// time for a OTA attempt?
+			if (msSince(last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
+				twoStageOTAUpdate();
+				last_update_attempt = act_milli;
+			}
+
+			// Resetting for next sampling
+			last_data_string = std::move(data);
+			lowpulseoccupancyP1 = 0;
+			lowpulseoccupancyP2 = 0;
+			sample_count = 0;
+			last_micro = 0;
+			min_micro = 1000000000;
+			max_micro = 0;
+			sum_send_time = 0;
+			starttime = millis();								// store the start time
+			count_sends++;
+		} else {
 			sendDataToRobonomics(data);
 			starttime_noise = millis();
 		}
+
+		// https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
 	}
 #if defined(ESP8266)
 	MDNS.update();
