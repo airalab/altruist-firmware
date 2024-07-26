@@ -5,6 +5,7 @@ const char TXT_CONTENT_TYPE_TEXT_CSS[] PROGMEM = "text/css";
 const char TXT_CONTENT_TYPE_TEXT_PLAIN[] PROGMEM = "text/plain";
 const char TXT_CONTENT_TYPE_IMAGE_PNG[] PROGMEM = "image/png";
 
+const char DBG_TXT_BATTERY[] PROGMEM = "Battery Voltage (V): ";
 const char DBG_TXT_TEMPERATURE[] PROGMEM = "Temperature (°C): ";
 const char DBG_TXT_HUMIDITY[] PROGMEM = "Humidity (%): ";
 const char DBG_TXT_PRESSURE[] PROGMEM = "Pressure (hPa): ";
@@ -25,6 +26,7 @@ const char DBG_TXT_SEP[] PROGMEM = "----";
 
 const char SENSORS_SDS011[] PROGMEM = "SDS011";
 const char SENSORS_GC[] PROGMEM = "Geiger Counter";
+const char SENSORS_BATTERY[] PROGMEM = "Battery Voltage";
 const char SENSORS_CCS811[] PROGMEM = "CCS811";
 const char SENSORS_PPD42NS[] PROGMEM = "PPD42NS";
 const char SENSORS_PMSx003[] PROGMEM = "PMSx003";

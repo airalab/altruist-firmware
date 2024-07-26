@@ -107,6 +107,7 @@ const char INTL_TEMPERATURE[] PROGMEM = "Температура";
 const char INTL_HUMIDITY[] PROGMEM = "Относительная влажность";
 const char INTL_PRESSURE[] PROGMEM = "Давление воздуха";
 const char INTL_RADIATION[] PROGMEM = "Радиация";
+const char INTL_BATTERY[] PROGMEM = "Заряд батареи";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";
 const char INTL_LA_MIN[] PROGMEM = "LA min";
 const char INTL_LA_MAX[] PROGMEM = "LA max";

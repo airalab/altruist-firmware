@@ -132,6 +132,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "LilyGO_defines.h"
 #include <TinyGsmClient.h>
 #include <ArduinoHttpClient.h>
+#include <esp_adc_cal.h>
 #endif
 
 
@@ -412,6 +413,11 @@ unsigned long sending_time = 0;
 unsigned long last_update_attempt;
 int last_update_returncode;
 int last_sendData_returncode;
+
+
+#if defined(LILYGO_T_A7670X)
+uint16_t last_value_Battery_voltage = 0;
+#endif
 
 float last_value_BMP_T = -128.0;
 float last_value_BMP_P = -1.0;
@@ -1697,6 +1703,10 @@ static void webserver_values() {
 		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 1, 0), F("μR/h"));
 	};
 
+	auto add_table_voltage_value = [&page_content](const __FlashStringHelper* sensor, const __FlashStringHelper* param, const float& value) {
+		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 1, 0), F("V"));
+	};
+
 	auto add_table_co2_value = [&page_content](const __FlashStringHelper* sensor, const __FlashStringHelper* param, const float& value) {
 		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 1, 0), F("ppm"));
 	};
@@ -1824,6 +1834,10 @@ static void webserver_values() {
 		add_table_value(FPSTR(WEB_GPS), FPSTR(INTL_TIME_UTC), last_value_GPS_timestamp, emptyString);
 		page_content += FPSTR(EMPTY_ROW);
 	}
+#if defined(LILYGO_T_A7670X)
+	add_table_voltage_value(FPSTR(SENSORS_BATTERY), FPSTR(INTL_BATTERY), last_value_Battery_voltage);
+	page_content += FPSTR(EMPTY_ROW);
+#endif
 
 	server.sendContent(page_content);
 	page_content = emptyString;
@@ -2670,36 +2684,33 @@ void initGPRSModem() {
         GSMmodem.simUnlock(GSM_PIN);
     }
 
-    SerialMon.print("Waiting for network...");
+	debug_outln_info(F("Waiting for network..."));
     if (!GSMmodem.waitForNetwork()) {
-        SerialMon.println(" fail");
-        delay(10000);
+        debug_outln_info(F(" fail"));
         return;
     }
-    SerialMon.println(" success");
+    debug_outln_info(F(" success"));
 
     if (GSMmodem.isNetworkConnected()) {
-        SerialMon.println("Network connected");
+        debug_outln_info(F("Network connected"));
     }
 
     // GPRS connection parameters are usually set after network registration
-    SerialMon.print(F("Connecting to "));
-    SerialMon.print(apn);
+    debug_outln_info(F("Connecting to "), apn);
     if (!GSMmodem.gprsConnect(apn, gprsUser, gprsPass)) {
-        SerialMon.println(" fail");
-        delay(10000);
+        debug_outln_info(F(" fail"));
         return;
     }
-    SerialMon.println(" success");
+    debug_outln_info(F(" success"));
 
     if (GSMmodem.isGprsConnected()) {
-        SerialMon.println("GPRS connected");
+        debug_outln_info(F("GPRS connected"));
     }
 }
 
 void stopGPRSModem() {
     GSMmodem.gprsDisconnect();
-    SerialMon.println(F("GPRS disconnected"));
+    debug_outln_info(F("GPRS disconnected"));
 }
 
 /*****************************************************************
@@ -2906,6 +2917,20 @@ static void send_csv(const String& data) {
 		debug_outln_error(FPSTR(DBG_TXT_DATA_READ_FAILED));
 	}
 }
+
+
+#if defined(LILYGO_T_A7670X)
+/*****************************************************************
+ * read Battery sensor values                                      *
+ *****************************************************************/
+static void fetchSensorBattery(String& s) {
+	esp_adc_cal_characteristics_t adc_chars;
+	esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
+	last_value_Battery_voltage = esp_adc_cal_raw_to_voltage(analogRead(BOARD_BAT_ADC_PIN), &adc_chars) * 2;
+	add_Value2Json(s, F("Battery_voltage"), FPSTR(DBG_TXT_BATTERY), last_value_Battery_voltage);
+}
+#endif
+
 
 /*****************************************************************
  * read DHT22 sensor values                                      *
@@ -5230,6 +5255,11 @@ void loop(void) {
 		data = FPSTR(data_first_part);
 		RESERVE_STRING(result, MED_STR);
 
+#if defined(LILYGO_T_A7670X)
+		fetchSensorBattery(result);
+		data += result;
+		result = emptyString;
+#endif
 		if (cfg::ppd_read) {
 			data += result_PPD;
 			sum_send_time += sendSensorCommunity(result_PPD, PPD_API_PIN, FPSTR(SENSORS_PPD42NS), "PPD_");
