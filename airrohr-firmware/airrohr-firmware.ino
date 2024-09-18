@@ -60,7 +60,7 @@
 #include <pgmspace.h>
 
 // increment on change
-#define SOFTWARE_VERSION_STR "R_2024-06"
+#define SOFTWARE_VERSION_STR "R_2024-09"
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
 /*****************************************************************
@@ -376,7 +376,9 @@ unsigned long lowpulseoccupancyP1 = 0;
 unsigned long lowpulseoccupancyP2 = 0;
 
 bool send_now = false;
+bool send_noise_now = false;
 unsigned long starttime;
+unsigned long starttime_noise;
 unsigned long time_point_device_start_ms;
 unsigned long starttime_SDS;
 unsigned long starttime_DB;
@@ -2764,6 +2766,7 @@ static void fetchSensorDBMeter(String& s) {
 			last_value_DBMETER_count = 0;
 			last_value_DBMETER_sum = 0;
 			debug_outln_error(F("DB Meter read failed"));
+			// debug_outln_info(F("Noise: "), last_value_DBMETER);
 		} else {
 			last_value_DBMETER = db;
 			if (last_value_DBMETER > last_value_DBMETER_max) {
@@ -2775,7 +2778,7 @@ static void fetchSensorDBMeter(String& s) {
 		}
 		Wire.setClock(100000);
 	}
-	if (send_now) {
+	if ((send_now) || (send_noise_now && !is_SDS_running)) {
 		debug_outln_info(F("Noise sum: "), last_value_DBMETER_sum);
 		debug_outln_info(F("Noise count: "), last_value_DBMETER_count);
 		debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
@@ -3814,7 +3817,7 @@ static __noinline void fetchSensorGPS(String& s) {
 		last_value_GPS_lat = atof(cfg::lat_gps);
 		last_value_GPS_lon = atof(cfg::lon_gps);
 	}
-	if (send_now) {
+	if (send_now || send_noise_now) {
 
 		debug_outln_info(F("Lat: "), String(last_value_GPS_lat, 6));
 		debug_outln_info(F("Lng: "), String(last_value_GPS_lon, 6));
@@ -4766,6 +4769,30 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 	return sum_send_time;
 }
 
+static unsigned long sendDataToRobonomics(const String &data) {
+	unsigned long sum_send_time = 0;
+	if (cfg::send2robonomics) {
+		int num_of_host;
+		String data_to_send = data;
+		data_to_send.remove(0, 1);
+		String data_4_robonomics(F("{\"esp8266id\": \""));
+		data_4_robonomics += esp_chipid;
+		data_4_robonomics += "\", \"donated_by\": \"";
+		data_4_robonomics += cfg::donated_by;
+		data_4_robonomics += "\", ";
+		data_4_robonomics += data_to_send;
+		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
+		debug_outln_info(F("robonomics: "), data_4_robonomics);
+		num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
+		if (num_of_host == 255) {
+			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
+		}
+		num_of_host = 2;
+		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
+	}
+
+}
+
 /*****************************************************************
  * The Setup                                                     *
  *****************************************************************/
@@ -4855,6 +4882,7 @@ void setup(void) {
 	delay(50);
 
 	starttime = millis();									// store the start time
+	starttime_noise = millis();
 	last_update_attempt = time_point_device_start_ms = starttime;
 	last_display_millis = starttime_SDS = starttime_DB = starttime;
 	if (cfg::file_write) {
@@ -4877,13 +4905,20 @@ void loop(void) {
 	act_micro = micros();
 	act_milli = millis();
 	send_now = msSince(starttime) > cfg::sending_intervall_ms;
+	if (cfg::dbmeter_read) {
+		send_noise_now = msSince(starttime_noise) > 5000;
+	} else {
+		send_noise_now = false;
+	}
 	// Wait at least 30s for each NTP server to sync
 
-	if (!sntp_time_set && send_now &&
+	if (!sntp_time_set && send_now && send_noise_now &&
 			msSince(time_point_device_start_ms) < 1000 * 2 * 30 + 5000) {
 		debug_outln_info(F("NTP sync not finished yet, skipping send"));
 		send_now = false;
+		send_noise_now = false;
 		starttime = act_milli;
+		starttime_noise = act_milli;
 	}
 
 	sample_count++;
@@ -4929,7 +4964,7 @@ void loop(void) {
 		fetchSensorPPD(result_PPD);
 	}
 
-	if ((msSince(starttime_DB) > SAMPLETIME_DBMETER_MS) || send_now) {
+	if ((msSince(starttime_DB) > SAMPLETIME_DBMETER_MS) || send_now || send_noise_now) {
 		starttime_DB = act_milli;
 		if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
 			fetchSensorDBMeter(result_DB);
@@ -4963,7 +4998,7 @@ void loop(void) {
 			}
 		}
 
-		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now) {
+		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now || send_noise_now) {
 			// getting GPS coordinates
 			fetchSensorGPS(result_GPS);
 			starttime_GPS = act_milli;
@@ -4979,7 +5014,7 @@ void loop(void) {
 	server.handleClient();
 	yield();
 
-	if (send_now) {
+	if (send_now || send_noise_now) {
 		last_signal_strength = WiFi.RSSI();
 		RESERVE_STRING(data, LARGE_STR);
 		data = FPSTR(data_first_part);
@@ -5103,44 +5138,49 @@ void loop(void) {
 
 		yield();
 
-		sum_send_time += sendDataToOptionalApis(data);
+		if (send_now) {
+			sum_send_time += sendDataToOptionalApis(data);
+			sending_time = (3 * sending_time + sum_send_time) / 4;
+			if (sum_send_time > 0) {
+				debug_outln_info(F("Time for Sending (ms): "), String(sending_time));
+			}
+
+			// reconnect to WiFi if disconnected
+			if (WiFi.status() != WL_CONNECTED) {
+				debug_outln_info(F("Connection lost, reconnecting "));
+				WiFi_error_count++;
+				WiFi.reconnect();
+				waitForWifiToConnect(20);
+			}
+
+			// only do a restart after finishing sending
+			if (msSince(time_point_device_start_ms) > DURATION_BEFORE_FORCED_RESTART_MS) {
+				sensor_restart();
+			}
+
+			// time for a OTA attempt?
+			if (msSince(last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
+				twoStageOTAUpdate();
+				last_update_attempt = act_milli;
+			}
+
+			// Resetting for next sampling
+			last_data_string = std::move(data);
+			lowpulseoccupancyP1 = 0;
+			lowpulseoccupancyP2 = 0;
+			sample_count = 0;
+			last_micro = 0;
+			min_micro = 1000000000;
+			max_micro = 0;
+			sum_send_time = 0;
+			starttime = millis();								// store the start time
+			count_sends++;
+		} else {
+			sendDataToRobonomics(data);
+			starttime_noise = millis();
+		}
 
 		// https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-		sending_time = (3 * sending_time + sum_send_time) / 4;
-		if (sum_send_time > 0) {
-			debug_outln_info(F("Time for Sending (ms): "), String(sending_time));
-		}
-
-		// reconnect to WiFi if disconnected
-		if (WiFi.status() != WL_CONNECTED) {
-			debug_outln_info(F("Connection lost, reconnecting "));
-			WiFi_error_count++;
-			WiFi.reconnect();
-			waitForWifiToConnect(20);
-		}
-
-		// only do a restart after finishing sending
-		if (msSince(time_point_device_start_ms) > DURATION_BEFORE_FORCED_RESTART_MS) {
-			sensor_restart();
-		}
-
-		// time for a OTA attempt?
-		if (msSince(last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
-			twoStageOTAUpdate();
-			last_update_attempt = act_milli;
-		}
-
-		// Resetting for next sampling
-		last_data_string = std::move(data);
-		lowpulseoccupancyP1 = 0;
-		lowpulseoccupancyP2 = 0;
-		sample_count = 0;
-		last_micro = 0;
-		min_micro = 1000000000;
-		max_micro = 0;
-		sum_send_time = 0;
-		starttime = millis();								// store the start time
-		count_sends++;
 	}
 #if defined(ESP8266)
 	MDNS.update();
