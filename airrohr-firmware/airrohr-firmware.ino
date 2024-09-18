@@ -4787,7 +4787,6 @@ static unsigned long sendDataToRobonomics(const String &data) {
 		if (num_of_host == 255) {
 			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
 		}
-		num_of_host = 2;
 		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
 	}
 
