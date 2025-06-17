@@ -88,9 +88,14 @@ static void wifiConfig(SensorWebServer &webserver) {
 
 	// // 10 minutes timeout for wifi config
 	// unsigned long last_page_load = millis();
+	unsigned long start_setup_time = millis();
 	while (true) {
 		dnsServer.processNextRequest();
 		webserver.handleClient();
+		if (millis() - start_setup_time > 15 * 60 * 1000) {
+			debug_outln_error(F("WiFi config timeout, restarting..."));
+			esp_restart();
+		}
 #if defined(ESP8266)
 		wdt_reset(); // nodemcu is alive
 		MDNS.update();

@@ -10,9 +10,7 @@ void SensorWebServer::setup() {
     www_username = cfg::www_username;
     www_password = cfg::www_password;
     uint64_t chipid_num;
-	chipid_num = ESP.getEfuseMac();
-    esp_chipid = (uint16_t)(chipid_num >> 32), HEX;
-	esp_chipid += String((uint32_t)chipid_num, HEX);
+	esp_chipid = get_chipid();
 
 	server.on("/guest", std::bind(&SensorWebServer::_webserver_guest, this)); // x
 	server.on("/", std::bind(&SensorWebServer::_webserver_root, this)); // x

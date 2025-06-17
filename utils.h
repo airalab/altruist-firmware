@@ -84,8 +84,9 @@ struct device_status_t {
 	std::vector<std::string> sensor_names;
 };
 
-
+String get_chipid();
 String tmpl(const __FlashStringHelper* patt, const String& value);
+const char* get_reset_reason_text();
 
 String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
 String delayToString(unsigned time_ms);

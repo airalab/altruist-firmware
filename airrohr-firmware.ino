@@ -265,6 +265,7 @@ static void setupEnabledAPIs() {
 
 	for (int i = 0; i < APIsCount; i++) {
 		activeAPIs[i]->setup();
+		activeAPIs[i]->updateDeviceStatus(deviceStatus);
 	}
 
 }
@@ -276,6 +277,61 @@ static void setupNetworkTime() {
 	strcpy_P(ntpServer1, NTP_SERVER_1);
 	strcpy_P(ntpServer2, NTP_SERVER_2);
 	configTime(0, 0, ntpServer1, ntpServer2);
+}
+
+void sensorAndAPIWorker(void *pvParameters) {
+	int reconnected = 0;
+	for (;;) {  // infinite loop
+		bool isSDSRunning = false;
+		for (int i = 0; i < activeSensorsCount; i++) {
+			if (activeSensors[i]->sensor_name == SDS_SENSOR_NAME) {
+			isSDSRunning = static_cast<SDS011Sensor*>(activeSensors[i])->getIsSDSRunning();
+			}
+			if (activeSensors[i]->sensor_name == I2S_NOISE_SENSOR_NAME) {
+			static_cast<I2SNoiseSensor*>(activeSensors[i])->setSDSRunning(isSDSRunning);
+			}
+			if (activeSensors[i]->isTimeToFetch()) {
+			activeSensors[i]->fetch(sensors_data);
+			}
+		}
+
+		for (int i = 0; i < APIsCount; i++) {
+			if (activeAPIs[i]->isTimeToSend()) {
+			Serial.printf("WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
+			if (WiFi.status() != WL_CONNECTED) {
+				WiFi.reconnect();
+				reconnected++;
+			}
+
+			sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
+			activeAPIs[i]->send(sensors_data);
+			activeAPIs[i]->updateDeviceStatus(deviceStatus);
+
+			if (msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
+				twoStageOTAUpdate(deviceStatus);
+				deviceStatus.last_update_attempt = millis();
+			}
+
+			debug_outln_info(get_reset_reason_text());
+
+			Serial.println(F("Device Status:"));
+			for (const auto& [api_name, status] : deviceStatus.apis_status) {
+				Serial.print(F("API Name: "));
+				Serial.println(api_name.c_str());
+				Serial.print(F("  Count Sends: "));
+				Serial.println(status.count_sends);
+				Serial.print(F("  Last Send Time: "));
+				Serial.println(ctime(&status.last_send_time));
+				Serial.print(F("  Is OK: "));
+				Serial.println(status.is_ok ? F("Yes") : F("No"));
+			}
+
+			sensors_data.shrinkToFit();
+			}
+		}
+
+		vTaskDelay(100 / portTICK_PERIOD_MS);  // yield to other tasks, run ~10x/sec
+	}
 }
 
 
@@ -306,15 +362,12 @@ void setup(void) {
 	esp_mac_id.toLowerCase();
 #endif
 #if defined(ESP32)
-	uint64_t chipid_num;
-	chipid_num = ESP.getEfuseMac();
-	String esp_chipid((uint16_t)(chipid_num >> 32), HEX);
-	esp_chipid += String((uint32_t)chipid_num, HEX);
+	String esp_chipid = get_chipid();
 #endif
 	cfg::initNonTrivials(esp_chipid.c_str());
 	WiFi.persistent(false);
 
-	debug_outln_info(F("airRohr: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
+	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
 	init_config();
 	// init_display();
@@ -325,6 +378,7 @@ void setup(void) {
 	connectWifi(webserver);
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
+	debug_outln_info(get_reset_reason_text());
 	twoStageOTAUpdate(deviceStatus);
 
 	sensors_data["service_data"]["robonomics_address"] = robonomics.getSs58Address();
@@ -343,6 +397,16 @@ void setup(void) {
 
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
 
+	xTaskCreatePinnedToCore(
+		sensorAndAPIWorker,  // task function
+		"SensorAPIWorker",   // name
+		8192,                // stack size
+		NULL,                // parameters
+		1,                   // priority (>=1 to not be preempted too much)
+		NULL,                // task handle (optional)
+		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
+	);
+
 }
 
 /*****************************************************************
@@ -350,43 +414,6 @@ void setup(void) {
  *****************************************************************/
 
 void loop(void) {
-	bool isSDSRunning = false;
-	for (int i = 0; i < activeSensorsCount; i++) {
-		if (activeSensors[i]->sensor_name == SDS_SENSOR_NAME) {
-			isSDSRunning = static_cast<SDS011Sensor*>(activeSensors[i])->getIsSDSRunning();
-		}
-		if (activeSensors[i]->sensor_name == I2S_NOISE_SENSOR_NAME) {
-			static_cast<I2SNoiseSensor*>(activeSensors[i])->setSDSRunning(isSDSRunning);
-		}
-		if (activeSensors[i]->isTimeToFetch()) {
-			activeSensors[i]->fetch(sensors_data);
-		}
-	}
-
-
-	for (int i = 0; i < APIsCount; i++) {
-		if (activeAPIs[i]->isTimeToSend()) {
-			sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
-			activeAPIs[i]->send(sensors_data);
-			activeAPIs[i]->updateDeviceStatus(deviceStatus);
-			if (msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
-				twoStageOTAUpdate(deviceStatus);
-				deviceStatus.last_update_attempt = millis();
-			}
-			Serial.println(F("Device Status:"));
-			for (const auto& [api_name, status] : deviceStatus.apis_status) {
-				Serial.print(F("API Name: "));
-				Serial.println(api_name.c_str());
-				Serial.print(F("  Count Sends: "));
-				Serial.println(status.count_sends);
-				Serial.print(F("  Last Send Time: "));
-				Serial.println(ctime(&status.last_send_time));
-				Serial.print(F("  Is OK: "));
-				Serial.println(status.is_ok ? F("Yes") : F("No"));
-			}
-			sensors_data.shrinkToFit();
-		}
-	}
 	webserver.handleClient();
 	yield();
 }

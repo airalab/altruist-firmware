@@ -20,10 +20,7 @@ static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostr
 	// work with 128kbit/s downlinks
 	http.setTimeout(60 * 1000);
 	String agent(SOFTWARE_VERSION_STR);
-    uint64_t chipid_num;
-	chipid_num = ESP.getEfuseMac();
-	String esp_chipid = String((uint16_t)(chipid_num >> 32), HEX);
-	esp_chipid += String((uint32_t)chipid_num, HEX);
+    String esp_chipid = get_chipid();
 	agent += ' ';
 	agent += esp_chipid;
 	agent += ' ';
@@ -80,8 +77,39 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5) {
 
     debug_outln_info(F("Begin OTA. This may take some time..."));
 
-    WiFiClient *stream = http.getStreamPtr();
-    size_t written = Update.writeStream(*stream);
+    // WiFiClient *stream = http.getStreamPtr();
+    // size_t written = Update.writeStream(*stream);
+
+	WiFiClient stream = http.getStream();
+	const size_t bufferSize = 1024;
+	uint8_t buffer[bufferSize];
+	size_t written = 0;
+	int lastPercent = -1;
+
+	while (stream.connected() && written < contentLength) {
+		size_t available = stream.available();
+		if (available) {
+			size_t toRead = (available > bufferSize) ? bufferSize : available;
+			int bytesRead = stream.readBytes(buffer, toRead);
+
+			if (bytesRead > 0) {
+				if (Update.write(buffer, bytesRead) != bytesRead) {
+					debug_outln_error(F("Update.write() failed"));
+					return false;
+				}
+
+				written += bytesRead;
+
+				// Print progress
+				int percent = (written * 100) / contentLength;
+				if (percent != lastPercent && percent % 5 == 0) {  // only print every 5%
+					debug_outln_info(F("OTA Progress: "), percent);
+					lastPercent = percent;
+				}
+			}
+		}
+		delay(1);  // yield
+	}
 
     if (written == contentLength) {
         debug_outln_info(F("Written successfully: "), written);

@@ -26,6 +26,12 @@ def after_build(source, target, env):
     with open(f"builds/{firmaware_prefix_name}_{target_name}.bin.md5", "w") as md5:
         print(_file_md5_hexdigest(target[0].path), file = md5)
     shutil.copy(target[0].path, f"builds/{firmaware_prefix_name}_{target_name}.bin")
+    if target_name == "en":
+        target_name = "beta"
+        with open(f"builds/{firmaware_prefix_name}_{target_name}.bin.md5", "w") as md5:
+            print(_file_md5_hexdigest(target[0].path), file = md5)
+        shutil.copy(target[0].path, f"builds/{firmaware_prefix_name}_{target_name}.bin")
+
 
 
 env.AddPostAction("$BUILD_DIR/firmware.bin", after_build)

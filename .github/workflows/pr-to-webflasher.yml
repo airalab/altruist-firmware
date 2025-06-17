@@ -6,7 +6,7 @@ on:
 
 jobs:
   push-to-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v3
@@ -35,6 +35,8 @@ jobs:
 
       - name: Clone webflasher repo and create PR
         run: |
+          pio --version
+          cat builds/latest32c3_en.bin.md5
           TAG=${{ github.ref_name }}
           BRANCH=altruist-release-$TAG
 

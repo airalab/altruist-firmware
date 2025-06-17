@@ -28,11 +28,47 @@
 #include "./ext_def.h"
 #include <SPIFFS.h>
 
+String get_chipid() {
+	uint64_t chipid_num;
+	chipid_num = ESP.getEfuseMac();
+	String esp_chipid((uint16_t)(chipid_num >> 32), HEX);
+	esp_chipid += String((uint32_t)chipid_num, HEX);
+	return esp_chipid;
+}
 
 String tmpl(const __FlashStringHelper* patt, const String& value) {
 	String s = patt;
 	s.replace("{v}", value);
 	return s;
+}
+
+const char* get_reset_reason_text() {
+    esp_reset_reason_t reason = esp_reset_reason();
+
+    switch (reason) {
+        case ESP_RST_POWERON:
+            return "Power-on reset";
+        case ESP_RST_EXT:
+            return "External reset (e.g., reset button)";
+        case ESP_RST_SW:
+            return "Software reset (esp_restart())";
+        case ESP_RST_PANIC:
+            return "Panic reset (e.g., unhandled exception)";
+        case ESP_RST_INT_WDT:
+            return "Interrupt watchdog timeout";
+        case ESP_RST_TASK_WDT:
+            return "Task watchdog timeout";
+        case ESP_RST_WDT:
+            return "Other watchdog reset";
+        case ESP_RST_DEEPSLEEP:
+            return "Wake from deep sleep";
+        case ESP_RST_BROWNOUT:
+            return "Brownout reset (voltage too low)";
+        case ESP_RST_SDIO:
+            return "Reset over SDIO";
+        default:
+            return "Unknown";
+    }
 }
 
 String delayToString(unsigned time_ms) {

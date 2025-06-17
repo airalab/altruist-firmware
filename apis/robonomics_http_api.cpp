@@ -7,10 +7,7 @@
 void RobonomicsHTTPAPI::setup() {
 	api_name = "Robonomics Map";
     _client = new WiFiClient();
-    uint64_t chipid_num;
-	chipid_num = ESP.getEfuseMac();
-	esp_chipid = String((uint16_t)(chipid_num >> 32), HEX);
-	esp_chipid += String((uint32_t)chipid_num, HEX);
+    String esp_chipid = get_chipid();
     donated_by = cfg::donated_by;
     rws_owner = cfg::rws_owner;
 	current_reg = cfg::current_reg;

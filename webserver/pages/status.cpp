@@ -24,9 +24,7 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus)
 	time_t now = time(nullptr);
 	add_table_row_from_value(page_content, FPSTR(INTL_TIME_UTC), ctime(&now));
 	add_table_row_from_value(page_content, F("Uptime"), delayToString(millis() - deviceStatus.time_point_device_start_ms));
-#if defined(ESP8266)
-	add_table_row_from_value(page_content, F("Reset Reason"), ESP.getResetReason());
-#endif
+	add_table_row_from_value(page_content, F("Reset Reason"), get_reset_reason_text());
 }
 
 void webserver_status_part2(String &page_content, device_status_t &deviceStatus) {
@@ -39,7 +37,8 @@ void webserver_status_part2(String &page_content, device_status_t &deviceStatus)
         String api_is_ok = value.is_ok ? "OK" : "ERROR";
         String api_count_sends(value.count_sends);
         String api_last_send = ctime(&value.last_send_time);
-        add_table_row_from_value(page_content, key.c_str(), api_is_ok);
+		std::string boldKey = "<b>" + key + "</b>";
+        add_table_row_from_value(page_content, boldKey.c_str(), api_is_ok);
         add_table_row_from_value(page_content, F("    count sends"), api_count_sends);
         add_table_row_from_value(page_content, F("    last send time"), api_last_send);
     }
