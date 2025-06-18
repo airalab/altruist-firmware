@@ -17,14 +17,28 @@ void RobonomicsHTTPAPI::setup() {
 
 void RobonomicsHTTPAPI::_send(JsonDocument &data) {
     int num_of_host;
-    String datalog_data;
+	String data_to_send;
+	formatDataToSend(data_to_send, data);
+    debug_outln_info(F("robonomics: "), data_to_send);
+	is_ok = false;
+    num_of_host = chooseRobonomicsServer(false);
+    if (num_of_host == 255) {
+        num_of_host = chooseRobonomicsServer(true);
+    }
+    if (num_of_host != 255) {
+        POSTRequest(data_to_send, HOST_ROBONOMICS[num_of_host][0]);
+    }
+}
+
+void RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &data) {
 	double last_value_GPS_lat;
 	double last_value_GPS_lon;
+	String datalog_data;
 	sscanf(cfg::coords_gps, "%lf,%lf", &last_value_GPS_lat, &last_value_GPS_lon);
-    formatRobonomicsString(data, datalog_data);
+	formatRobonomicsString(data, datalog_data);
     String signature;
-	addTimeAndSign(datalog_data, signature);
-    String data_to_send(F("{\"robonomics_address\": \""));
+	addTimeAndSign(datalog_data, signature, robonomics);
+    data_to_send = F("{\"robonomics_address\": \"");
     data_to_send += robonomics->getSs58Address();
     data_to_send += "\", \"donated_by\": \"";
     data_to_send += donated_by;
@@ -39,43 +53,6 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data) {
     data_to_send += "\", \"sensordatavalues\": \"";
     data_to_send += datalog_data;
     data_to_send += "\"}";
-    debug_outln_info(F("robonomics: "), data_to_send);
-	is_ok = false;
-    num_of_host = chooseRobonomicsServer(false);
-    if (num_of_host == 255) {
-        num_of_host = chooseRobonomicsServer(true);
-    }
-    if (num_of_host != 255) {
-        POSTRequest(data_to_send, HOST_ROBONOMICS[num_of_host][0]);
-    }
-}
-
-void RobonomicsHTTPAPI::addTimeAndSign(const String &data, String &signature) {
-  // Get the local time.
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    debug_outln_error(F("Failed to obtain time"));
-    return;
-  }
-  
-  // Convert local time to a Unix timestamp.
-  time_t timestamp = mktime(&timeinfo);
-  String timestampStr = String(timestamp);
-  
-  // Remove the last two digits from the timestamp string.
-  if (timestampStr.length() > 2) {
-    timestampStr = timestampStr.substring(0, timestampStr.length() - 2);
-  }
-  
-  debug_outln_info(F("Modified Timestamp: "), timestampStr);
-
-  String messageWithTimestamp = data + ",time:" + timestampStr;
-
-  debug_outln_info(F("Message to sign: "), messageWithTimestamp);
-
-  robonomics->signMessage(messageWithTimestamp, signature);
-
-  debug_outln_info(F("Signature: "), signature);
 }
 
 void RobonomicsHTTPAPI::POSTRequest(const String& data, const char* host) {

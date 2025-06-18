@@ -248,7 +248,8 @@ static void powerOnTestSensors() {
 
 }
 
-const int APIsCount = 2;
+const int APIsCount = 3;
+int ActiveAPIsCount = 2;
 API* activeAPIs[APIsCount];
 
 RobonomicsDatalogAPI robonomicsDatalogAPI;
@@ -263,7 +264,13 @@ static void setupEnabledAPIs() {
 	activeAPIs[0] = &robonomicsDatalogAPI;
 	activeAPIs[1] = &robonomicsHTTPAPI;
 
-	for (int i = 0; i < APIsCount; i++) {
+	// if (cfg::send2custom) {
+	// 	ActiveAPIsCount++;
+	// 	API* custom_api = new CustomHTTPAPI();
+	// 	activeAPIs[2] = custom_api;
+	// }
+
+	for (int i = 0; i < ActiveAPIsCount; i++) {
 		activeAPIs[i]->setup();
 		activeAPIs[i]->updateDeviceStatus(deviceStatus);
 	}
@@ -295,7 +302,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 			}
 		}
 
-		for (int i = 0; i < APIsCount; i++) {
+		for (int i = 0; i < ActiveAPIsCount; i++) {
 			if (activeAPIs[i]->isTimeToSend()) {
 			Serial.printf("WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
 			if (WiFi.status() != WL_CONNECTED) {

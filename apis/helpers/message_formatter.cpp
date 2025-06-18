@@ -34,3 +34,31 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
     datalog_data.remove(datalog_data.length() - 1);
     debug_outln_info(F("Datalog data: "), datalog_data);
 }
+
+void addTimeAndSign(const String &data, String &signature, Robonomics *robonomics) {
+  // Get the local time.
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    debug_outln_error(F("Failed to obtain time"));
+    return;
+  }
+  
+  // Convert local time to a Unix timestamp.
+  time_t timestamp = mktime(&timeinfo);
+  String timestampStr = String(timestamp);
+  
+  // Remove the last two digits from the timestamp string.
+  if (timestampStr.length() > 2) {
+    timestampStr = timestampStr.substring(0, timestampStr.length() - 2);
+  }
+  
+  debug_outln_info(F("Modified Timestamp: "), timestampStr);
+
+  String messageWithTimestamp = data + ",time:" + timestampStr;
+
+  debug_outln_info(F("Message to sign: "), messageWithTimestamp);
+
+  robonomics->signMessage(messageWithTimestamp, signature);
+
+  debug_outln_info(F("Signature: "), signature);
+}
