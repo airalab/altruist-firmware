@@ -1,13 +1,11 @@
-#ifndef __ROBONOMICS_API_H__
-#define __ROBONOMICS_API_H__
+#ifndef __CUSTOM_API_H__
+#define __CUSTOM_API_H__
 
 #include "api.h"
 #include "WiFiClient.h"
 #include "HTTPClient.h"
 #include <Robonomics.h>
 
-static const char URL_ROBONOMICS[] PROGMEM = "/";
-#define PORT_ROBONOMICS 65
 
 class CustomHTTPAPI : public API {
 public:
@@ -31,4 +29,4 @@ private:
     void formatDataToSend(String &data_to_send, JsonDocument &data);
 };
 
-#endif  // __ROBONOMICS_API_H__
+#endif  // __CUSTOM_API_H__

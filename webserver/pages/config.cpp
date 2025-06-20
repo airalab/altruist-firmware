@@ -169,22 +169,22 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// Custom API (tab 3)
 
 	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CUSTOMAPI "</h3>");
-	page_content += form_checkbox(Config_send2custom, FPSTR(INTL_SEND_TO_OWN_API), false, false);
-	page_content += form_checkbox(Config_ssl_custom, FPSTR(WEB_HTTPS), false, false);
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CUSTOMAPI " (BETA)</h3>");
+	page_content += form_checkbox(Config_send2custom, FPSTR(INTL_SEND_TO_OWN_API), false, true);
+	// page_content += form_checkbox(Config_ssl_custom, FPSTR(WEB_HTTPS), false, false);
 
-	add_form_input(page_content, Config_host_custom, FPSTR(INTL_SERVER), LEN_HOST_CUSTOM-1, false);
-	add_form_input(page_content, Config_url_custom, FPSTR(INTL_PATH), LEN_URL_CUSTOM-1, false);
-	add_form_input(page_content, Config_port_custom, FPSTR(INTL_PORT), MAX_PORT_DIGITS, false);
-	add_form_input(page_content, Config_user_custom, FPSTR(INTL_USER), LEN_USER_CUSTOM-1, false);
-	add_form_input(page_content, Config_pwd_custom, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1, false);
+	add_form_input(page_content, Config_host_custom, FPSTR(INTL_SERVER), LEN_HOST_CUSTOM-1, true);
+	add_form_input(page_content, Config_url_custom, FPSTR(INTL_PATH), LEN_URL_CUSTOM-1, true);
+	add_form_input(page_content, Config_port_custom, FPSTR(INTL_PORT), MAX_PORT_DIGITS, true);
+	// add_form_input(page_content, Config_user_custom, FPSTR(INTL_USER), LEN_USER_CUSTOM-1, false);
+	// add_form_input(page_content, Config_pwd_custom, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1, false);
 	page_content += F("</div>");
 	server.sendContent(page_content);
 
 	// Influx DB (tab 3)
 	
 	page_content = F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_INFLUX "</h3>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_INFLUX " (UNDO DEVELOPMENT)</h3>");
 	page_content += form_checkbox(Config_send2influx, tmpl(FPSTR(INTL_SEND_TO), F("InfluxDB")), false, false);
 
 	page_content += form_checkbox(Config_ssl_influx, FPSTR(WEB_HTTPS), false, false);
@@ -202,7 +202,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// CSV (tab 3)
 
 	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CSV "</h3>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CSV " (UNDO DEVELOPMENT)</h3>");
 	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV), false);
 	page_content += F("</div>");
 

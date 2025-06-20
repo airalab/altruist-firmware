@@ -254,6 +254,7 @@ API* activeAPIs[APIsCount];
 
 RobonomicsDatalogAPI robonomicsDatalogAPI;
 RobonomicsHTTPAPI robonomicsHTTPAPI;
+CustomHTTPAPI* customHTTPAPI = nullptr;
 
 static void setupEnabledAPIs() {
 	debug_outln_info(F("Send to :"));
@@ -264,11 +265,12 @@ static void setupEnabledAPIs() {
 	activeAPIs[0] = &robonomicsDatalogAPI;
 	activeAPIs[1] = &robonomicsHTTPAPI;
 
-	// if (cfg::send2custom) {
-	// 	ActiveAPIsCount++;
-	// 	API* custom_api = new CustomHTTPAPI();
-	// 	activeAPIs[2] = custom_api;
-	// }
+	if (cfg::send2custom) {
+		customHTTPAPI = new CustomHTTPAPI();
+		customHTTPAPI->setRobonomcis(&robonomics);
+		activeAPIs[2] = customHTTPAPI;
+		ActiveAPIsCount++;
+	}
 
 	for (int i = 0; i < ActiveAPIsCount; i++) {
 		activeAPIs[i]->setup();
