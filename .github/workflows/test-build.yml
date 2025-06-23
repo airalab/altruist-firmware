@@ -25,3 +25,9 @@ jobs:
       - name: Build firmware
         run: pio run
 
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: altruist-firmware
+          path: builds/latest*.bin*
+
