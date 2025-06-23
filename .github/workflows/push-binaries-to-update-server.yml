@@ -1,0 +1,45 @@
+name: Upload Binaries to Update Server
+on:
+  release:
+    types: [created]
+  push:
+    branches:
+        - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build firmware
+        run: pio run
+
+      - name: Rename Files
+        run: |
+          shopt -s extglob
+          cd builds
+          for file in latest*.@(bin|bin.md5); do
+            if [[ "$file" != latest*_beta* ]]; then
+              mv "$file" "beta_${file}"
+            fi
+          done
+
+      - name: Upload to FTP
+        uses: sebastianpopp/ftp-action@releases/v2
+        with:
+          host: ${{ secrets.FTP_HOST }}
+          user: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          localDir: builds
+          remoteDir: /home/updsens/web/upd.sensors.robonomics.network/public_html/test
