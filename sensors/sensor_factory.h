@@ -10,7 +10,13 @@
 #include "tiny_gps_sensor.h"
 #include "scd4x_sensor.h"
 
-String supported_sensor_names[] = {SDS_SENSOR_NAME, BME_SENSOR_NAME, I2S_NOISE_SENSOR_NAME, SCD4X_SENSOR_NAME, RADSENS_SENSOR_NAME};
+String supported_sensor_names[] = {
+  SDS_SENSOR_NAME, 
+  BME_SENSOR_NAME, 
+  I2S_NOISE_SENSOR_NAME, 
+  SCD4X_SENSOR_NAME, 
+  RADSENS_SENSOR_NAME
+};
 
 Sensor* createSensor(const String &sensorType, unsigned long sending_timeout) {
   if (sensorType == SDS_SENSOR_NAME) {

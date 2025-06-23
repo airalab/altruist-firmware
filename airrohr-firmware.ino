@@ -84,11 +84,11 @@
 
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
-
+SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
 DynamicJsonDocument sensors_data(2048);
 device_status_t deviceStatus;
 
-SensorWebServer webserver(sensors_data, deviceStatus);
+SensorWebServer webserver(sensors_data, deviceStatus, mutex);
 
 /*****************************************************************
  * Variables for Robonomics                                      *
@@ -294,13 +294,16 @@ void sensorAndAPIWorker(void *pvParameters) {
 		bool isSDSRunning = false;
 		for (int i = 0; i < activeSensorsCount; i++) {
 			if (activeSensors[i]->sensor_name == SDS_SENSOR_NAME) {
-			isSDSRunning = static_cast<SDS011Sensor*>(activeSensors[i])->getIsSDSRunning();
+				isSDSRunning = static_cast<SDS011Sensor*>(activeSensors[i])->getIsSDSRunning();
 			}
 			if (activeSensors[i]->sensor_name == I2S_NOISE_SENSOR_NAME) {
-			static_cast<I2SNoiseSensor*>(activeSensors[i])->setSDSRunning(isSDSRunning);
+				static_cast<I2SNoiseSensor*>(activeSensors[i])->setSDSRunning(isSDSRunning);
 			}
 			if (activeSensors[i]->isTimeToFetch()) {
-			activeSensors[i]->fetch(sensors_data);
+				if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+					activeSensors[i]->fetch(sensors_data);
+					xSemaphoreGive(mutex);
+				}
 			}
 		}
 

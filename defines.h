@@ -2,7 +2,12 @@
 #define __DEFINES_H__
 
 // increment on change
-#define SOFTWARE_VERSION_STR "R_2025-04"
+#if defined(ALTRUIST_INSIDE)
+#define SOFTWARE_VERSION_STR "R-INS_2025-06"
+#endif
+#if defined(ALTRUIST_URBAN)
+#define SOFTWARE_VERSION_STR "R-URB_2025-06"
+#endif
 
 #if defined(ESP8266)
 #define SENSOR_BASENAME "esp8266-"

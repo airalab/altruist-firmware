@@ -56,7 +56,10 @@ void SensorWebServer::_webserver_status() {
 
 void SensorWebServer::_webserver_data_json() {
 	String json_content;
-    webserver_data_json(sensors_data, esp_chipid, json_content);
+	if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+    	webserver_data_json(sensors_data, esp_chipid, json_content);
+		xSemaphoreGive(mutex);
+	}
     server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), json_content);
 }
 

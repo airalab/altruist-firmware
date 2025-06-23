@@ -9,7 +9,7 @@
 class SensorWebServer {
 
 public:
-    SensorWebServer(JsonDocument &_data, device_status_t &_deviceStatus) : server(80), sensors_data(_data), deviceStatus(_deviceStatus) {}
+    SensorWebServer(JsonDocument &_data, device_status_t &_deviceStatus, SemaphoreHandle_t _mutex) : server(80), sensors_data(_data), deviceStatus(_deviceStatus), mutex{_mutex} {}
     void setup();
     void setWifiConfigLoop(bool loop) { wificonfig_loop = loop; };
     void handleClient() { server.handleClient(); };
@@ -19,8 +19,10 @@ public:
 private:
     WebServer server;
     JsonDocument &sensors_data;
+    SemaphoreHandle_t mutex;
 
     device_status_t &deviceStatus;
+
 
     String www_password;
     String www_username;

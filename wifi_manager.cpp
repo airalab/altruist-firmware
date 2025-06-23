@@ -151,9 +151,11 @@ static WiFiEventId_t disconnectEventHandler;
 #endif
 
 void connectWifi(SensorWebServer &webserver) {
+#if defined(ALTRUIST_URBAN)
 	if (WiFi.getAutoConnect()) {
 		WiFi.setAutoConnect(false);
 	}
+#endif
 	if (!WiFi.getAutoReconnect()) {
 		WiFi.setAutoReconnect(true);
 	}
