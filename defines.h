@@ -1,6 +1,8 @@
 #ifndef __DEFINES_H__
 #define __DEFINES_H__
 
+#define DISPLAY_REFRESH_INTERVAL 300000
+
 // increment on change
 #if defined(ALTRUIST_INSIDE)
 #define SOFTWARE_VERSION_STR "R-INS_2025-06"
@@ -17,6 +19,8 @@
 #define SENSOR_BASENAME "esp32-"
 #define OTA_BASENAME "/airrohr/esp32"
 #endif
+
+#define ATRUIST_URBAN_SENSOR "altruist_urban"
 
 #define SSID_BASENAME "Altruist-"
 #define HOSTNAME_BASE "Altruist-"

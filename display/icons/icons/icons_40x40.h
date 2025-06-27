@@ -1,0 +1,21 @@
+#ifndef __ICONS_40x40_H__
+#define __ICONS_40x40_H__
+#include "40x40/air_filter_40x40.h"
+#include "40x40/co2_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_40x40.h"
+#include "40x40/co2_svgrepo_com_40x40.h"
+#include "40x40/house_humidity_40x40.h"
+#include "40x40/house_thermometer_40x40.h"
+#include "40x40/ionizing_radiation_symbol_40x40.h"
+#include "40x40/temperature_svgrepo_com_40x40.h"
+#include "40x40/volume_down_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_40x40.h"
+#include "40x40/volume_up_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_40x40.h"
+#include "40x40/wi_barometer_40x40.h"
+#include "40x40/wi_barometer_cropped_40x40.h"
+#include "40x40/wi_celsius_40x40.h"
+#include "40x40/wifi_40x40.h"
+#include "40x40/wifi_x_40x40.h"
+#include "40x40/wi_humidity_40x40.h"
+#include "40x40/wi_humidity_cropped_40x40.h"
+#include "40x40/wi_thermometer_40x40.h"
+#include "40x40/wi_thermometer_cropped_40x40.h"
+#endif

@@ -9,13 +9,19 @@
 #include "radsens_sensor.h"
 #include "tiny_gps_sensor.h"
 #include "scd4x_sensor.h"
+#if defined(ALTRUIST_INSIDE)
+#include "http_altruist_sensor.h"
+#endif
 
 String supported_sensor_names[] = {
   SDS_SENSOR_NAME, 
   BME_SENSOR_NAME, 
   I2S_NOISE_SENSOR_NAME, 
   SCD4X_SENSOR_NAME, 
-  RADSENS_SENSOR_NAME
+  RADSENS_SENSOR_NAME,
+#if defined(ALTRUIST_INSIDE)
+  HTTP_ALTRUIST_SENSOR_NAME,
+#endif
 };
 
 Sensor* createSensor(const String &sensorType, unsigned long sending_timeout) {
@@ -31,6 +37,10 @@ Sensor* createSensor(const String &sensorType, unsigned long sending_timeout) {
     return new GPSSensor(sending_timeout);
   } else if (sensorType == SCD4X_SENSOR_NAME) {
     return new SCD4xSensor(sending_timeout);
+#if defined(ALTRUIST_INSIDE)
+  } else if (sensorType == HTTP_ALTRUIST_SENSOR_NAME) {
+    return new HTTPAltruistSensor(sending_timeout);
+#endif
   }
   return nullptr;
 }

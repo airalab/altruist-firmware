@@ -150,7 +150,11 @@ void twoStageOTAUpdate(device_status_t &deviceStatus) {
 		lang_variant = CURRENT_LANG;
 	}
 	lang_variant.toLowerCase();
+#ifdef ALTRUIST_INSIDE
+	String fetch_name(F("/latest32c6ins_"));
+#else
 	String fetch_name(F("/latest32c3_"));
+#endif
 	if (cfg::use_beta) {
 		fetch_name += F("beta");
 	} else {

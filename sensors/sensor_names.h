@@ -1,6 +1,8 @@
 #ifndef __SENSORS_NAMES_H__
 #define __SENSORS_NAMES_H__
 
+#include "../defines.h"
+
 #define SDS_SENSOR_NAME "SDS"
 #define BME_SENSOR_NAME "BME280"
 #define BMP_SENSOR_NAME "BMP280"
@@ -8,5 +10,7 @@
 #define RADSENS_SENSOR_NAME "RadSens"
 #define GPS_SENSOR_NAME "GPS"
 #define SCD4X_SENSOR_NAME "SCD4x"
+#define HTTP_ALTRUIST_SENSOR_NAME ATRUIST_URBAN_SENSOR
+
 
 #endif // __SENSORS_NAMES_H__

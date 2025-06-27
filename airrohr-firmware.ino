@@ -81,6 +81,9 @@
 #include "wifi_manager.h"
 #include "webserver/webserver.h"
 #include "OTA_Update.h"
+#if defined(ALTRUIST_INSIDE)
+#include "display/waveshare.h"
+#endif
 
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
@@ -351,6 +354,8 @@ void sensorAndAPIWorker(void *pvParameters) {
  * The Setup                                                     *
  *****************************************************************/
 
+int last_display_refresh;
+
 void setup(void) {
 	delay(3000);
 	// Debug.begin(115200);		// Output to Serial at 115200 from web console 
@@ -385,9 +390,10 @@ void setup(void) {
 	// init_display();
 	setupNetworkTime();
 	setupEnabledAPIs();
-	powerOnTestSensors();
+	// powerOnTestSensors();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
 	connectWifi(webserver);
+	powerOnTestSensors();
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
 	debug_outln_info(get_reset_reason_text());
@@ -412,13 +418,13 @@ void setup(void) {
 	xTaskCreatePinnedToCore(
 		sensorAndAPIWorker,  // task function
 		"SensorAPIWorker",   // name
-		8192,                // stack size
+		16392,                // stack size
 		NULL,                // parameters
 		1,                   // priority (>=1 to not be preempted too much)
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
-
+	last_display_refresh = -DISPLAY_REFRESH_INTERVAL + 2000 + millis();
 }
 
 /*****************************************************************
@@ -427,5 +433,14 @@ void setup(void) {
 
 void loop(void) {
 	webserver.handleClient();
+#if defined(ALTRUIST_INSIDE)
+	if (millis() - last_display_refresh > DISPLAY_REFRESH_INTERVAL) {
+		String json;
+		serializeJson(sensors_data, json);
+		debug_outln_info(F("Refresh screen"));
+		drawMainScreen(json);
+		last_display_refresh = millis();
+	}
+#endif
 	yield();
 }

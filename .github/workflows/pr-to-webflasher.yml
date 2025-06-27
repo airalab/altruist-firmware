@@ -54,6 +54,7 @@ jobs:
           rm -f firmware/Altruist/latest*
           ls firmware/Altruist
           cp ../builds/* ./firmware/Altruist/
+          rm 
           ls firmware/Altruist
           git add firmware/Altruist
           git commit -m "Altruist firmware release $TAG"
