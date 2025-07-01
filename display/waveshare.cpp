@@ -58,7 +58,7 @@ void refreshScreen(UBYTE *&BlackImage) {
 
 void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_screen_values) {
     debug_outln_info(F("Got json string: "), jsonString);
-    DynamicJsonDocument doc(1024);  // adjust size as needed
+    DynamicJsonDocument doc(2048);  // adjust size as needed
 
     DeserializationError error = deserializeJson(doc, jsonString);
     if (error) {
@@ -93,8 +93,8 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_scr
             main_screen_values.noise_avg= data[ATRUIST_URBAN_SENSOR]["PCBA_noiseAvg"]["value"].as<float>();
         }
     }
-    if (data.containsKey("SCD41")) {
-        main_screen_values.co2 = data["SCD41"]["co2"]["value"].as<float>();
+    if (data.containsKey("SCD4x")) {
+        main_screen_values.co2 = data["SCD4x"]["co2"]["value"].as<float>();
     }
     if (data.containsKey("BME680")) {
         main_screen_values.hum_indoor= data["BME680"]["humidity"]["value"].as<float>();

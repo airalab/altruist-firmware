@@ -291,10 +291,8 @@ static void setupNetworkTime() {
 	configTime(0, 0, ntpServer1, ntpServer2);
 }
 
-void sensorAndAPIWorker(void *pvParameters) {
-	int reconnected = 0;
-	for (;;) {  // infinite loop
-		bool isSDSRunning = false;
+void fetchSensors() {
+	bool isSDSRunning = false;
 		for (int i = 0; i < activeSensorsCount; i++) {
 			if (activeSensors[i]->sensor_name == SDS_SENSOR_NAME) {
 				isSDSRunning = static_cast<SDS011Sensor*>(activeSensors[i])->getIsSDSRunning();
@@ -309,6 +307,12 @@ void sensorAndAPIWorker(void *pvParameters) {
 				}
 			}
 		}
+}
+
+void sensorAndAPIWorker(void *pvParameters) {
+	int reconnected = 0;
+	for (;;) {  // infinite loop
+		fetchSensors();
 
 		for (int i = 0; i < ActiveAPIsCount; i++) {
 			if (activeAPIs[i]->isTimeToSend()) {
@@ -349,10 +353,6 @@ void sensorAndAPIWorker(void *pvParameters) {
 	}
 }
 
-
-/*****************************************************************
- * The Setup                                                     *
- *****************************************************************/
 
 int last_display_refresh;
 
@@ -414,6 +414,7 @@ void setup(void) {
     Serial.println();
 
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
+	fetchSensors();
 
 	xTaskCreatePinnedToCore(
 		sensorAndAPIWorker,  // task function
@@ -425,11 +426,8 @@ void setup(void) {
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
 	last_display_refresh = -DISPLAY_REFRESH_INTERVAL + 2000 + millis();
-}
 
-/*****************************************************************
- * And action                                                    *
- *****************************************************************/
+}
 
 void loop(void) {
 	webserver.handleClient();

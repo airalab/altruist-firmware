@@ -11,6 +11,7 @@
 #include "scd4x_sensor.h"
 #if defined(ALTRUIST_INSIDE)
 #include "http_altruist_sensor.h"
+#include "bmx680i2c_sensor.h"
 #endif
 
 String supported_sensor_names[] = {
@@ -21,6 +22,7 @@ String supported_sensor_names[] = {
   RADSENS_SENSOR_NAME,
 #if defined(ALTRUIST_INSIDE)
   HTTP_ALTRUIST_SENSOR_NAME,
+  BME680_SENSOR_NAME,
 #endif
 };
 
@@ -40,6 +42,8 @@ Sensor* createSensor(const String &sensorType, unsigned long sending_timeout) {
 #if defined(ALTRUIST_INSIDE)
   } else if (sensorType == HTTP_ALTRUIST_SENSOR_NAME) {
     return new HTTPAltruistSensor(sending_timeout);
+  } else if (sensorType == BME680_SENSOR_NAME) {
+    return new BME680Sensor(sending_timeout);
 #endif
   }
   return nullptr;

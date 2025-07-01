@@ -80,6 +80,16 @@ constexpr const unsigned long ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 constexpr const unsigned long PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS = ONE_DAY_IN_MS;		// check for firmware updates once a day
 constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS * 28;	// force a reboot every ~4 weeks
 
+#ifdef ALTRUIST_INSIDE
+#define SDA_I2C_PIN 2
+#define SCL_I2C_PIN 3 
+#endif
+
+#ifdef ALTRUIST_URBAN
+#define SDA_I2C_PIN 3
+#define SCL_I2C_PIN 0
+#endif
+
 // Definition GPIOs for Zero based Arduino Feather M0 LoRaWAN
 #if defined(ARDUINO_SAMD_ZERO) && defined(SERIAL_PORT_USBVIRTUAL)
 // Required for Serial on Zero based boards
@@ -105,19 +115,6 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #endif
 
 #if defined(ESP32)
-//GPIO Pins
-// the IO pins which can be used for what depends on the following:
-//   - The board which is used
-//     - onboard peripherials like LCD or LoRa chips which already occupy an IO pin
-//     - the ESP32 module which is used
-//         - the WROVER board uses the IOs 16 and 17 to access the PSRAW
-//         - on WROOM boards the IOs 16 and 17 can be freely used
-//   - if JTAG debugging shall be used
-//   - some IOs have constraints
-//     - configuration of ESP32 module configuration options ("strapping") like operating voltage and boot medium
-//     - some IOs can only be used for inputs (34, 35, 36, 39)
-// see https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
-//     https://github.com/va3wam/TWIPi/blob/master/Eagle/doc/feather-pinout-map.pdf
 #define D0_STRAPPING 0
 #if defined(NO_USB_SERIAL_ON_UART0)
 #define D1 1  // often used for USB serial RX

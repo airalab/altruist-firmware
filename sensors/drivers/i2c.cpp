@@ -1,12 +1,13 @@
 #include "i2c.h"
+#include "../../defines.h"
 
 esp_err_t i2c_master_init(void) {
     i2c_config_t conf;
     memset(&conf, 0, sizeof(i2c_config_t));
     conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = 3;
+    conf.sda_io_num = SDA_I2C_PIN;
     conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.scl_io_num = 0;
+    conf.scl_io_num = SCL_I2C_PIN;
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
     esp_err_t err = i2c_param_config(I2C_MASTER_NUM, &conf);

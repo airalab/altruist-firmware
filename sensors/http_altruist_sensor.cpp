@@ -35,7 +35,7 @@ bool HTTPAltruistSensor::begin() {
     for (int i = 0; i < nrOfServices; i=i+1) {
         debug_outln_info(F("---------------"));
         debug_outln_info(F("Hostname: "), MDNS.hostname(i));
-        debug_outln_info(F("IP address: "), String(MDNS.address(i)));
+        debug_outln_info(F("IP address: "), MDNS.address(i).toString());
         debug_outln_info(F("Port: "), MDNS.port(i));
         debug_outln_info(F("---------------"));
     }
