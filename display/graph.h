@@ -1,3 +1,6 @@
+
+#ifdef ALTRUIST_INSIDE
+
 #include <stdlib.h>
 #include "GUI_Paint.h"
 #include "EPD.h"
@@ -80,3 +83,5 @@ private:
     void drawLine(uint8_t line_number, uint32_t *time_now);
     float nice_number(float value, int round);
 };
+
+#endif

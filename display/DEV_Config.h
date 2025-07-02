@@ -27,6 +27,8 @@
 # THE SOFTWARE.
 #
 ******************************************************************************/
+#ifdef ALTRUIST_INSIDE
+
 #ifndef _DEV_CONFIG_H_
 #define _DEV_CONFIG_H_
 
@@ -71,5 +73,8 @@ void GPIO_Mode(UWORD GPIO_Pin, UWORD Mode);
 void DEV_SPI_WriteByte(UBYTE data);
 UBYTE DEV_SPI_ReadByte();
 void DEV_SPI_Write_nByte(UBYTE *pData, UDOUBLE len);
+
+#endif
+
 
 #endif

@@ -1,3 +1,5 @@
+#ifdef ALTRUIST_INSIDE
+
 #ifndef WAVESHARE_H
 #define WAVESHARE_H
 
@@ -19,3 +21,5 @@ struct main_screen_values_t {
 void drawMainScreen(const String &jsonString);
 
 #endif // WAVESHARE_H
+
+#endif

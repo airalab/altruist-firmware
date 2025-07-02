@@ -1,3 +1,5 @@
+#ifdef ALTRUIST_INSIDE
+
 #include "waveshare.h"
 #include <ArduinoJson.h>  // This was missing!
 #include <string.h>       // For strlen
@@ -5,7 +7,6 @@
 #include "DEV_Config.h"
 #include "EPD.h"
 #include "GUI_Paint.h"
-#include "ImageData.h"
 #include "graph.h"
 #include <stdlib.h>
 #include "icons/icons/icons_40x40.h"
@@ -300,3 +301,6 @@ void drawMainScreen(const String &jsonString) {
 // {
 //   //
 // }
+
+
+#endif

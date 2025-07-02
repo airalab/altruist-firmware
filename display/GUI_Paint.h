@@ -75,6 +75,9 @@
 * THE SOFTWARE.
 *
 ******************************************************************************/
+
+#ifdef ALTRUIST_INSIDE
+
 #ifndef __GUI_PAINT_H
 #define __GUI_PAINT_H
 
@@ -218,7 +221,4 @@ void Paint_DrawImage(const unsigned char *image_buffer, UWORD xStart, UWORD ySta
 
 #endif
 
-
-
-
-
+#endif

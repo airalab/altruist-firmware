@@ -35,6 +35,8 @@
   ******************************************************************************
   */
 
+ #ifdef ALTRUIST_INSIDE
+
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __FONTS_H
 #define __FONTS_H
@@ -96,3 +98,5 @@ extern cFONT Font24CN;
  
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
+#endif

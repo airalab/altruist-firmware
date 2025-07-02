@@ -28,6 +28,9 @@
 # THE SOFTWARE.
 #
 ******************************************************************************/
+
+#ifdef ALTRUIST_INSIDE
+
 #ifndef __EPD_3IN52_H_
 #define __EPD_3IN52_H_
 
@@ -65,6 +68,9 @@ void EPD_3IN52_display_NUM(UBYTE NUM);
 void EPD_3IN52_Clear(void);
 void EPD_3IN52_sleep(void);
 
+
+
+#endif
 
 
 #endif

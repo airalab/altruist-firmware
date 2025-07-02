@@ -27,6 +27,9 @@
 # THE SOFTWARE.
 #
 ******************************************************************************/
+
+#ifdef ALTRUIST_INSIDE
+
 #include "DEV_Config.h"
 
 void GPIO_Config(void)
@@ -121,3 +124,5 @@ void DEV_SPI_Write_nByte(UBYTE *pData, UDOUBLE len)
     for (int i = 0; i < len; i++)
         DEV_SPI_WriteByte(pData[i]);
 }
+
+#endif

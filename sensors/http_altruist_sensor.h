@@ -1,3 +1,5 @@
+#ifdef ALTRUIST_INSIDE
+
 #ifndef __HTTP_ALTRUIST_H__
 #define __HTTP_ALTRUIST_H__
 
@@ -20,3 +22,5 @@ private:
 };
 
 #endif // __HTTP_ALTRUIST_H__
+
+#endif

@@ -1,3 +1,5 @@
+#ifdef ALTRUIST_INSIDE
+
 #include "http_altruist_sensor.h"
 #include "../utils.h"
 #include "../intl.h"
@@ -104,3 +106,5 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
         debug_outln_info(F("Request to Altruist Urban failed, code: "), httpCode);
     }
 }
+
+#endif

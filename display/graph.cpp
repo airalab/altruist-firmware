@@ -1,4 +1,5 @@
-#include "ImageData.h"
+#ifdef ALTRUIST_INSIDE
+
 #include "graph.h"
 
 void stringFromFloat(char *buffer, float value, int precision) {
@@ -224,3 +225,5 @@ float GraphPainter::nice_number(float value, int round) {
 
     return nice_fraction * powf(10, exponent);
 }
+
+#endif
