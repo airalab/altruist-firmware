@@ -18,6 +18,7 @@ public:
 
 private:
     void _fetch(JsonDocument &data) override;
+    String sensor_ip_address;
     String sensor_url = "http://";
 };
 

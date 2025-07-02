@@ -16,9 +16,10 @@ struct main_screen_values_t {
     float temp_indoor = -1;
     float hum_indoor = -1;
     float co2 = -1;
+    String ip_address = "";
 };
 
-void drawMainScreen(const String &jsonString);
+void drawMainScreen(const String &jsonString, const String &device_ip_address);
 
 #endif // WAVESHARE_H
 

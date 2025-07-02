@@ -3,6 +3,7 @@
 #include "../../utils.h"
 #include "../../config_manager/config_helpers.h"
 #include "../../defines.h"
+#include "../../sensors/sensor_names.h"
 
 /*****************************************************************
  * Webserver data.json                                           *
@@ -20,6 +21,8 @@ void webserver_data_json(JsonDocument &data, const String &esp_chipid, String &j
     for (JsonPair sensor : data.as<JsonObject>())  {
         String sensor_name = sensor.key().c_str();
         JsonObject sensorData = sensor.value().as<JsonObject>();
+
+        if (sensor_name.startsWith(HTTP_ALTRUIST_SENSOR_NAME)) continue;
 
         if (sensor_name == "service_data") {
             signal_strength = sensorData["signal_strength"].as<String>();

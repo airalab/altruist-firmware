@@ -415,6 +415,7 @@ void setup(void) {
 
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
 	fetchSensors();
+	deviceStatus.ip_address = WiFi.localIP().toString();
 
 	xTaskCreatePinnedToCore(
 		sensorAndAPIWorker,  // task function
@@ -436,7 +437,7 @@ void loop(void) {
 		String json;
 		serializeJson(sensors_data, json);
 		debug_outln_info(F("Refresh screen"));
-		drawMainScreen(json);
+		drawMainScreen(json, deviceStatus.ip_address);
 		last_display_refresh = millis();
 	}
 #endif

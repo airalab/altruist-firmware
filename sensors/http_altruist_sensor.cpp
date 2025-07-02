@@ -41,6 +41,7 @@ bool HTTPAltruistSensor::begin() {
         debug_outln_info(F("Port: "), MDNS.port(i));
         debug_outln_info(F("---------------"));
     }
+    sensor_ip_address = MDNS.address(0).toString();
     sensor_url += MDNS.address(0).toString();
     sensor_url += JSON_DATA_PATH;
     debug_outln_info(F("Http Altruis Sensor started with fetch interval (sec): "), String(timeout/1000));
@@ -56,6 +57,7 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
 
     if (httpCode == HTTP_CODE_OK) {
         debug_outln_info(F("Success request to Altruis Urban"));
+        addValueToJSON(data, F("IP_address"), sensor_ip_address, INTL_IP_ADDRESS, "");
         String payload = http.getString();
         DynamicJsonDocument doc(2048);
         DeserializationError err = deserializeJson(doc, payload);

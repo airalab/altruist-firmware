@@ -79,7 +79,7 @@ struct device_status_t {
 	unsigned long last_update_attempt;
 	unsigned long time_point_device_start_ms;
 	int last_update_returncode;
-	unsigned long count_sends = 0;
+	String ip_address;
 	std::map<std::string, api_status_t> apis_status;
 	std::vector<std::string> sensor_names;
 };

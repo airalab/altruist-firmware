@@ -72,6 +72,9 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_scr
     debug_outln_info(F("---"));
     serializeJson(data, Serial);
     if (data.containsKey(ATRUIST_URBAN_SENSOR)) {
+        if (data[ATRUIST_URBAN_SENSOR].containsKey("IP_address")) {
+            main_screen_values.ip_address = data[ATRUIST_URBAN_SENSOR]["IP_address"]["value"].as<String>();
+        }
         if (data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P1")) {
             main_screen_values.pm10 = data[ATRUIST_URBAN_SENSOR]["SDS_P1"]["value"].as<float>();
         }
@@ -103,7 +106,7 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_scr
     }
 }
 
-void drawMainScreen(const String &jsonString) {
+void drawMainScreen(const String &jsonString, const String &device_ip_adrress) {
     UBYTE *BlackImage;
     createNewImage(BlackImage);
     main_screen_values_t main_screen_values;
@@ -125,8 +128,14 @@ void drawMainScreen(const String &jsonString) {
     drawValue("Humidity", main_screen_values.hum_indoor, 1,  house_humidity_40x40, "%", 40, 238, 102);
     drawValue("CO2", main_screen_values.co2, 1,  co2_svgrepo_com_35x35, "ppm", 35, 238, 147, 5);
 
+    Paint_DrawRectangle(235 - main_screen_values.ip_address.length() * Font12.Width - 5, 3, 235, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
     Paint_DrawString_EN(235 - 7* Font16.Width - 5, 5, "Outdoor", &Font16, BLACK, WHITE);
+    Paint_DrawString_EN(235 - main_screen_values.ip_address.length() * Font12.Width - 5, Font16.Height + 5, main_screen_values.ip_address.c_str(), &Font12, BLACK, WHITE);
+
+
+    Paint_DrawRectangle(360 - device_ip_adrress.length() * Font12.Width - 5, 3, 360, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
     Paint_DrawString_EN(360 - 6* Font16.Width - 5, 5, "Indoor", &Font16, BLACK, WHITE);
+    Paint_DrawString_EN(360 - device_ip_adrress.length() * Font12.Width - 5, Font16.Height + 5, device_ip_adrress.c_str(), &Font12, BLACK, WHITE);
 
     refreshScreen(BlackImage);
 }
