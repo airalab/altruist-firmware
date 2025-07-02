@@ -19,9 +19,12 @@ def after_build(source, target, env):
     sectionName = 'env:' + configName.decode('utf-8')
     lang = config.get(sectionName, "lang")
     target_name = lang.lower()
-    is_esp32 = "esp32" in sectionName
-
-    firmaware_prefix_name = "latest32c3" if is_esp32 else "latest"
+    if "esp32c3" in sectionName:
+        firmaware_prefix_name = "latest32c3"
+    elif "esp32c6" in sectionName:
+        firmaware_prefix_name = "latest32c6ins"
+    else:
+        firmaware_prefix_name = "latest"
 
     with open(f"builds/{firmaware_prefix_name}_{target_name}.bin.md5", "w") as md5:
         print(_file_md5_hexdigest(target[0].path), file = md5)
