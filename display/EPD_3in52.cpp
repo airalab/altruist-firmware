@@ -30,6 +30,7 @@
 ******************************************************************************/
 
 #ifdef ALTRUIST_INSIDE
+#ifdef DISPLAY_3IN52
 
 #include "EPD_3in52.h"
 #include "Debug.h"
@@ -591,4 +592,5 @@ void EPD_3IN52_sleep(void)
 
 
 
+#endif
 #endif

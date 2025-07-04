@@ -1,11 +1,11 @@
 /*****************************************************************************
-* | File      	:   EPD_3IN52.h
+* | File      	:   EPD_4in2_V2.h
 * | Author      :   Waveshare team
-* | Function    :   3.52inch e-paper
+* | Function    :   4.2inch e-paper V2
 * | Info        :
 *----------------
 * |	This version:   V1.0
-* | Date        :   2022-05-07
+* | Date        :   2023-09-11
 * | Info        :
 * -----------------------------------------------------------------------------
 #
@@ -30,49 +30,32 @@
 ******************************************************************************/
 
 #ifdef ALTRUIST_INSIDE
-#ifdef DISPLAY_3IN52
+#ifdef DISPLAY_4IN2
 
-#ifndef __EPD_3IN52_H_
-#define __EPD_3IN52_H_
+#ifndef _EPD_4IN2_V2_H_
+#define _EPD_4IN2_V2_H_
 
+#include "Debug.h"
 #include "DEV_Config.h"
 
 // Display resolution
-#define EPD_3IN52_WIDTH       240
-#define EPD_3IN52_HEIGHT      360 
+#define EPD_4IN2_V2_WIDTH       400
+#define EPD_4IN2_V2_HEIGHT      300
 
-#define LUTGC_TEST          //
-#define LUTDU_TEST          //
+#define Seconds_1_5S      0
+#define Seconds_1S        1
 
-#define EPD_3IN52_WHITE                         0xFF  // 
-#define EPD_3IN52_BLACK                         0x00  //
-#define EPD_3IN52_Source_Line                   0xAA  //
-#define EPD_3IN52_Gate_Line                     0x55  //
-#define EPD_3IN52_UP_BLACK_DOWN_WHITE           0xF0  //
-#define EPD_3IN52_LEFT_BLACK_RIGHT_WHITE        0x0F  //
-#define EPD_3IN52_Frame                         0x01  // 
-#define EPD_3IN52_Crosstalk                     0x02  //
-#define EPD_3IN52_Chessboard                    0x03  //
-#define EPD_3IN52_Image                         0x04  //
-
-
-extern unsigned char EPD_3IN52_Flag;
-
-void EPD_3IN52_SendCommand(UBYTE Reg);
-void EPD_3IN52_SendData(UBYTE Data);
-void EPD_3IN52_refresh(void);
-void EPD_3IN52_lut_GC(void);
-void EPD_3IN52_lut_DU(void);
-void EPD_3IN52_Init(void);
-void EPD_3IN52_display(UBYTE* picData);
-void EPD_3IN52_display_NUM(UBYTE NUM);
-void EPD_3IN52_Clear(void);
-void EPD_3IN52_sleep(void);
-
-
+void EPD_4IN2_V2_Init(void);
+void EPD_4IN2_V2_Init_Fast(UBYTE Mode);
+void EPD_4IN2_V2_Init_4Gray(void);
+void EPD_4IN2_V2_Clear(void);
+void EPD_4IN2_V2_Display(UBYTE *Image);
+void EPD_4IN2_V2_Display_Fast(UBYTE *Image);
+void EPD_4IN2_V2_Display_4Gray(const UBYTE *Image);
+void EPD_4IN2_V2_PartialDisplay(UBYTE *Image, UWORD Xstart, UWORD Ystart, UWORD Xend, UWORD Yend);
+void EPD_4IN2_V2_Sleep(void);
 
 #endif
-
 
 #endif
 #endif
