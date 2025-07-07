@@ -24,6 +24,7 @@ Bool		has_flipped_display
 UInt		debug
 Time		sending_intervall_ms
 Time		datalog_sending_intervall_ms
+Time		sds_meas_interval_ms
 Time		time_for_wifi_config
 Bool		send2custom
 String		host_custom

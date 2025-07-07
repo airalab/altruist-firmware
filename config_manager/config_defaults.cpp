@@ -6,6 +6,7 @@ namespace cfg {
 
 	unsigned time_for_wifi_config = 600000;
 	unsigned sending_intervall_ms = 30000;
+	unsigned sds_meas_interval_ms = 300000;
 	unsigned datalog_sending_intervall_ms = 600000;
 
 	char current_lang[3];

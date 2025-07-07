@@ -9,6 +9,7 @@ namespace cfg {
 
 	extern unsigned time_for_wifi_config;
 	extern unsigned sending_intervall_ms;
+	extern unsigned sds_meas_interval_ms;
 	extern unsigned datalog_sending_intervall_ms;
 
 	extern char current_lang[3];
