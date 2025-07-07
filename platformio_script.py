@@ -20,9 +20,14 @@ def after_build(source, target, env):
     lang = config.get(sectionName, "lang")
     target_name = lang.lower()
     if "esp32c3" in sectionName:
+        print("Program has been built!", sectionName)
         firmaware_prefix_name = "latest32c3"
-    elif "esp32c6" in sectionName:
+    elif "esp32c6_inside" in sectionName:
+        print("Program has been built!", sectionName)
         firmaware_prefix_name = "latest32c6ins"
+    elif "esp32c6_urban" in sectionName:
+        print("Program has been built!", sectionName)
+        firmaware_prefix_name = "latest32c6urb"
     else:
         firmaware_prefix_name = "latest"
 

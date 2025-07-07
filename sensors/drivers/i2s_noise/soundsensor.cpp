@@ -21,6 +21,7 @@
 
 #include "soundsensor.h"
 #include "arduinoFFT.h"
+#include "../../../defines.h"
 
 const i2s_port_t I2S_PORT = I2S_NUM_0;
 
@@ -37,27 +38,12 @@ const i2s_config_t i2s_config = {
   .use_apll             = true
 };
 
-// pin config MEMS microphone
-#define TTGO_LORA32_V21
-#if defined(TTGO_LORA32_V21)
-// define IO pins TTGO LoRa32 V1 for I2S for MEMS microphone
 const i2s_pin_config_t pin_config = {
-  .bck_io_num   = 7, 
-  .ws_io_num    = 6,  
-  .data_out_num = -1,
-  .data_in_num  = 8 
+  .bck_io_num   = I2S_PIN_BCLK,
+  .ws_io_num    = I2S_PIN_WS,
+  .data_out_num = I2S_PIN_DOUT,
+  .data_in_num  = I2S_PIN_DIN
 };
-#elif defined(ARDUINO_ESP32_DEV)
-// define IO pins Sparkfun for I2S for MEMS microphone
-const i2s_pin_config_t pin_config = {
-  .bck_io_num   = 18,
-  .ws_io_num    = 23,
-  .data_out_num = I2S_PIN_NO_CHANGE,  // -1,
-  .data_in_num  = 19
-};
-#else
-  #error Unsupported board selection.
-#endif
 
 SoundSensor::SoundSensor() {
   _fft = new arduinoFFT(_real, _imag, SAMPLES, SAMPLES);

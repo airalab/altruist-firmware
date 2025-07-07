@@ -72,7 +72,7 @@
 
 #include "./utils.h"
 #include "defines.h"
-#include "ext_def.h"
+//#include "ext_def.h"
 #include "webserver/html-content.h"
 #include <Robonomics.h>
 #include "sensors/sensor_factory.h"

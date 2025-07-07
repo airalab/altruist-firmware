@@ -1,6 +1,6 @@
 #include "sds011_sensor.h"
 #include "../utils.h"
-#include "../ext_def.h"
+#include "../defines.h"
 #include "sensor_names.h"
 
 #define serialSDS (Serial1)

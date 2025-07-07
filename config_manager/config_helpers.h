@@ -4,7 +4,6 @@
 #include <Arduino.h>
 #include "airrohr-cfg.h"
 #include "defines.h"
-#include "ext_def.h"
 
 #define JSON_BUFFER_SIZE 2800
 #define FORMAT_SPIFFS_IF_FAILED true
