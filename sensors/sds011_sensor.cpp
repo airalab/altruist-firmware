@@ -1,12 +1,8 @@
 #include "sds011_sensor.h"
 #include "../utils.h"
-<<<<<<< HEAD
-#include "../ext_def.h"
-#include "../config_manager/config_helpers.h"
-=======
 #include "../defines.h"
->>>>>>> 30134c4ed22842f8c8f96f72d46c60b06cfc398f
 #include "sensor_names.h"
+#include "../config_manager/config_helpers.h"
 
 #define serialSDS (Serial1)
 #define sds_SENSOR_MIN_TIMEOUT     30000UL
