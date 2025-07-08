@@ -57,10 +57,10 @@ void webserver_wifi(struct_wifiInfo* wifiInfo, uint8_t count_wifiInfo, String &p
 				continue;
 			}
 			// Print SSID and RSSI for each network found
-#if defined(ALTRUIST_INSIDE)
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
 			page_content += wlan_ssid_to_table_row(wifiInfo[indices[i]].ssid, ((wifiInfo[indices[i]].encryptionType == WIFI_AUTH_OPEN) ? " " : "🔒"), wifiInfo[indices[i]].RSSI);
 #endif
-#if defined(ALTRUIST_URBAN)
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
 			page_content += wlan_ssid_to_table_row(wifiInfo[indices[i]].ssid, ((wifiInfo[indices[i]].encryptionType == WIFI_AUTH_OPEN) ? " " : u8"🔒"), wifiInfo[indices[i]].RSSI);
 #endif
 		}

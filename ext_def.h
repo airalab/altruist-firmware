@@ -1,5 +1,6 @@
 #ifndef __EXT_DEF_H__
 #define __EXT_DEF_H__
+/*
 
 // Language config
 #define CURRENT_LANG INTL_LANG
@@ -103,8 +104,14 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define PM_RESTART D8
 
 // define pins for I2C
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
 #define I2C_PIN_SCL D4
 #define I2C_PIN_SDA D3
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#define I2C_PIN_SCL D2
+#define I2C_PIN_SDA D3
+#endif
 
 // define serial interface pins for GPS modules
 #define GPS_SERIAL_RX D5
@@ -118,7 +125,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define PPD_PIN_PM1 GPS_SERIAL_TX
 #define PPD_PIN_PM2 GPS_SERIAL_RX
 #endif
-
+*/
 
 //  === pin assignments for Arduino SAMD Zero board ===================================
 #if defined(ARDUINO_SAMD_ZERO)
@@ -132,13 +139,20 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #endif
 #endif
 
+/*
 //  === pin assignments for dev kit board ===================================
 #ifdef ESP32
-#define ONEWIRE_PIN D32
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
 #define PM_SERIAL_RX 1
 #define PM_SERIAL_TX 10
-#define PIN_CS D13
 #define PM_RESTART 25
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#define PM_SERIAL_RX 5
+#define PM_SERIAL_TX 4
+#endif
+#define ONEWIRE_PIN D32
+#define PIN_CS D13
 
 #if defined(FLIP_I2C_PMSERIAL) // exchange the pins of the ports to use external i2c connector for gps
 #define I2C_PIN_SCL D23
@@ -157,6 +171,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 //#define RFM69_RST D2
 //#define RFM69_INT D4
 #endif
+*/
 
 //  === pin assignments for lolin_d32_pro board ===================================
 #if defined(ARDUINO_LOLIN_D32_PRO)
@@ -275,10 +290,10 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define DNMS_READ 0
 #define DNMS_API_PIN 15
 #define DNMS_CORRECTION "0.0"
+/*
 
 // Temp compensation
 #define TEMP_CORRECTION "0.0"
-
 // GPS, preferred Neo-6M
 #define GPS_READ 1
 #define GPS_API_PIN 9
@@ -324,5 +339,6 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // Set debug level for serial output?
 #define DEBUG 3
+*/
 
 #endif // __EXT_DEF_H__

@@ -86,9 +86,46 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #endif
 
 #ifdef ALTRUIST_URBAN
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
 #define SDA_I2C_PIN 3
 #define SCL_I2C_PIN 0
 #endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#define SDA_I2C_PIN 3
+#define SCL_I2C_PIN 2
+#endif
+#endif // ALTRUIST_URBAN
+
+// pin config MEMS microphone
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+#define I2S_PIN_BCLK     7
+#define I2S_PIN_WS       6
+#define I2S_PIN_DIN      8
+#define I2S_PIN_DOUT     -1
+#elif defined(CONFIG_IDF_TARGET_ESP32C6)
+#define I2S_PIN_BCLK     10
+#define I2S_PIN_WS       1
+#define I2S_PIN_DIN      11
+#define I2S_PIN_DOUT     -1
+#elif defined(ARDUINO_ESP32_DEV)
+#define I2S_PIN_BCLK     18
+#define I2S_PIN_WS       23
+#define I2S_PIN_DIN      19
+#define I2S_PIN_DOUT     -1
+#else
+  #error Unsupported board selection.
+#endif //i2s pins
+
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+#define PM_SERIAL_RX 1
+#define PM_SERIAL_TX 10
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#define PM_SERIAL_RX 5
+#define PM_SERIAL_TX 4
+#endif
+
+
 
 // Definition GPIOs for Zero based Arduino Feather M0 LoRaWAN
 #if defined(ARDUINO_SAMD_ZERO) && defined(SERIAL_PORT_USBVIRTUAL)
@@ -162,5 +199,143 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define CLIENT_ADDRESS 2
 #define SERVER_ADDRESS 100
 #endif
+
+// TRANSFER FROM ext_def.h
+// Language config
+#define CURRENT_LANG INTL_LANG
+
+// Wifi config
+const char WLANSSID[] PROGMEM = "Not Set";
+const char WLANPWD[] PROGMEM = "";
+#define LOCAL_HOSTNAME "altruist"
+#define WLANNOPWD 0
+
+// BasicAuth config
+const char WWW_USERNAME[] PROGMEM = "admin";
+const char WWW_PASSWORD[] PROGMEM = "";
+#define WWW_BASICAUTH_ENABLED 0
+
+// Sensor Wifi config (config mode)
+#define FS_SSID ""
+#define FS_PWD ""
+
+// Where to send the data?
+#define SEND2ROBONOMICS 1
+#define SSL_ROBONOMICS 0
+#define SSL_FSAPP 0
+#define SEND2MQTT 0
+#define SEND2INFLUX 0
+#define SEND2LORA 0
+#define SEND2CSV 0
+#define SEND2CUSTOM 0
+
+enum LoggerEntry {
+    LoggerRobonomics,
+    LoggerFSapp,
+    LoggerInflux,
+    LoggerCustom,
+    LoggerCount
+};
+
+struct LoggerConfig {
+    uint16_t destport;
+    uint16_t errors;
+#if defined(ESP8266)
+    BearSSL::Session* session;
+#else
+    void* session;
+#endif
+};
+
+// IMPORTANT: NO MORE CHANGES TO VARIABLE NAMES NEEDED FOR EXTERNAL APIS
+
+static const char HOST_FSAPP[] PROGMEM = "server.chillibits.com";
+static const char URL_FSAPP[] PROGMEM = "/data.php";
+#define PORT_FSAPP 80
+
+static const char FW_DOWNLOAD_HOST[] PROGMEM = "upd.sensors.robonomics.network";
+#define FW_DOWNLOAD_PORT 80
+
+static const char FW_2ND_LOADER_URL[] PROGMEM = "/loader-002.bin";
+
+static const char NTP_SERVER_1[] PROGMEM = "0.pool.ntp.org";
+static const char NTP_SERVER_2[] PROGMEM = "1.pool.ntp.org";
+
+// define own API
+static const char HOST_CUSTOM[] PROGMEM = "192.168.100.73";
+static const char URL_CUSTOM[] PROGMEM = "";
+#define PORT_CUSTOM 5000
+#define USER_CUSTOM ""
+#define PWD_CUSTOM ""
+#define SSL_CUSTOM 0
+
+
+// Robonomics
+#include "./intl.h"
+static const char CURRENT_REG[] PROGMEM = "Global";
+// #define PORT_ROBONOMICS 31112
+#define PORT_ROBONOMICS 65
+#define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"
+
+// Donated by
+static const char DONATED_BY[] PROGMEM = "";
+
+// define own InfluxDB
+static const char HOST_INFLUX[] PROGMEM = "influx.server";
+static const char URL_INFLUX[] PROGMEM = "/write?db=sensorcommunity";
+#define PORT_INFLUX 8086
+#define USER_INFLUX ""
+#define PWD_INFLUX ""
+static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
+#define SSL_INFLUX 0
+
+// GPS, preferred Neo-6M
+#define GPS_READ 1
+#define GPS_API_PIN 9
+#define GPS_LAT "0.0"
+#define GPS_LON "0.0"
+#define GPS_COORDS "0.0,0.0"
+
+// Temp compensation
+#define TEMP_CORRECTION "0.0"
+
+// MHZ19 CO2 sensor
+#define MHZ19_READ 0
+
+// automatic firmware updates
+#define AUTO_UPDATE 1
+
+// use beta firmware
+#define USE_BETA 0
+
+// OLED Display SSD1306 connected?
+#define HAS_DISPLAY 0
+
+// OLED Display SH1106 connected?
+#define HAS_SH1106 0
+
+// OLED Display um 180° gedreht?
+#define HAS_FLIPPED_DISPLAY 0
+
+// LCD Display LCD1602 connected?
+#define HAS_LCD1602 0
+
+// LCD Display LCD1602 (0x27) connected?
+#define HAS_LCD1602_27 0
+
+// LCD Display LCD2004 connected?
+#define HAS_LCD2004 0
+
+// LCD Display LCD2004 (0x27) connected?
+#define HAS_LCD2004_27 0
+
+// Show wifi info on displays
+#define DISPLAY_WIFI_INFO 1
+
+// Show device info on displays
+#define DISPLAY_DEVICE_INFO 1
+
+// Set debug level for serial output?
+#define DEBUG 3
 
 #endif // __DEFINES_H__

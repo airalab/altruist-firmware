@@ -1,4 +1,5 @@
 .vscode/
 .pio/
+.platformio/
 builds
 .DS_Store

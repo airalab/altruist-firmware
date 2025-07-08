@@ -1,7 +1,6 @@
 #ifndef __CONFIG_DEFAULTS_H__
 #define __CONFIG_DEFAULTS_H__
 
-#include "../ext_def.h"
 #include "../defines.h"
 
 namespace cfg {
