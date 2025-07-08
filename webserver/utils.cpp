@@ -188,3 +188,7 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 	s.replace("{l}", String(length));
 	page_content += s;
 }
+
+void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length) {
+    add_form_input(page_content, cfgid, info, length, true);
+}

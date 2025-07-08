@@ -8,7 +8,7 @@
 #define SOFTWARE_VERSION_STR "R-INS_2025-06"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_STR "R-URB_2025-06"
+#define SOFTWARE_VERSION_STR "R-URB_2025-07-beta"
 #endif
 
 #if defined(ESP8266)

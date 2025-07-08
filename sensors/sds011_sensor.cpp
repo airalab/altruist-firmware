@@ -1,10 +1,11 @@
 #include "sds011_sensor.h"
 #include "../utils.h"
 #include "../ext_def.h"
+#include "../config_manager/config_helpers.h"
 #include "sensor_names.h"
 
 #define serialSDS (Serial1)
-#define sds_SENSOR_MIN_TIMEOUT     300000UL
+#define sds_SENSOR_MIN_TIMEOUT     30000UL
 
 enum {
 	SDS_REPLY_HDR = 10,
@@ -13,8 +14,8 @@ enum {
 
 SDS011Sensor::SDS011Sensor(unsigned long sending_timeout)
 	: Sensor(sending_timeout) {
-	if (sending_timeout > sds_SENSOR_MIN_TIMEOUT) {
-		this->sending_timeout = sending_timeout;
+	if (cfg::sds_meas_interval_ms > sds_SENSOR_MIN_TIMEOUT) {
+		this->sending_timeout = cfg::sds_meas_interval_ms;
 	} else {
 		this->sending_timeout = sds_SENSOR_MIN_TIMEOUT;
 	}

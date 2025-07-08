@@ -16,7 +16,8 @@ String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool l
 String form_submit(const String& value);
 String form_select_lang();
 String form_select_reg();
-void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length, bool enabled = true);
+void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length, bool enabled);
+void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length);
 
 #endif // __WEBSERVER_UTILS_H__
 
