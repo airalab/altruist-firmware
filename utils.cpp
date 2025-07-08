@@ -25,7 +25,7 @@
 #include "./intl.h"
 #include "./utils.h"
 #include "./defines.h"
-#include "./ext_def.h"
+//#include "./ext_def.h"
 #include <SPIFFS.h>
 
 String get_chipid() {

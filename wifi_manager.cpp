@@ -151,7 +151,7 @@ static WiFiEventId_t disconnectEventHandler;
 #endif
 
 void connectWifi(SensorWebServer &webserver) {
-#if defined(ALTRUIST_URBAN)
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
 	if (WiFi.getAutoConnect()) {
 		WiFi.setAutoConnect(false);
 	}
