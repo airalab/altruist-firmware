@@ -17,7 +17,8 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus)
 	versionHtml.replace("/", FPSTR(BR_TAG));
 	add_table_row_from_value(page_content, FPSTR(INTL_FIRMWARE), versionHtml);
 	add_table_row_from_value(page_content, FPSTR(INTL_IP_ADDRESS), deviceStatus.ip_address);
-	add_table_row_from_value(page_content, F("Free Memory"), String(ESP.getFreeHeap()));
+	add_table_row_from_value(page_content, F("SD Card connected"), deviceStatus.sd_card_connected ? "YES" : "NO");
+	add_table_row_from_value(page_content, F("Free Memory (RAM)"), String(ESP.getFreeHeap()));
 	if (cfg::auto_update) {
 		add_table_row_from_value(page_content, F("Last OTA"), delayToString(millis() - deviceStatus.last_update_attempt));
 	}

@@ -1,8 +1,6 @@
 #ifndef __DEFINES_H__
 #define __DEFINES_H__
 
-#define DISPLAY_REFRESH_INTERVAL 300000
-
 // increment on change
 #if defined(ALTRUIST_INSIDE)
 #define SOFTWARE_VERSION_STR "R-INS_2025-06"
@@ -80,125 +78,111 @@ constexpr const unsigned long ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 constexpr const unsigned long PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS = ONE_DAY_IN_MS;		// check for firmware updates once a day
 constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS * 28;	// force a reboot every ~4 weeks
 
-#ifdef ALTRUIST_INSIDE
-#define SDA_I2C_PIN 2
-#define SCL_I2C_PIN 3 
-#endif
+// Pins Config
 
-#ifdef ALTRUIST_URBAN
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
-#define SDA_I2C_PIN 3
-#define SCL_I2C_PIN 0
-#endif
-#if defined(CONFIG_IDF_TARGET_ESP32C6)
-#define SDA_I2C_PIN 3
-#define SCL_I2C_PIN 2
-#endif
-#endif // ALTRUIST_URBAN
 
-// pin config MEMS microphone
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
+// i2s pins
+
 #define I2S_PIN_BCLK     7
 #define I2S_PIN_WS       6
 #define I2S_PIN_DIN      8
 #define I2S_PIN_DOUT     -1
+
+// I2C pins
+
+#define SDA_I2C_PIN 3
+#define SCL_I2C_PIN 0
+
+// PM Serial
+
+#define PM_SERIAL_RX 1
+#define PM_SERIAL_TX 10
+
+// SPI pins
+
+#define SPI_SCK_PIN 7
+#define SPI_MISO_PIN 18
+#define SPI_MOSI_PIN 6
+#define SPI_CS_PIN 19
+
+// Display
+
+#define EPD_SCK_PIN  -1
+#define EPD_MOSI_PIN -1
+#define EPD_CS_PIN   -1
+#define EPD_RST_PIN  -1
+#define EPD_DC_PIN   -1
+#define EPD_BUSY_PIN -1
+
+// Buttons
+
+#define BTN_DOWN_PIN -1
+#define BTN_SET_PIN -1
+#define BTN_UP_PIN -1
+
 #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+
+// i2s pins
+#ifdef ALTRUIST_URBAN
 #define I2S_PIN_BCLK     10
 #define I2S_PIN_WS       1
 #define I2S_PIN_DIN      11
 #define I2S_PIN_DOUT     -1
-#elif defined(ARDUINO_ESP32_DEV)
-#define I2S_PIN_BCLK     18
-#define I2S_PIN_WS       23
-#define I2S_PIN_DIN      19
-#define I2S_PIN_DOUT     -1
-#else
-  #error Unsupported board selection.
-#endif //i2s pins
-
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
-#define PM_SERIAL_RX 1
-#define PM_SERIAL_TX 10
 #endif
-#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#ifdef ALTRUIST_INSIDE
+#define I2S_PIN_BCLK     -1
+#define I2S_PIN_WS       -1
+#define I2S_PIN_DIN      -1
+#define I2S_PIN_DOUT     -1
+#endif
+
+// I2C pins
+
+#ifdef ALTRUIST_INSIDE
+#define SDA_I2C_PIN 2
+#define SCL_I2C_PIN 3 
+#endif
+#ifdef ALTRUIST_URBAN
+#define SDA_I2C_PIN 3
+#define SCL_I2C_PIN 2
+#endif
+
+// PM Serial
+
 #define PM_SERIAL_RX 5
 #define PM_SERIAL_TX 4
-#endif
 
+// SPI SD Card pins
 
+#define SPI_SCK_PIN 6
+#define SPI_MISO_PIN 7
+#define SPI_MOSI_PIN 11
+#define SPI_CS_PIN 19
+// #define SPI_SCK_PIN 21
+// #define SPI_MISO_PIN 18
+// #define SPI_MOSI_PIN 20
+// #define SPI_CS_PIN 19
 
-// Definition GPIOs for Zero based Arduino Feather M0 LoRaWAN
-#if defined(ARDUINO_SAMD_ZERO) && defined(SERIAL_PORT_USBVIRTUAL)
-// Required for Serial on Zero based boards
-#define Serial SERIAL_PORT_USBVIRTUAL
-//GPIO Pins
-#define D0 0
-#define D1 1
-#define D2 2
-#define D3 3
-#define D4 4
-#define D5 5
-#define D6 6
-#define D7 7
-#define D8 8
-#define D9 9
-#define D10 10
-#define D11 11
-#define D12 12
-// RFM69 FSK module
-#define RF69_FREQ 868.0
-#define CLIENT_ADDRESS 2
-#define SERVER_ADDRESS 100
-#endif
+// Display
 
-#if defined(ESP32)
-#define D0_STRAPPING 0
-#if defined(NO_USB_SERIAL_ON_UART0)
-#define D1 1  // often used for USB serial RX
-#endif
-#define D2_STRAPPING 2
-#if defined(NO_USB_SERIAL_ON_UART0)
-#define D3 3  // often used USB serial TX
-#endif
-#define D4 4
-#define D5 5
-#define D13 13
-// pins 12 to 15 are needed by JTAG and should not be used to allow debugging (if you can afford it)
-//#define D9 9
-//#define D10 10
-//
-#if not defined(USING_JTAG_DEBUGGER_PINS)
-#define D12_JTAG_TDI_LOW_DURING_BOOT 12
-#define D13_JTAG_TCK 13
-#define D14_JTAG_TMS 14
-#define D15_JTAG_TDO_HIGH_DURING_BOOT 15
-#endif
+#define EPD_SCK_PIN  21
+#define EPD_MOSI_PIN 20
+#define EPD_CS_PIN   22
+#define EPD_RST_PIN  15
+#define EPD_DC_PIN   23
+#define EPD_BUSY_PIN 18
 
-#if defined(ESP32_WROOM_MODULE)
-// these two pins are used to access PSRAM on WROVER modules
-#define D16_WROOM_ONLY 16
-#define D17_WROOM_ONLY 17
-#endif
-#define D18 18
-#define D19 19
-#define D21 21
-#define D22 22
-#define D23 23
-#define D25 25
-#define D26 26
-#define D27 27
-#define D32 32
-#define D33 33
-#define D34_INPUTONLY 34
-#define D35_INPUTONLY 35
-#define D36_INPUTONLY 36
-#define D39_INPUTONLY 39
+// Buttons
 
-// RFM69 FSK module
-#define RF69_FREQ 868.0
-#define CLIENT_ADDRESS 2
-#define SERVER_ADDRESS 100
-#endif
+#define BTN_DOWN_PIN 0
+#define BTN_SET_PIN 1
+#define BTN_UP_PIN 10
+
+#else
+  #error Unsupported board selection.
+#endif 
+
 
 // TRANSFER FROM ext_def.h
 // Language config

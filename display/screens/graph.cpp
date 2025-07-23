@@ -1,31 +1,8 @@
 #ifdef ALTRUIST_INSIDE
 
 #include "graph.h"
-
-void stringFromFloat(char *buffer, float value, int precision) {
-    // Clamp precision to valid range to avoid buffer overflows
-    if (precision < 0) precision = 0;
-    if (precision > 6) precision = 6;
-
-    // Build format string dynamically, e.g., "%.3f"
-    char format[8];
-    snprintf(format, sizeof(format), "%%.%df", precision);
-
-    // Format the float into the buffer
-    snprintf(buffer, 32, format, value);
-
-    // Remove trailing zeros and optional decimal point
-    char *dot = strchr(buffer, '.');
-    if (dot) {
-        char *end = buffer + strlen(buffer) - 1;
-        while (end > dot && *end == '0') {
-            *end-- = '\0';
-        }
-        if (*end == '.') {
-            *end = '\0'; // Remove decimal point if nothing follows
-        }
-    }
-}
+#include "utils.h"
+#include "../../utils.h"
 
 GraphPainter::GraphPainter(uint16_t left_bottom_x, uint16_t left_bottom_y,
                            uint16_t height, uint16_t width)
@@ -62,11 +39,19 @@ void GraphPainter::calculateMinMax() {
 void GraphPainter::drawGraph() {
     calculateMinMax();
     calculateYLabelWidth();
-    uint32_t time_now = 1747765576;
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo)) {
+        debug_outln_info(F("[SDCardLogger] Failed to get time"));
+        return;
+    }
+    time_t time_now = mktime(&timeinfo);
+    // uint32_t time_now = 1747765576;
     drawAxisLabels(&time_now);
     drawBorders();
     for (int i = 0; i < lines_count; i++) {
-        drawLine(i, &time_now);
+        if (lines[i].values_count > 0) {
+            drawLine(i, &time_now);
+        }
     }
     drawLabel();
 }
@@ -94,7 +79,7 @@ void GraphPainter::drawLabel() {
     Paint_DrawString_EN(x, y, label_text, &labelFont, background_color, main_color);
 }
 
-void GraphPainter::drawLine(uint8_t line_number, uint32_t *time_now) {
+void GraphPainter::drawLine(uint8_t line_number, time_t *time_now) {
     uint32_t start_time = *time_now - show_hours*60*60;
     uint16_t x_prev = 0;
     uint16_t line_color;
@@ -123,12 +108,12 @@ void GraphPainter::drawBorders() {
     Paint_DrawLine(left_bottom_graph_x, left_bottom_graph_y, left_bottom_graph_x + graph_width, left_bottom_graph_y, main_color, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 }
 
-void GraphPainter::drawAxisLabels(uint32_t *time_now) {
+void GraphPainter::drawAxisLabels(time_t *time_now) {
     drawYLabels();
     drawXLabels(time_now);
 }
 
-void GraphPainter::drawXLabels(uint32_t *time_now) {
+void GraphPainter::drawXLabels(time_t *time_now) {
     uint32_t start_time = *time_now - show_hours*60*60;
     Serial.printf("start_time: %d\n\r", start_time);
     unsigned long seconds_in_day = start_time % 86400;  // Seconds since midnight

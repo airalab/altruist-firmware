@@ -81,8 +81,9 @@
 #include "wifi_manager.h"
 #include "webserver/webserver.h"
 #include "OTA_Update.h"
+#include "sd_card/sd_card.h"
 #if defined(ALTRUIST_INSIDE)
-#include "display/waveshare.h"
+#include "display/display_manager.h"
 #endif
 
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
@@ -90,6 +91,11 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
 DynamicJsonDocument sensors_data(2048);
 device_status_t deviceStatus;
+SDCard sdCardLogger;
+
+#if defined(ALTRUIST_INSIDE)
+DisplayManager displayManager(sensors_data, deviceStatus);
+#endif
 
 SensorWebServer webserver(sensors_data, deviceStatus, mutex);
 
@@ -305,6 +311,10 @@ void fetchSensors() {
 					activeSensors[i]->fetch(sensors_data);
 					xSemaphoreGive(mutex);
 				}
+				deviceStatus.sd_card_connected = sdCardLogger.checkInserted();
+				if (deviceStatus.sd_card_connected && activeSensors[i]->jsonUpdated()) {
+					sdCardLogger.logData(activeSensors[i]->sensor_name, sensors_data);
+				}
 			}
 		}
 }
@@ -355,7 +365,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 
 
 int last_display_refresh;
-
+// ButtonController button_controller(1);
 void setup(void) {
 	delay(3000);
 	// Debug.begin(115200);		// Output to Serial at 115200 from web console 
@@ -391,6 +401,7 @@ void setup(void) {
 	setupNetworkTime();
 	setupEnabledAPIs();
 	// powerOnTestSensors();
+	// deviceStatus.sd_card_connected = sdCardLogger.begin();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
 	connectWifi(webserver);
 	powerOnTestSensors();
@@ -413,7 +424,12 @@ void setup(void) {
     }
     Serial.println();
 
+	debug_outln_info(F("Setup finished 11"));
+
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
+	debug_outln_info(F("Setup finished 111"));
+	deviceStatus.sd_card_connected = sdCardLogger.begin();
+	debug_outln_info(F("Setup finished 1111"));
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
 
@@ -427,19 +443,20 @@ void setup(void) {
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
 	last_display_refresh = -DISPLAY_REFRESH_INTERVAL + 2000 + millis();
-
+	debug_outln_info(F("Setup finished"));
+	// button_controller.init();
 }
 
 void loop(void) {
+	// PressType res = button_controller.process();
+	// if (res != PressType::NONE) {
+	// 	debug_outln_info(F("Button pressed short"), res != PressType::LONG);
+	// }
+	// debug_outln_info(F("Press type"), res != PressType::NONE);
+	// delay(100);
 	webserver.handleClient();
 #if defined(ALTRUIST_INSIDE)
-	if (millis() - last_display_refresh > DISPLAY_REFRESH_INTERVAL) {
-		String json;
-		serializeJson(sensors_data, json);
-		debug_outln_info(F("Refresh screen"));
-		drawMainScreen(json, deviceStatus.ip_address);
-		last_display_refresh = millis();
-	}
+	displayManager.process();
 #endif
 	yield();
 }

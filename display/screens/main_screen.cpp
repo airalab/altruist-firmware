@@ -1,18 +1,18 @@
 #ifdef ALTRUIST_INSIDE
 
-#include "waveshare.h"
+#include "main_screen.h"
 #include <ArduinoJson.h>  // This was missing!
 #include <string.h>       // For strlen
 #include <stdio.h>
-#include "DEV_Config.h"
-#include "EPD.h"
-#include "GUI_Paint.h"
-#include "graph.h"
+#include "../driver/DEV_Config.h"
+#include "../driver/EPD.h"
+// #include "graph.h"
 #include <stdlib.h>
-#include "icons/icons/icons_40x40.h"
-#include "icons/icons/icons_35x35.h"
-#include "../defines.h"
-#include "../utils.h"
+#include "utils.h"
+#include "../icons/icons/icons_40x40.h"
+#include "../icons/icons/icons_35x35.h"
+#include "../../defines.h"
+#include "../../utils.h"
 
 
 void drawValue(const char *label, float value, uint8_t precision, const unsigned char *image, const char *units, uint16_t image_size, uint16_t x_start, uint16_t y_start, uint16_t image_offset = 0) {
@@ -75,13 +75,12 @@ void refreshScreen(UBYTE *&BlackImage) {
 }
 
 void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_screen_values) {
-    debug_outln_info(F("Got json string: "), jsonString);
+    debug_outln_info(F("Got json string to display: "), jsonString);
     DynamicJsonDocument doc(2048);  // adjust size as needed
 
     DeserializationError error = deserializeJson(doc, jsonString);
     if (error) {
-        Serial.print(F("deserializeJson() failed: "));
-        Serial.println(error.f_str());
+        debug_outln_info(F("deserializeJson() failed display: "), error.f_str());
         return;
     }
 

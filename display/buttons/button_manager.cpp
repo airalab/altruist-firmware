@@ -1,0 +1,65 @@
+#ifdef ALTRUIST_INSIDE
+
+#include "button_manager.h"
+#include "../../utils.h"
+
+void print_button_pressed(button_pressed_t &res) {
+    String name;
+    String type;
+    if (res.button_num == ButtonNum::DOWN) {
+        name = "DOWN";
+    } else if (res.button_num == ButtonNum::UP) {
+        name = "UP";
+    } else if (res.button_num == ButtonNum::SET) {
+        name = "SET";
+    }
+    if (res.press_type == PressType::SHORT) {
+        type = "SHORT";
+    } else if (res.press_type == PressType::LONG) {
+        type = "LONG";
+    }
+    String message = "Button " + name + " was pressed " + type;
+    debug_outln_info(F("[Button] "), message);
+}
+
+ButtonManager::ButtonManager()
+    : up_button(BTN_UP_PIN),
+      down_button(BTN_DOWN_PIN),
+      set_button(BTN_SET_PIN) {}
+
+void ButtonManager::init() {
+    up_button.init();
+    down_button.init();
+    set_button.init();
+}
+
+button_pressed_t ButtonManager::process() {
+    button_pressed_t res;
+    PressType up_press = up_button.process();
+    if (up_press != PressType::NONE) {
+        res.pressed = true;
+        res.button_num = ButtonNum::UP;
+        res.press_type = up_press;
+    }
+
+    PressType down_press = down_button.process();
+    if (down_press != PressType::NONE) {
+        res.pressed = true;
+        res.button_num = ButtonNum::DOWN;
+        res.press_type = down_press;
+    }
+
+    PressType set_press = set_button.process();
+    if (set_press != PressType::NONE) {
+        res.pressed = true;
+        res.button_num = ButtonNum::SET;
+        res.press_type = set_press;
+    }
+    if (res.pressed) {
+        print_button_pressed(res);
+    }
+
+    return res;
+}
+
+#endif

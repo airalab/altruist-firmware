@@ -1,14 +1,15 @@
 
 #ifdef ALTRUIST_INSIDE
 
+#ifndef DISPLAY_GRAPH_H
+#define DISPLAY_GRAPH_H
+
 #include <stdlib.h>
-#include "GUI_Paint.h"
-#include "EPD.h"
-#include "DEV_Config.h"
+#include "../paint_driver/GUI_Paint.h"
+#include "../driver/EPD.h"
+#include "../driver/DEV_Config.h"
 
 #define MAX_LINES 3
-
-void stringFromFloat(char *buffer, float value, int precision = 2);
 
 struct GraphLineStyle {
     LINE_STYLE style = LINE_STYLE_SOLID;
@@ -52,7 +53,7 @@ private:
     uint16_t background_color = WHITE;
     sFONT digitFont = Font12;
     sFONT labelFont = Font12;
-    uint8_t show_hours = 12;
+    uint8_t show_hours = 12; // Должно делиться на 4
     GraphLine lines[MAX_LINES];
     uint8_t lines_count = 0;
     uint16_t left_bottom_x;
@@ -76,12 +77,14 @@ private:
     void calculateYLabelWidth();
     void calculateMinMax();
     void drawLabel();
-    void drawAxisLabels(uint32_t *time_now);
+    void drawAxisLabels(time_t *time_now);
     void drawYLabels();
-    void drawXLabels(uint32_t *time_now);
+    void drawXLabels(time_t *time_now);
     void drawBorders();
-    void drawLine(uint8_t line_number, uint32_t *time_now);
+    void drawLine(uint8_t line_number, time_t *time_now);
     float nice_number(float value, int round);
 };
+
+#endif // DISPLAY_GRAPH_H
 
 #endif

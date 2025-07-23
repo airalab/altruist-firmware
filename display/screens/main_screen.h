@@ -1,9 +1,10 @@
 #ifdef ALTRUIST_INSIDE
 
-#ifndef WAVESHARE_H
-#define WAVESHARE_H
+#ifndef _MAIN_SCREEN_H
+#define _MAIN_SCREEN_H
 
 #include <ArduinoJson.h>
+#include "../paint_driver/GUI_Paint.h"
 
 struct main_screen_values_t {
     float pm10 = -1;
@@ -20,7 +21,10 @@ struct main_screen_values_t {
 };
 
 void drawMainScreen(const String &jsonString, const String &device_ip_address);
+void createNewImage(UBYTE *&BlackImage);
+void refreshScreen(UBYTE *&BlackImage);
 
-#endif // WAVESHARE_H
+
+#endif // _MAIN_SCREEN_H
 
 #endif

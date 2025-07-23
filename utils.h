@@ -79,6 +79,7 @@ struct device_status_t {
 	unsigned long last_update_attempt;
 	unsigned long time_point_device_start_ms;
 	int last_update_returncode;
+	bool sd_card_connected = false;
 	String ip_address;
 	std::map<std::string, api_status_t> apis_status;
 	std::vector<std::string> sensor_names;

@@ -10,6 +10,7 @@ protected:
   unsigned long sending_timeout;  // Private variable for sending timeout
   unsigned long timeout;  // Private variable for sensor timeout
   unsigned long last_fetch_time;
+  bool _jsonUpdated = false;
 
   virtual void _fetch(JsonDocument &data) = 0;
 
@@ -36,6 +37,7 @@ protected:
     measObj[F("value")] = value;
     measObj[F("intl_name")] = intl_name;
     measObj[F("units")] = units;
+    _jsonUpdated = true;
   }
 
   void addValueToJSON(JsonDocument &data, const String &meas_id, const uint8_t &value, const char* intl_name, const String &units) {
@@ -55,6 +57,7 @@ protected:
     measObj[F("value")] = value;
     measObj[F("intl_name")] = intl_name;
     measObj[F("units")] = units;
+    _jsonUpdated = true;
   }
 
   void addValueToJSON(JsonDocument &data, const String &meas_id, const double &value, const char* intl_name, const String &units) {
@@ -74,6 +77,7 @@ protected:
     measObj[F("value")] = value;
     measObj[F("intl_name")] = intl_name;
     measObj[F("units")] = units;
+    _jsonUpdated = true;
   }
 
   void addValueToJSON(JsonDocument &data, const String &meas_id, const String &value, const char* intl_name, const String &units) {
@@ -93,6 +97,7 @@ protected:
     measObj[F("value")] = value;
     measObj[F("intl_name")] = intl_name;
     measObj[F("units")] = units;
+    _jsonUpdated = true;
   }
 
 public:
@@ -114,6 +119,15 @@ public:
   // Optional getter for the timeout.
   bool isTimeToFetch() const {
     return (millis() - last_fetch_time > timeout);
+  }
+
+  bool jsonUpdated() {
+    if (_jsonUpdated) {
+      _jsonUpdated = false;
+      return true;
+    } else {
+      return false;
+    }
   }
 };
 

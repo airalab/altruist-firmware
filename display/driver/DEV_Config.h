@@ -35,6 +35,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "../../defines.h"
 
 /**
  * data
@@ -46,12 +47,13 @@
 /**
  * GPIO config
 **/
-#define EPD_SCK_PIN  19
-#define EPD_MOSI_PIN 21
-#define EPD_CS_PIN   18
-#define EPD_RST_PIN  22
-#define EPD_DC_PIN   15
-#define EPD_BUSY_PIN 23
+
+// #define EPD_SCK_PIN  21
+// #define EPD_MOSI_PIN 20
+// #define EPD_CS_PIN   22
+// #define EPD_RST_PIN  15
+// #define EPD_DC_PIN   23
+// #define EPD_BUSY_PIN 17
 
 #define GPIO_PIN_SET   1
 #define GPIO_PIN_RESET 0
