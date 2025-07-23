@@ -24,7 +24,7 @@ class DisplayManager {
 public:
     DisplayManager(JsonDocument &_data, device_status_t &_deviceStatus) : sensors_data(_data), deviceStatus(_deviceStatus) {}
 
-    void process();
+    void process(button_pressed_t &btn_press);
     void setScreen(ScreenPage pageID);
 private:
     device_status_t &deviceStatus;

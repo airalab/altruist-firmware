@@ -5,19 +5,20 @@
 #include "screens/graph.h"
 #include "../sd_card/sd_card.h"
 
-void DisplayManager::process() {
+void DisplayManager::process(button_pressed_t &btn_press) {
     // button_pressed_t btn_press = button_manager.process();
-    // if (btn_press.pressed) {
-    //     if (btn_press.button_num == ButtonNum::DOWN || btn_press.button_num == ButtonNum::UP) {
-    //         if (currentScreenID == ScreenPage::MAIN) {
-    //             currentScreenID = ScreenPage::GRAPHS;
-    //             refresh_now = true;
-    //         } else if (currentScreenID == ScreenPage::GRAPHS) {
-    //             currentScreenID = ScreenPage::MAIN;
-    //             refresh_now = true;
-    //         }
-    //     }
-    // }
+    if (btn_press.pressed) {
+        btn_press.pressed = false;
+        if (btn_press.button_num == ButtonNum::DOWN || btn_press.button_num == ButtonNum::UP) {
+            if (currentScreenID == ScreenPage::MAIN) {
+                currentScreenID = ScreenPage::GRAPHS;
+                refresh_now = true;
+            } else if (currentScreenID == ScreenPage::GRAPHS) {
+                currentScreenID = ScreenPage::MAIN;
+                refresh_now = true;
+            }
+        }
+    }
     if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now) {
         refresh_now = false;
         if (currentScreenID == ScreenPage::MAIN) {

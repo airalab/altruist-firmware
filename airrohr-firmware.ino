@@ -95,6 +95,9 @@ SDCard sdCardLogger;
 
 #if defined(ALTRUIST_INSIDE)
 DisplayManager displayManager(sensors_data, deviceStatus);
+ButtonManager button_manager;
+
+button_pressed_t btn_press;
 #endif
 
 SensorWebServer webserver(sensors_data, deviceStatus, mutex);
@@ -363,6 +366,18 @@ void sensorAndAPIWorker(void *pvParameters) {
 	}
 }
 
+void buttonsWorker(void *pvParameters) {
+	for (;;) {
+		button_pressed_t res = button_manager.process();
+		vTaskDelay(10 / portTICK_PERIOD_MS);
+		if (res.pressed) {
+			btn_press.button_num = res.button_num;
+			btn_press.press_type = res.press_type;
+			btn_press.pressed = true;
+		}
+	}
+}
+
 
 int last_display_refresh;
 // ButtonController button_controller(1);
@@ -424,12 +439,8 @@ void setup(void) {
     }
     Serial.println();
 
-	debug_outln_info(F("Setup finished 11"));
-
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
-	debug_outln_info(F("Setup finished 111"));
 	deviceStatus.sd_card_connected = sdCardLogger.begin();
-	debug_outln_info(F("Setup finished 1111"));
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
 
@@ -437,6 +448,16 @@ void setup(void) {
 		sensorAndAPIWorker,  // task function
 		"SensorAPIWorker",   // name
 		16392,                // stack size
+		NULL,                // parameters
+		2,                   // priority (>=1 to not be preempted too much)
+		NULL,                // task handle (optional)
+		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
+	);
+	button_manager.init();
+	xTaskCreatePinnedToCore(
+		buttonsWorker,  // task function
+		"ButtonWorker",   // name
+		2048,                // stack size
 		NULL,                // parameters
 		1,                   // priority (>=1 to not be preempted too much)
 		NULL,                // task handle (optional)
@@ -456,7 +477,7 @@ void loop(void) {
 	// delay(100);
 	webserver.handleClient();
 #if defined(ALTRUIST_INSIDE)
-	displayManager.process();
+	displayManager.process(btn_press);
 #endif
 	yield();
 }

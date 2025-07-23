@@ -14,6 +14,7 @@ PressType ButtonController::process() {
     // debug_outln_info(F("Pin: "), _pin);
     // debug_outln_info(F("Current state: "), current_state);
     // debug_outln_info(F("Last state: "), last_state);
+    // debug_outln_info(F("Pressed time: "), pressed_time);
     PressType res = PressType::NONE;
     if (current_state == PRESSED_STATE) {
         if (last_state == NOT_PRESSED_STATE) {
