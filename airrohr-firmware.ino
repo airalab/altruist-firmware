@@ -438,6 +438,7 @@ void setup(void) {
         Serial.print(F(" "));
     }
     Serial.println();
+	DEV_Module_Init();
 
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
 	deviceStatus.sd_card_connected = sdCardLogger.begin();

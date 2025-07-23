@@ -44,7 +44,7 @@ void createNewImage(UBYTE *&BlackImage) {
 }
 
 void refreshScreen(UBYTE *&BlackImage) {
-    DEV_Module_Init();
+    // DEV_Module_Init();
 #ifdef DISPLAY_3IN52
     EPD_3IN52_Init();
     EPD_3IN52_display_NUM(EPD_3IN52_WHITE);
