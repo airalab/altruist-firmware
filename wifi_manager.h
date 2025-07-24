@@ -3,6 +3,7 @@
 
 #include "webserver/webserver.h"
 
-void connectWifi(SensorWebServer &webserver);
+bool connectWifi(SensorWebServer &webserver);
+void wifiConfig(SensorWebServer &webserver);
 
 #endif // __WIFI_MANAGER_H__

@@ -43,39 +43,73 @@ void createNewImage(UBYTE *&BlackImage) {
     Paint_Clear(WHITE);
 }
 
-void refreshScreen(UBYTE *&BlackImage) {
-    // DEV_Module_Init();
+void clearScreen() {
 #ifdef DISPLAY_3IN52
     EPD_3IN52_Init();
     EPD_3IN52_display_NUM(EPD_3IN52_WHITE);
-    EPD_3IN52_lut_DU();
+    EPD_3IN52_lut_GC();
     EPD_3IN52_refresh();
+#endif
+}
 
+void showImageFast(UBYTE *&BlackImage) {
+#ifdef DISPLAY_3IN52
     EPD_3IN52_SendCommand(0x50);
     EPD_3IN52_SendData(0x17);
 
     EPD_3IN52_display(BlackImage);
     EPD_3IN52_lut_GC();
     EPD_3IN52_refresh();
-    DEV_Delay_ms(2000);
+    DEV_Delay_ms(1000);
     printf("Goto Sleep...\r\n");
     EPD_3IN52_sleep();
 #endif
 #ifdef DISPLAY_4IN2
-    Debug("e-Paper Init and Clear...\r\n");
     EPD_4IN2_V2_Init();
     // EPD_4IN2_V2_Clear();
     DEV_Delay_ms(500);
     EPD_4IN2_V2_Display(BlackImage);
-    DEV_Delay_ms(2000);
+    DEV_Delay_ms(1000);
     EPD_4IN2_V2_Sleep();
-    DEV_Delay_ms(2000);
-    // DEV_Module_Exit();
+    // DEV_Delay_ms(2000);
 #endif
 }
 
+void showImageLong(UBYTE *&BlackImage) {
+#ifdef DISPLAY_3IN52
+    EPD_3IN52_SendCommand(0x50);
+    EPD_3IN52_SendData(0x17);
+
+    EPD_3IN52_display(BlackImage);
+    EPD_3IN52_lut_GC();
+    EPD_3IN52_refresh();
+    DEV_Delay_ms(1000);
+    printf("Goto Sleep...\r\n");
+    EPD_3IN52_sleep();
+#endif
+#ifdef DISPLAY_4IN2
+    EPD_4IN2_V2_Init();
+    // EPD_4IN2_V2_Clear();
+    DEV_Delay_ms(500);
+    EPD_4IN2_V2_Display(BlackImage);
+    DEV_Delay_ms(1000);
+    EPD_4IN2_V2_Sleep();
+    // DEV_Delay_ms(2000);
+#endif
+}
+
+void refreshScreen(UBYTE *&BlackImage) {
+    // clearScreen();
+    showImageFast(BlackImage);
+}
+
+void refreshScreenFull(UBYTE *&BlackImage) {
+    clearScreen();
+    showImageLong(BlackImage);
+}
+
 void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_screen_values) {
-    debug_outln_info(F("Got json string to display: "), jsonString);
+    debug_outln_verbose(F("Got json string to display: "), jsonString);
     DynamicJsonDocument doc(2048);  // adjust size as needed
 
     DeserializationError error = deserializeJson(doc, jsonString);
@@ -86,7 +120,7 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_scr
 
     JsonObject data = doc.as<JsonObject>();
     debug_outln_info(F("---"));
-    serializeJson(data, Serial);
+    // serializeJson(data, Serial);
     if (data.containsKey(ATRUIST_URBAN_SENSOR)) {
         if (data[ATRUIST_URBAN_SENSOR].containsKey("IP_address")) {
             main_screen_values.ip_address = data[ATRUIST_URBAN_SENSOR]["IP_address"]["value"].as<String>();
@@ -123,10 +157,16 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_scr
 }
 
 void drawMainScreen(const String &jsonString, const String &device_ip_adrress) {
+    // clearScreen();
+    debug_outln_info(F("Draw main screen 1"));
     UBYTE *BlackImage;
+    debug_outln_info(F("Draw main screen 2"));
     createNewImage(BlackImage);
+    debug_outln_info(F("Draw main screen 3"));
     main_screen_values_t main_screen_values;
+    debug_outln_info(F("Draw main screen 4"));
     _parseJsonToStruct(jsonString, main_screen_values);
+    debug_outln_info(F("Draw main screen 5"));
 
     drawValue("PM10", main_screen_values.pm10, 2, air_filter_35x35, "ppm", 35, 0, 35);
     drawValue("PM2.5", main_screen_values.pm25, 2, air_filter_35x35, "ppm", 35, 0, 80);
@@ -153,6 +193,7 @@ void drawMainScreen(const String &jsonString, const String &device_ip_adrress) {
     Paint_DrawString_EN(360 - 6* Font16.Width - 5, 5, "Indoor", &Font16, BLACK, WHITE);
     Paint_DrawString_EN(360 - device_ip_adrress.length() * Font12.Width - 5, Font16.Height + 5, device_ip_adrress.c_str(), &Font12, BLACK, WHITE);
 
+    debug_outln_info(F("Draw main screen 6"));
     refreshScreen(BlackImage);
 }
 

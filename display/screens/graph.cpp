@@ -27,13 +27,13 @@ void GraphPainter::calculateMinMax() {
             if (line.values[i] < min_value) min_value = line.values[i];
         }
     }
-    Serial.printf("min_value: %.2f, max_value: %.2f\n\r", min_value, max_value);
+    // Serial.printf("min_value: %.2f, max_value: %.2f\n\r", min_value, max_value);
     range = nice_number(max_value - min_value, 0);
     step = nice_number(range / (ticks - 1), 1);
     graph_min = floorf(min_value / step) * step;
     graph_max = graph_min + step * (ticks - 1);
 
-    Serial.printf("graph_min: %.2f, graph_max: %.2f, step: %.2f, range: %.2f\n\r", graph_min, graph_max, step, range);
+    // Serial.printf("graph_min: %.2f, graph_max: %.2f, step: %.2f, range: %.2f\n\r", graph_min, graph_max, step, range);
 }
 
 void GraphPainter::drawGraph() {
@@ -41,7 +41,7 @@ void GraphPainter::drawGraph() {
     calculateYLabelWidth();
     struct tm timeinfo;
     if (!getLocalTime(&timeinfo)) {
-        debug_outln_info(F("[SDCardLogger] Failed to get time"));
+        debug_outln_info(F("Failed to get time"));
         return;
     }
     time_t time_now = mktime(&timeinfo);
@@ -66,7 +66,7 @@ void GraphPainter::drawLabel() {
         } else {
             snprintf(label_text, sizeof(label_text), "%s, %s: %s", label_text, lines[j].label, label_value);
         }
-        Serial.printf("label_text: %s\n\r", label_text);
+        // Serial.printf("label_text: %s\n\r", label_text);
     }
     uint16_t x;
     if (strlen(label_text) * labelFont.Width > graph_width) {
@@ -75,7 +75,7 @@ void GraphPainter::drawLabel() {
         x = left_bottom_x + (graph_width - strlen(label_text) * labelFont.Width) / 2;
     }
     uint16_t y = left_bottom_graph_y - graph_height - labelFont.Height - 8;
-    Serial.printf("Label x: %d, y: %d\n\r", x, y);
+    // Serial.printf("Label x: %d, y: %d\n\r", x, y);
     Paint_DrawString_EN(x, y, label_text, &labelFont, background_color, main_color);
 }
 
@@ -115,13 +115,13 @@ void GraphPainter::drawAxisLabels(time_t *time_now) {
 
 void GraphPainter::drawXLabels(time_t *time_now) {
     uint32_t start_time = *time_now - show_hours*60*60;
-    Serial.printf("start_time: %d\n\r", start_time);
+    // Serial.printf("start_time: %d\n\r", start_time);
     unsigned long seconds_in_day = start_time % 86400;  // Seconds since midnight
-    Serial.printf("seconds_in_day: %d\n\r", seconds_in_day);
+    // Serial.printf("seconds_in_day: %d\n\r", seconds_in_day);
     uint8_t start_hour = seconds_in_day / 3600 + 1;
     uint16_t start_seconds = seconds_in_day % 3600;
     uint32_t start_hour_time = 3600 - start_seconds;
-    Serial.printf("start_hour: %d, start_seconds: %d, start_hour_time: %d\n\r", start_hour, start_seconds, start_hour_time);
+    // Serial.printf("start_hour: %d, start_seconds: %d, start_hour_time: %d\n\r", start_hour, start_seconds, start_hour_time);
     for (int i = 0; i < 4; i++) {
         uint8_t current_hour = (start_hour + i * show_hours / 4) % 24;
         char label[5];
@@ -131,7 +131,7 @@ void GraphPainter::drawXLabels(time_t *time_now) {
 
         float x_pos = (float)left_bottom_graph_x + (time_offset * graph_width) / time_span;
         uint16_t x = (uint16_t)x_pos;
-        Serial.printf("time_span: %f, time_offset: %f, x_pos: %f\n\r", time_span, time_offset, x_pos);
+        // Serial.printf("time_span: %f, time_offset: %f, x_pos: %f\n\r", time_span, time_offset, x_pos);
         uint16_t y = left_bottom_graph_y + 5;
         Paint_DrawString_EN(x - digitFont.Width * 3 / 2, y, label, &digitFont, background_color, main_color);
         Paint_DrawLine(x, left_bottom_graph_y - 2, x, left_bottom_graph_y + 2, main_color, DOT_PIXEL_1X1, LINE_STYLE_SOLID);

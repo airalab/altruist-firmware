@@ -23,6 +23,8 @@ struct main_screen_values_t {
 void drawMainScreen(const String &jsonString, const String &device_ip_address);
 void createNewImage(UBYTE *&BlackImage);
 void refreshScreen(UBYTE *&BlackImage);
+void clearScreen();
+void refreshScreenFull(UBYTE *&BlackImage);
 
 
 #endif // _MAIN_SCREEN_H

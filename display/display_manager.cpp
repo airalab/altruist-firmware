@@ -3,7 +3,13 @@
 #include "display_manager.h"
 #include "screens/main_screen.h"
 #include "screens/graph.h"
+#include "screens/setup.h"
 #include "../sd_card/sd_card.h"
+
+void DisplayManager::setScreen(ScreenPage pageID) {
+    currentScreenID = pageID;
+    refresh_now = true;
+}
 
 void DisplayManager::process(button_pressed_t &btn_press) {
     // button_pressed_t btn_press = button_manager.process();
@@ -21,6 +27,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     }
     if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now) {
         refresh_now = false;
+        clearScreen();
         if (currentScreenID == ScreenPage::MAIN) {
             String jsonString;
 		    serializeJson(sensors_data, jsonString);
@@ -86,6 +93,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
 
             refreshScreen(BlackImage);
             last_refresh_time = millis();
+        } else if(currentScreenID == ScreenPage::SETUP) {
+            showSetupPage();
         }
     }
 }

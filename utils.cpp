@@ -189,7 +189,8 @@ void debug_outln(const String& text, unsigned int level) {
 }
 
 void debug_outln_info(const String& text) {
-	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); Serial.println(text);
+	String dated_text = "[" + String(millis()) + "] " + text; 
+	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); Serial.println(dated_text);
 }
 
 void debug_outln_verbose(const String& text) {
@@ -201,7 +202,8 @@ void debug_outln_error(const __FlashStringHelper* text) {
 }
 
 void debug_outln_info(const __FlashStringHelper* text) {
-	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); Serial.println(text);
+	String dated_text = "[" + String(millis()) + "] " + text; 
+	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); Serial.println(dated_text);
 }
 
 void debug_outln_verbose(const __FlashStringHelper* text) {
@@ -209,10 +211,11 @@ void debug_outln_verbose(const __FlashStringHelper* text) {
 }
 
 void debug_outln_info(const __FlashStringHelper* text, const String& option) {
+	String dated_text = "[" + String(millis()) + "] " + text; 
 	debug_level_check(DEBUG_MIN_INFO);
 	Debug.print(text);
 	Debug.println(option);
-	Serial.print(text);
+	Serial.print(dated_text);
 	Serial.println(option);
 }
 

@@ -412,13 +412,22 @@ void setup(void) {
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
 	init_config();
+	DEV_Module_Init();
 	// init_display();
 	setupNetworkTime();
 	setupEnabledAPIs();
 	// powerOnTestSensors();
 	// deviceStatus.sd_card_connected = sdCardLogger.begin();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
-	connectWifi(webserver);
+	if (!connectWifi(webserver)) {
+		displayManager.setScreen(ScreenPage::SETUP);
+		displayManager.process(btn_press);
+		wifiConfig(webserver);
+		// if (WiFi.status() != WL_CONNECTED) {
+		// 	waitForWifiToConnect(20);
+		// 	debug_outln_info(emptyString);
+		// }
+	}
 	powerOnTestSensors();
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
@@ -438,7 +447,6 @@ void setup(void) {
         Serial.print(F(" "));
     }
     Serial.println();
-	DEV_Module_Init();
 
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
 	deviceStatus.sd_card_connected = sdCardLogger.begin();
@@ -465,6 +473,7 @@ void setup(void) {
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
 	last_display_refresh = -DISPLAY_REFRESH_INTERVAL + 2000 + millis();
+	displayManager.setScreen(ScreenPage::MAIN);
 	debug_outln_info(F("Setup finished"));
 	// button_controller.init();
 }

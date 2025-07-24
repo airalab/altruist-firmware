@@ -5,9 +5,13 @@
 
 #ifdef DISPLAY_3IN52
 #include "EPD_3in52.h"
+#define DISPLAY_HEIGHT EPD_3IN52_WIDTH
+#define DISPLAY_WIDTH EPD_3IN52_HEIGHT
 #endif
 #ifdef DISPLAY_4IN2
 #include "EPD_4in2_V2.h"
+#define DISPLAY_WIDTH EPD_4IN2_WIDTH
+#define DISPLAY_HEIGHT EPD_4IN2_HEIGHT
 #endif
 
 #endif
