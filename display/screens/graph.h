@@ -1,90 +1,19 @@
-
 #ifdef ALTRUIST_INSIDE
 
-#ifndef DISPLAY_GRAPH_H
-#define DISPLAY_GRAPH_H
+#ifndef GRAPH_SCREEN_H
+#define GRAPH_SCREEN_H
 
-#include <stdlib.h>
-#include "../paint_driver/GUI_Paint.h"
+#include <Arduino.h>
 #include "../driver/EPD.h"
-#include "../driver/DEV_Config.h"
 
-#define MAX_LINES 3
+#define GRAPH_HEIGHT (DISPLAY_HEIGHT - 40)/2
+#define GRAPH_WIDTH (DISPLAY_WIDTH - 40)/2
 
-struct GraphLineStyle {
-    LINE_STYLE style = LINE_STYLE_SOLID;
-    DOT_PIXEL width = DOT_PIXEL_1X1;
-    bool use_main_color = true;
-};
+extern uint8_t current_graph_screen;
 
-struct GraphLine {
-    float *values;
-    uint32_t *timestamps;
-    int values_count;
-    char *label;
-    GraphLineStyle line_style;
-};
+void drawGraphScreen();
+void setNextGraphScreen();
+void setPrevGraphScreen();
 
-class GraphPainter {
-public:
-    GraphPainter(uint16_t left_bottom_x, uint16_t left_bottom_y, uint16_t height, uint16_t width);
-    // ~GraphPainter();
-
-    void drawGraph();
-    void addLineValues(float* values, uint32_t* timestamps, int values_count, char* label, GraphLineStyle line_style);
-
-    void addLineValues(float* values, uint32_t* timestamps, int values_count, char* label);
-    void setBlackMode() {
-        main_color = WHITE;
-        background_color = BLACK;
-        inversed_colors = true;
-    }
-
-    void setWhiteMode() {
-        main_color = BLACK;
-        background_color = WHITE;
-        inversed_colors = false;
-    }
-
-    bool inversed_colors = false;
-
-private:
-    uint16_t main_color = BLACK;
-    uint16_t background_color = WHITE;
-    sFONT digitFont = Font12;
-    sFONT labelFont = Font12;
-    uint8_t show_hours = 12; // Должно делиться на 4
-    GraphLine lines[MAX_LINES];
-    uint8_t lines_count = 0;
-    uint16_t left_bottom_x;
-    uint16_t left_bottom_y;
-    uint16_t height;
-    uint16_t width;
-    float max_value = 0;
-    float min_value = 99999;
-    int ticks = 6;
-    float range;
-    float step;
-    float graph_min;
-    float graph_max;
-    uint16_t digit_width;
-    uint16_t digit_height;
-    uint16_t graph_width;
-    uint16_t graph_height;
-    uint16_t left_bottom_graph_x;
-    uint16_t left_bottom_graph_y;
-
-    void calculateYLabelWidth();
-    void calculateMinMax();
-    void drawLabel();
-    void drawAxisLabels(time_t *time_now);
-    void drawYLabels();
-    void drawXLabels(time_t *time_now);
-    void drawBorders();
-    void drawLine(uint8_t line_number, time_t *time_now);
-    float nice_number(float value, int round);
-};
-
-#endif // DISPLAY_GRAPH_H
-
+#endif
 #endif

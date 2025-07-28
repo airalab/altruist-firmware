@@ -382,12 +382,17 @@ void buttonsWorker(void *pvParameters) {
 int last_display_refresh;
 // ButtonController button_controller(1);
 void setup(void) {
-	delay(3000);
+	delay(300);
 	// Debug.begin(115200);		// Output to Serial at 115200 from web console 
 	// Debug.println("Start Setup");
 	// printf("Start Setup print");
 	Serial.begin(115200);
 	Serial.println("Start setup");
+
+	DEV_Module_Init();
+
+	displayManager.setScreen(ScreenPage::LOADING);
+	displayManager.process(btn_press);
 
 #if defined(WIFI_LoRa_32_V2)
 	// reset the OLED display, e.g. of the heltec_wifi_lora_32 board
@@ -412,21 +417,13 @@ void setup(void) {
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
 	init_config();
-	DEV_Module_Init();
-	// init_display();
 	setupNetworkTime();
 	setupEnabledAPIs();
-	// powerOnTestSensors();
-	// deviceStatus.sd_card_connected = sdCardLogger.begin();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
 	if (!connectWifi(webserver)) {
 		displayManager.setScreen(ScreenPage::SETUP);
 		displayManager.process(btn_press);
 		wifiConfig(webserver);
-		// if (WiFi.status() != WL_CONNECTED) {
-		// 	waitForWifiToConnect(20);
-		// 	debug_outln_info(emptyString);
-		// }
 	}
 	powerOnTestSensors();
 	webserver.setup();

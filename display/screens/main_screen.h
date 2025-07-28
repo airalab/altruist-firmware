@@ -20,11 +20,7 @@ struct main_screen_values_t {
     String ip_address = "";
 };
 
-void drawMainScreen(const String &jsonString, const String &device_ip_address);
-void createNewImage(UBYTE *&BlackImage);
-void refreshScreen(UBYTE *&BlackImage);
-void clearScreen();
-void refreshScreenFull(UBYTE *&BlackImage);
+void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &device_ip_address);
 
 
 #endif // _MAIN_SCREEN_H

@@ -6,11 +6,12 @@
 #include "../driver/EPD.h"
 #include "setup.h"
 #include "../../utils.h"
+#include "display_common.h"
 
 QRCode qrcode; 
 unsigned char qr_bitmap[BITMAP_HEIGHT * (BITMAP_WIDTH / 8)];
 
-void showSetupPage() {
+void showSetupPage(UBYTE *BlackImage) {
     uint8_t qrcodeData[qrcode_getBufferSize(3)];
     char qr_data[100];
     sprintf(qr_data, "WIFI:S:%s;T:;P:;;", cfg::fs_ssid);
@@ -62,8 +63,6 @@ void showSetupPage() {
         }
     }
 
-    UBYTE *BlackImage;
-    createNewImage(BlackImage);
     int qr_x = DISPLAY_WIDTH / 2 - total_width / 2;
     int qr_y = DISPLAY_HEIGHT / 2 - total_height / 2 - 7;
 
@@ -75,8 +74,6 @@ void showSetupPage() {
 
     Paint_DrawString_EN(DISPLAY_WIDTH / 2 - 5*Font16.Width, label_y, "Connect to", &Font16, WHITE, BLACK);
     Paint_DrawString_EN(DISPLAY_WIDTH / 2 - strlen(cfg::fs_ssid)*Font16.Width / 2, label_y + Font16.Height + 5, cfg::fs_ssid, &Font16, WHITE, BLACK);
-
-    refreshScreen(BlackImage);
     
     // Clean up
     free(qr_bitmap_scaled);

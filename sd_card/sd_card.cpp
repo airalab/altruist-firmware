@@ -159,7 +159,6 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
 
 void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back) {
 
-    // Получаем текущую дату (примитивно, надо заменить на rtc или ntp)
     time_t now = time(nullptr);
     struct tm* timeinfo = localtime(&now);
 
@@ -191,7 +190,9 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
     }
 
     for (size_t i = 0; i < headers.size(); ++i) {
-        if (headers[i] == field_name) {
+        String header = headers[i];
+        header.trim();
+        if (header == field_name) {
             field_index = i;
             break;
         }
@@ -222,8 +223,13 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
 
         uint32_t timestamp = parts[0].toInt();
         if (timestamp < time_limit) continue;
-
-        float value = parts[field_index].toFloat();
+        
+        float value;
+        if (strstr(field_name, "pressure") != nullptr) {
+            value = parts[field_index].toFloat() * 0.0075;
+        } else {
+            value = parts[field_index].toFloat();
+        }
 
         timestamps_vec.push_back(timestamp);
         values_vec.push_back(value);

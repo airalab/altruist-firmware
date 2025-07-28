@@ -26,7 +26,7 @@ public:
 private:
     int _pin;
     uint8_t last_state = NOT_PRESSED_STATE;
-    uint16_t pressed_time = 0;
+    unsigned long pressed_time = 0;
     bool long_press = false;
 };
 

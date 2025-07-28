@@ -17,7 +17,8 @@ enum class ScreenPage {
     MAIN,
     GRAPHS,
     CANT_CONNECT,
-    SETUP
+    SETUP,
+    LOADING
 };
 
 class DisplayManager {
