@@ -37,11 +37,11 @@ void webserver_status_part2(String &page_content, device_status_t &deviceStatus)
 	}
     for (const auto& [key, value] : deviceStatus.apis_status) {
         String api_is_ok = value.is_ok ? "OK" : "ERROR";
-        String api_count_sends(value.count_sends);
+        String api_count_sends = String(value.count_sends_success) + "/" + String(value.count_sends);
         String api_last_send = ctime(&value.last_send_time);
 		std::string boldKey = "<b>" + key + "</b>";
         add_table_row_from_value(page_content, boldKey.c_str(), api_is_ok);
-        add_table_row_from_value(page_content, F("    count sends"), api_count_sends);
+        add_table_row_from_value(page_content, F("    count success sends"), api_count_sends);
         add_table_row_from_value(page_content, F("    last send time"), api_last_send);
     }
 }

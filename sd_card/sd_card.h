@@ -62,8 +62,8 @@ public:
 private:
     std::map<String, String> _sensorLastFiles;
     std::vector<String> _sensorList;
-    uint64_t cardSizeMB = 0;
-    uint64_t usedMemMB = 0;
+    float cardSizeMB = 0;
+    float usedMemMB = 0;
     bool _beginSD(SPIClass &spi);
     String _findLastFileInFolder(const String& path);
     String _getCurrentDateFileName();

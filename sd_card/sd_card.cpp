@@ -23,8 +23,8 @@ bool SDCard::_beginSD(SPIClass &spi) {
         return false;
     }
 
-    cardSizeMB = SD.cardSize() / (1024 * 1024);
-    usedMemMB = SD.usedBytes() / (1024 * 1024);
+    cardSizeMB = (float)SD.cardSize() / (1024 * 1024);
+    usedMemMB = (float)SD.usedBytes() / (1024 * 1024);
     debug_outln_info(F("SD Card Size (MB): "), cardSizeMB);
     debug_outln_info(F("Used space (MB): "), usedMemMB);
     return true;

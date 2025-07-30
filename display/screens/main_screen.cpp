@@ -77,30 +77,61 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     main_screen_values_t main_screen_values;
     _parseJsonToStruct(jsonString, main_screen_values);
 
-    drawValue("PM10", main_screen_values.pm10, 2, air_filter_35x35, "ppm", 35, 0, 35);
-    drawValue("PM2.5", main_screen_values.pm25, 2, air_filter_35x35, "ppm", 35, 0, 80);
+    uint8_t values_part_border_height = 10;
+    uint16_t up_line_height = Font16.Height + Font12.Height + 8;
+    uint16_t values_part_height = DISPLAY_HEIGHT - up_line_height - 2*values_part_border_height;
+    uint8_t value_item_height = Font12.Height + 5 + Font20.Height;
+    uint8_t value_item_width = Font12.Width * 11 + 40;
+    uint16_t column_width = DISPLAY_WIDTH / 3;
+    uint8_t column_horizontal_interval;
+    if (column_width > value_item_width) {
+        column_horizontal_interval = (column_width - value_item_width) / 2;
+    } else {
+        column_horizontal_interval = 0;
+    }
 
-    drawValue("Noise Max", main_screen_values.noise_max, 0, volume_up_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_35x35, "db", 35, 0, 125);
-    drawValue("Noise Avg", main_screen_values.noise_avg, 0, volume_down_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_35x35, "db", 35, 0, 170);
+    uint8_t four_values_interval = (values_part_height - 4*value_item_height) / 3;
+    uint8_t three_values_interval = (values_part_height - 3*value_item_height) / 2;
 
-    drawValue("Temperature", main_screen_values.temp_outdoor, 1, wi_thermometer_cropped_35x35, "C", 35, 115, 57);
-    drawValue("Humidity", main_screen_values.hum_outdoor, 1, wi_humidity_cropped_35x35, "%", 35, 115, 102);
-    drawValue("Pressure", main_screen_values.press_outdoor, 0, wi_barometer_cropped_35x35, "mm/Hg", 35, 115, 147);
+    // 1 column
 
-    Paint_DrawLine(235, 0, 235, 240, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    drawValue("PM10", main_screen_values.pm10, 2, air_filter_35x35, "ppm", 35, 0, up_line_height + values_part_border_height);
+    drawValue("PM2.5", main_screen_values.pm25, 2, air_filter_35x35, "ppm", 35, 0, up_line_height + values_part_border_height + four_values_interval + value_item_height);
 
-    drawValue("Temperature", main_screen_values.temp_indoor, 1,  house_thermometer_40x40, "C", 40, 238, 57);
-    drawValue("Humidity", main_screen_values.hum_indoor, 1,  house_humidity_40x40, "%", 40, 238, 102);
-    drawValue("CO2", main_screen_values.co2, 1,  co2_svgrepo_com_35x35, "ppm", 35, 238, 147, 5);
+    drawValue("Noise Max", main_screen_values.noise_max, 0, volume_up_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_35x35, "db", 35, 0, up_line_height + values_part_border_height + 2*four_values_interval + 2*value_item_height);
+    drawValue("Noise Avg", main_screen_values.noise_avg, 0, volume_down_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_35x35, "db", 35, 0, up_line_height + values_part_border_height + 3*four_values_interval + 3*value_item_height);
 
-    Paint_DrawRectangle(235 - main_screen_values.ip_address.length() * Font12.Width - 5, 3, 235, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(235 - 7* Font16.Width - 5, 5, "Outdoor", &Font16, BLACK, WHITE);
-    Paint_DrawString_EN(235 - main_screen_values.ip_address.length() * Font12.Width - 5, Font16.Height + 5, main_screen_values.ip_address.c_str(), &Font12, BLACK, WHITE);
+    // 2 column
+    
+    drawValue("Temperature", main_screen_values.temp_outdoor, 1, wi_thermometer_cropped_35x35, "C", 35, column_width + column_horizontal_interval, up_line_height + values_part_border_height + values_part_height / 2 - four_values_interval - 1.5 * value_item_height);
+    drawValue("Humidity", main_screen_values.hum_outdoor, 1, wi_humidity_cropped_35x35, "%", 35, column_width + column_horizontal_interval, up_line_height + values_part_border_height + values_part_height / 2 - value_item_height / 2);
+    drawValue("Pressure", main_screen_values.press_outdoor, 0, wi_barometer_cropped_35x35, "mm/Hg", 35, column_width + column_horizontal_interval, up_line_height + values_part_border_height + values_part_height / 2 + four_values_interval + value_item_height / 2);
+
+    Paint_DrawLine(2*column_width, 0, 2*column_width, 240, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+    // 3 column
+
+    drawValue("Temperature", main_screen_values.temp_indoor, 1,  house_thermometer_40x40, "C", 40, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + values_part_height / 2 - four_values_interval - 1.5 * value_item_height);
+    drawValue("Humidity", main_screen_values.hum_indoor, 1,  house_humidity_40x40, "%", 40, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + values_part_height / 2 - value_item_height / 2);
+    drawValue("CO2", main_screen_values.co2, 1,  co2_svgrepo_com_35x35, "ppm", 35, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + values_part_height / 2 + four_values_interval + value_item_height / 2, 5);
+
+    Paint_DrawRectangle(0, 0, main_screen_values.ip_address.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_EN(5, 5, "Outdoor", &Font16, BLACK, WHITE);
+    Paint_DrawString_EN(5, Font16.Height + 5, main_screen_values.ip_address.c_str(), &Font12, BLACK, WHITE);
 
 
-    Paint_DrawRectangle(360 - device_ip_adrress.length() * Font12.Width - 5, 3, 360, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(360 - 6* Font16.Width - 5, 5, "Indoor", &Font16, BLACK, WHITE);
-    Paint_DrawString_EN(360 - device_ip_adrress.length() * Font12.Width - 5, Font16.Height + 5, device_ip_adrress.c_str(), &Font12, BLACK, WHITE);
+    Paint_DrawRectangle(2*column_width, 3, 2*column_width + main_screen_values.ip_address.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_EN(2*column_width + 5, 5, "Indoor", &Font16, BLACK, WHITE);
+    Paint_DrawString_EN(2*column_width + 5, Font16.Height + 5, device_ip_adrress.c_str(), &Font12, BLACK, WHITE);
+
+    // Paint_DrawRectangle(235 - main_screen_values.ip_address.length() * Font12.Width - 5, 3, 235, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    // Paint_DrawString_EN(235 - 7* Font16.Width - 5, 5, "Outdoor", &Font16, BLACK, WHITE);
+    // Paint_DrawString_EN(235 - main_screen_values.ip_address.length() * Font12.Width - 5, Font16.Height + 5, main_screen_values.ip_address.c_str(), &Font12, BLACK, WHITE);
+
+
+    // Paint_DrawRectangle(360 - device_ip_adrress.length() * Font12.Width - 5, 3, 360, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    // Paint_DrawString_EN(360 - 6* Font16.Width - 5, 5, "Indoor", &Font16, BLACK, WHITE);
+    // Paint_DrawString_EN(360 - device_ip_adrress.length() * Font12.Width - 5, Font16.Height + 5, device_ip_adrress.c_str(), &Font12, BLACK, WHITE);
 
     debug_outln_info(F("Draw main screen 6"));
     // refreshScreen(BlackImage);
