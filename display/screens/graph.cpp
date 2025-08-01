@@ -34,14 +34,14 @@ void drawGraphScreen() {
     String last_octet = urban_ip.substring(last_dot + 1);
     String urban_key = ATRUIST_URBAN_SENSOR + last_octet;
     if (current_graph_screen == 1) {
-        drawOneGraph(10, 10 + GRAPH_HEIGHT, "altruist_urban", "SDS_P1", "PM10");
-        drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, "altruist_urban", "SDS_P2", "PM2.5");
-        drawOneGraph(10, DISPLAY_HEIGHT - 10, "altruist_urban", "PCBA_noiseMax", "Max Noise");
-        drawOneGraph(DISPLAY_WIDTH / 2 + 10, DISPLAY_HEIGHT - 10, "altruist_urban", "PCBA_noiseAvg", "Avg Noise");
+        drawOneGraph(10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "SDS_P1", "PM10");
+        drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "SDS_P2", "PM2.5");
+        drawOneGraph(10, DISPLAY_HEIGHT - 10, urban_key.c_str(), "PCBA_noiseMax", "Max Noise");
+        drawOneGraph(DISPLAY_WIDTH / 2 + 10, DISPLAY_HEIGHT - 10, urban_key.c_str(), "PCBA_noiseAvg", "Avg Noise");
     } else if (current_graph_screen == 2) {
-        drawOneGraph(10, 10 + GRAPH_HEIGHT, "altruist_urban", "BME280_temperature", "Out Temp");
-        drawOneGraph(DISPLAY_WIDTH / 2 - GRAPH_HEIGHT / 2, DISPLAY_HEIGHT - 10, "altruist_urban", "BME280_humidity", "Out Hum");
-        drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, "altruist_urban", "BME280_pressure", "Out Press");
+        drawOneGraph(10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "BME280_temperature", "Out Temp");
+        drawOneGraph(DISPLAY_WIDTH / 2 - GRAPH_HEIGHT / 2, DISPLAY_HEIGHT - 10, urban_key.c_str(), "BME280_humidity", "Out Hum");
+        drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "BME280_pressure", "Out Press");
     } else if (current_graph_screen == 3) {
         drawOneGraph(10, 10 + GRAPH_HEIGHT, "BME680", "temperature", "Inside Temp");
         drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, "BME680", "pressure", "Inside Press");

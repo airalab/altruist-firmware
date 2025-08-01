@@ -35,29 +35,40 @@ public:
         }
         time_t timestamp = mktime(&timeinfo);
 
-        String header = "timestamp";
-        String values = String(timestamp);
+        bool foundAny = false;
 
-        // Извлекаем данные из JSON
-        if (!data.containsKey(sensorName)) {
-            debug_outln_info(F("[SDCardLogger] sensorName not found in JSON"));
-            return;
+        // Перебираем все ключи, ищем те, что начинаются с sensorName
+        for (JsonPairConst kv : data.as<JsonObjectConst>()) {
+            String key = kv.key().c_str();
+
+            if (!key.startsWith(sensorName)) {
+                continue;
+            }
+
+            JsonVariantConst sensorData = kv.value();
+            if (!sensorData.is<JsonObjectConst>()) {
+                debug_outln_info(F("[SDCardLogger] sensorData is not an object for key: "), key);
+                continue;
+            }
+
+            // Начинаем формировать строки для CSV
+            String header = "timestamp";
+            String values = String(timestamp);
+
+            JsonObjectConst measurements = sensorData.as<JsonObjectConst>();
+            for (JsonPairConst measurement : measurements) {
+                header += "," + String(measurement.key().c_str());
+                values += "," + String(measurement.value()["value"].as<float>(), 2);
+            }
+
+            // Логируем по каждому найденному ключу
+            _logCSVRow(key, header, values);
+            foundAny = true;
         }
 
-        JsonVariantConst sensorData = data[sensorName];
-        if (!sensorData.is<JsonObjectConst>()) {
-            debug_outln_info(F("[SDCardLogger] sensorData is not an object"));
-            return;
+        if (!foundAny) {
+            debug_outln_info(F("[SDCardLogger] No matching keys found for sensorName: "), sensorName);
         }
-
-        JsonObjectConst measurements = sensorData.as<JsonObjectConst>();
-        for (JsonPairConst kv : measurements) {
-            header += "," + String(kv.key().c_str());
-            values += "," + String(kv.value()["value"].as<float>(), 2);
-        }
-
-        // Передаём готовые строки в функцию, реализованную в .cpp
-        _logCSVRow(sensorName, header, values);
     }
     bool checkInserted();
 
