@@ -127,12 +127,12 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     drawValue("CO2", main_screen_values.co2, 1,  co2_svgrepo_com_35x35, "ppm", 35, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + values_part_height / 2 + four_values_interval + value_item_height / 2, 5);
 
     Paint_DrawRectangle(0, 0, main_screen_values.ip_address.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(5, 5, "Outdoor", &Font16, BLACK, WHITE);
+    Paint_DrawString_EN(5, 5, "Urban", &Font16, BLACK, WHITE);
     Paint_DrawString_EN(5, Font16.Height + 5, main_screen_values.ip_address.c_str(), &Font12, BLACK, WHITE);
 
 
     Paint_DrawRectangle(2*column_width, 3, 2*column_width + device_ip_adrress.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(2*column_width + 5, 5, "Indoor", &Font16, BLACK, WHITE);
+    Paint_DrawString_EN(2*column_width + 5, 5, "Insight", &Font16, BLACK, WHITE);
     Paint_DrawString_EN(2*column_width + 5, Font16.Height + 5, device_ip_adrress.c_str(), &Font12, BLACK, WHITE);
 
     debug_outln_info(F("Draw main screen 6"));
