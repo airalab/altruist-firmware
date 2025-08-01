@@ -2,11 +2,14 @@
 
 #include "../paint_driver/graphPainter.h"
 #include "graph.h"
+#include "../utils.h"
 #include "../../utils.h"
 #include "../../sd_card/sd_card.h"
+#include "../../config_manager/config_helpers.h"
 
 uint8_t current_graph_screen = 1;
 
+#if defined(USE_SD_CARD)
 static uint16_t drawOneGraph(int left_x, int left_y, const char* sensor_name, const char* meas_name, const char* label) {
     GraphLineStyle line_style;
     LineData result = {nullptr, nullptr, 0};
@@ -17,9 +20,19 @@ static uint16_t drawOneGraph(int left_x, int left_y, const char* sensor_name, co
     graph.drawGraph();
     return graph.getGraphWidth();
 }
+#endif
 
 void drawGraphScreen() {
     debug_outln_info(F("Set graph screen "), current_graph_screen);
+#if defined(USE_SD_CARD)
+    String urban_ip = cfg::chosen_altruist_urban;
+    int last_dot = urban_ip.lastIndexOf('.');
+    if (last_dot == -1) {
+        debug_outln_info(F("Invalid IP address in cfg::chosen_altruist_urban"));
+        return;
+    }
+    String last_octet = urban_ip.substring(last_dot + 1);
+    String urban_key = ATRUIST_URBAN_SENSOR + last_octet;
     if (current_graph_screen == 1) {
         drawOneGraph(10, 10 + GRAPH_HEIGHT, "altruist_urban", "SDS_P1", "PM10");
         drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, "altruist_urban", "SDS_P2", "PM2.5");
@@ -35,6 +48,9 @@ void drawGraphScreen() {
         drawOneGraph(10, DISPLAY_HEIGHT - 10, "BME680", "humidity", "Inside Hum");
         drawOneGraph(DISPLAY_WIDTH / 2 + 10, DISPLAY_HEIGHT - 10, "SCD4x", "co2", "Inside CO2");
     }
+#else
+    Paint_DrawString_EN_Center("No history available", &Font24, WHITE, BLACK);
+#endif
 }
 
 void setNextGraphScreen() {

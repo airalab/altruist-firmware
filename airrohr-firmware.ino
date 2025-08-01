@@ -91,7 +91,9 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
 DynamicJsonDocument sensors_data(2048);
 device_status_t deviceStatus;
+#if defined(USE_SD_CARD)
 SDCard sdCardLogger;
+#endif
 
 #if defined(ALTRUIST_INSIDE)
 DisplayManager displayManager(sensors_data, deviceStatus);
@@ -314,10 +316,12 @@ void fetchSensors() {
 					activeSensors[i]->fetch(sensors_data);
 					xSemaphoreGive(mutex);
 				}
+#if defined(USE_SD_CARD)
 				deviceStatus.sd_card_connected = sdCardLogger.checkInserted();
 				if (deviceStatus.sd_card_connected && activeSensors[i]->jsonUpdated()) {
 					sdCardLogger.logData(activeSensors[i]->sensor_name, sensors_data);
 				}
+#endif
 			}
 		}
 }
@@ -446,7 +450,9 @@ void setup(void) {
     Serial.println();
 
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
+#if defined(USE_SD_CARD)
 	deviceStatus.sd_card_connected = sdCardLogger.begin();
+#endif
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
 

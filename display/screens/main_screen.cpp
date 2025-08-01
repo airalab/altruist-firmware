@@ -13,6 +13,7 @@
 #include "../icons/icons/icons_35x35.h"
 #include "../../defines.h"
 #include "../utils.h"
+#include "../../config_manager/config_helpers.h"
 #include "display_common.h"
 
 
@@ -37,31 +38,41 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_scr
 
     JsonObject data = doc.as<JsonObject>();
     debug_outln_info(F("---"));
+
+    String urban_ip = cfg::chosen_altruist_urban;
+    int last_dot = urban_ip.lastIndexOf('.');
+    if (last_dot == -1) {
+        debug_outln_info(F("Invalid IP address in cfg::chosen_altruist_urban"));
+        return;
+    }
+    String last_octet = urban_ip.substring(last_dot + 1);
+    String urban_key = ATRUIST_URBAN_SENSOR + last_octet;
+    
     // serializeJson(data, Serial);
-    if (data.containsKey(ATRUIST_URBAN_SENSOR)) {
-        if (data[ATRUIST_URBAN_SENSOR].containsKey("IP_address")) {
-            main_screen_values.ip_address = data[ATRUIST_URBAN_SENSOR]["IP_address"]["value"].as<String>();
+    if (data.containsKey(urban_key)) {
+        if (data[urban_key].containsKey("IP_address")) {
+            main_screen_values.ip_address = data[urban_key]["IP_address"]["value"].as<String>();
         }
-        if (data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P1")) {
-            main_screen_values.pm10 = data[ATRUIST_URBAN_SENSOR]["SDS_P1"]["value"].as<float>();
+        if (data[urban_key].containsKey("SDS_P1")) {
+            main_screen_values.pm10 = data[urban_key]["SDS_P1"]["value"].as<float>();
         }
-        if (data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P2")) {
-            main_screen_values.pm25 = data[ATRUIST_URBAN_SENSOR]["SDS_P2"]["value"].as<float>();
+        if (data[urban_key].containsKey("SDS_P2")) {
+            main_screen_values.pm25 = data[urban_key]["SDS_P2"]["value"].as<float>();
         }
-        if (data[ATRUIST_URBAN_SENSOR].containsKey("BME280_humidity")) {
-            main_screen_values.hum_outdoor = data[ATRUIST_URBAN_SENSOR]["BME280_humidity"]["value"].as<float>();
+        if (data[urban_key].containsKey("BME280_humidity")) {
+            main_screen_values.hum_outdoor = data[urban_key]["BME280_humidity"]["value"].as<float>();
         }
-        if (data[ATRUIST_URBAN_SENSOR].containsKey("BME280_temperature")) {
-            main_screen_values.temp_outdoor = data[ATRUIST_URBAN_SENSOR]["BME280_temperature"]["value"].as<float>();
+        if (data[urban_key].containsKey("BME280_temperature")) {
+            main_screen_values.temp_outdoor = data[urban_key]["BME280_temperature"]["value"].as<float>();
         }
-        if (data[ATRUIST_URBAN_SENSOR].containsKey("BME280_pressure")) {
-            main_screen_values.press_outdoor = data[ATRUIST_URBAN_SENSOR]["BME280_pressure"]["value"].as<float>() * 0.0075;
+        if (data[urban_key].containsKey("BME280_pressure")) {
+            main_screen_values.press_outdoor = data[urban_key]["BME280_pressure"]["value"].as<float>() * 0.0075;
         }
-        if (data[ATRUIST_URBAN_SENSOR].containsKey("PCBA_noiseMax")) {
-            main_screen_values.noise_max = data[ATRUIST_URBAN_SENSOR]["PCBA_noiseMax"]["value"].as<float>();
+        if (data[urban_key].containsKey("PCBA_noiseMax")) {
+            main_screen_values.noise_max = data[urban_key]["PCBA_noiseMax"]["value"].as<float>();
         }
-        if (data[ATRUIST_URBAN_SENSOR].containsKey("PCBA_noiseAvg")) {
-            main_screen_values.noise_avg= data[ATRUIST_URBAN_SENSOR]["PCBA_noiseAvg"]["value"].as<float>();
+        if (data[urban_key].containsKey("PCBA_noiseAvg")) {
+            main_screen_values.noise_avg= data[urban_key]["PCBA_noiseAvg"]["value"].as<float>();
         }
     }
     if (data.containsKey("SCD4x")) {
@@ -120,18 +131,9 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     Paint_DrawString_EN(5, Font16.Height + 5, main_screen_values.ip_address.c_str(), &Font12, BLACK, WHITE);
 
 
-    Paint_DrawRectangle(2*column_width, 3, 2*column_width + main_screen_values.ip_address.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawRectangle(2*column_width, 3, 2*column_width + device_ip_adrress.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
     Paint_DrawString_EN(2*column_width + 5, 5, "Indoor", &Font16, BLACK, WHITE);
     Paint_DrawString_EN(2*column_width + 5, Font16.Height + 5, device_ip_adrress.c_str(), &Font12, BLACK, WHITE);
-
-    // Paint_DrawRectangle(235 - main_screen_values.ip_address.length() * Font12.Width - 5, 3, 235, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    // Paint_DrawString_EN(235 - 7* Font16.Width - 5, 5, "Outdoor", &Font16, BLACK, WHITE);
-    // Paint_DrawString_EN(235 - main_screen_values.ip_address.length() * Font12.Width - 5, Font16.Height + 5, main_screen_values.ip_address.c_str(), &Font12, BLACK, WHITE);
-
-
-    // Paint_DrawRectangle(360 - device_ip_adrress.length() * Font12.Width - 5, 3, 360, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    // Paint_DrawString_EN(360 - 6* Font16.Width - 5, 5, "Indoor", &Font16, BLACK, WHITE);
-    // Paint_DrawString_EN(360 - device_ip_adrress.length() * Font12.Width - 5, Font16.Height + 5, device_ip_adrress.c_str(), &Font12, BLACK, WHITE);
 
     debug_outln_info(F("Draw main screen 6"));
     // refreshScreen(BlackImage);

@@ -1,6 +1,8 @@
 #ifndef __SD_CARD_H__
 #define __SD_CARD_H__
 
+#if defined(USE_SD_CARD)
+
 #include <ArduinoJson.h>
 #include <map>
 #include <vector>
@@ -72,6 +74,7 @@ private:
 
 };
 
-#endif // __SD_CARD_H__
-
 void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back);
+
+#endif
+#endif // __SD_CARD_H__

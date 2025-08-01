@@ -6,7 +6,6 @@
 #include "screens/setup.h"
 #include "screens/loading.h"
 #include "screens/display_common.h"
-#include "../sd_card/sd_card.h"
 
 void DisplayManager::setScreen(ScreenPage pageID) {
     currentScreenID = pageID;

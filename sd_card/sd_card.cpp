@@ -1,3 +1,5 @@
+#if defined(USE_SD_CARD)
+
 #include "sd_card.h"
 #include "../defines.h"
 
@@ -273,3 +275,5 @@ String SDCard::_getCardTypeName(sdcard_type_t type) {
         return String("NONE");
     }
 }
+
+#endif

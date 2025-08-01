@@ -3,6 +3,7 @@
 #include "http_altruist_sensor.h"
 #include "../utils.h"
 #include "../intl.h"
+#include "../config_manager/config_helpers.h"
 #include "sensor_names.h"
 #include <ESPmDNS.h>
 
@@ -34,16 +35,29 @@ bool HTTPAltruistSensor::begin() {
     } 
     debug_outln_info(F("Number of services found: "), nrOfServices);
 
-    for (int i = 0; i < nrOfServices; i=i+1) {
+    bool found_chosen = false;
+
+    for (int i = 0; i < nrOfServices; i++) {
+        String ip_str = MDNS.address(i).toString();
+
         debug_outln_info(F("---------------"));
         debug_outln_info(F("Hostname: "), MDNS.hostname(i));
-        debug_outln_info(F("IP address: "), MDNS.address(i).toString());
+        debug_outln_info(F("IP address: "), ip_str);
         debug_outln_info(F("Port: "), MDNS.port(i));
         debug_outln_info(F("---------------"));
+
+        sensor_addresses.push_back(ip_str);
+
+        // Проверка, совпадает ли текущий IP с выбранным
+        if (ip_str == cfg::chosen_altruist_urban) {
+            found_chosen = true;
+        }
     }
-    sensor_ip_address = MDNS.address(0).toString();
-    sensor_url += MDNS.address(0).toString();
-    sensor_url += JSON_DATA_PATH;
+    if (!found_chosen && !sensor_addresses.empty()) {
+        config_set_string_by_key("chosen_altruist_urban", sensor_addresses[0].c_str());
+        writeConfig();
+        debug_outln_info(F("Chosen altruist sensor not found, using: "), cfg::chosen_altruist_urban);
+    }
     debug_outln_info(F("Http Altruis Sensor started with fetch interval (sec): "), String(timeout/1000));
     last_fetch_time = millis() - timeout;
     return true;
@@ -52,12 +66,25 @@ bool HTTPAltruistSensor::begin() {
 void HTTPAltruistSensor::_fetch(JsonDocument &data) {
     debug_outln_info(F("fetch HTTP Altruist"));
     HTTPClient http;
+    for (const auto& ip_address : sensor_addresses) {
+        int lastDot = ip_address.lastIndexOf('.');
+        String lastOctet = ip_address.substring(lastDot + 1);   
+        String current_sensor_name = HTTP_ALTRUIST_SENSOR_NAME + lastOctet;
+        sensor_name = current_sensor_name.c_str();
+        _fetch_one_sensor(data, http, ip_address);
+    }
+    sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
+}
+
+void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http, const String &ip_address) {
+    debug_outln_info(F("fetch HTTP Altruist "), ip_address);
+    String sensor_url = SENSOR_URL_PREFIX + ip_address + JSON_DATA_PATH;
     http.begin(sensor_url);
     int httpCode = http.GET();
 
     if (httpCode == HTTP_CODE_OK) {
         debug_outln_info(F("Success request to Altruis Urban"));
-        addValueToJSON(data, F("IP_address"), sensor_ip_address, INTL_IP_ADDRESS, "");
+        addValueToJSON(data, F("IP_address"), ip_address, INTL_IP_ADDRESS, "");
         String payload = http.getString();
         DynamicJsonDocument doc(2048);
         DeserializationError err = deserializeJson(doc, payload);

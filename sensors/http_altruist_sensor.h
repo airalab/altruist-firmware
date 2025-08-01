@@ -7,6 +7,7 @@
 #include "HTTPClient.h"
 
 #define JSON_DATA_PATH "/data.json"
+#define SENSOR_URL_PREFIX "http://"
 
 class HTTPAltruistSensor : public Sensor
 {
@@ -18,8 +19,8 @@ public:
 
 private:
     void _fetch(JsonDocument &data) override;
-    String sensor_ip_address;
-    String sensor_url = "http://";
+    void _fetch_one_sensor(JsonDocument &data, HTTPClient& http, const String &ip_address);
+    std::vector<String> sensor_addresses;
 };
 
 #endif // __HTTP_ALTRUIST_H__

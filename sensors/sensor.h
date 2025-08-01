@@ -22,9 +22,10 @@ protected:
     // Ensure sensor_name object exists
     // debug_outln_info(F("Meas_id: "), meas_id);
     // debug_outln_info(F("Value: "), value);
-    JsonObject sensorObj = data[sensor_name];  
+    String sensor_name_copy(sensor_name);
+    JsonObject sensorObj = data[sensor_name_copy];  
     if (!sensorObj) {
-        sensorObj = data.createNestedObject(sensor_name);
+        sensorObj = data.createNestedObject(sensor_name_copy);
     }
 
     // Ensure measurement object exists
@@ -42,9 +43,10 @@ protected:
 
   void addValueToJSON(JsonDocument &data, const String &meas_id, const uint8_t &value, const char* intl_name, const String &units) {
     // Ensure sensor_name object exists
-    JsonObject sensorObj = data[sensor_name];  
+    String sensor_name_copy(sensor_name);
+    JsonObject sensorObj = data[sensor_name_copy];  
     if (!sensorObj) {
-        sensorObj = data.createNestedObject(sensor_name);
+        sensorObj = data.createNestedObject(sensor_name_copy);
     }
 
     // Ensure measurement object exists
@@ -62,9 +64,10 @@ protected:
 
   void addValueToJSON(JsonDocument &data, const String &meas_id, const double &value, const char* intl_name, const String &units) {
     // Ensure sensor_name object exists
-    JsonObject sensorObj = data[sensor_name];  
+    String sensor_name_copy(sensor_name);
+    JsonObject sensorObj = data[sensor_name_copy];  
     if (!sensorObj) {
-        sensorObj = data.createNestedObject(sensor_name);
+        sensorObj = data.createNestedObject(sensor_name_copy);
     }
 
     // Ensure measurement object exists
@@ -82,9 +85,10 @@ protected:
 
   void addValueToJSON(JsonDocument &data, const String &meas_id, const String &value, const char* intl_name, const String &units) {
     // Ensure sensor_name object exists
-    JsonObject sensorObj = data[sensor_name];  
+    String sensor_name_copy(sensor_name);
+    JsonObject sensorObj = data[sensor_name_copy];  
     if (!sensorObj) {
-        sensorObj = data.createNestedObject(sensor_name);
+        sensorObj = data.createNestedObject(sensor_name_copy);
     }
 
     // Ensure measurement object exists

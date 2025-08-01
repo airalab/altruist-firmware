@@ -68,6 +68,25 @@ void saveRobonomicsPrivateKey(const char* private_key) {
 	}
 }
 
+bool config_set_string_by_key(const char* key, const char* value) {
+    for (unsigned i = 0; i < sizeof(configShape) / sizeof(configShape[0]); ++i) {
+        ConfigShapeEntry c;
+        memcpy_P(&c, &configShape[i], sizeof(ConfigShapeEntry));
+
+        const char* cfg_key_ptr = reinterpret_cast<const char*>(c.cfg_key());
+        if (strcmp_P(key, cfg_key_ptr) == 0) {
+            if (c.cfg_type == Config_Type_String || c.cfg_type == Config_Type_Password) {
+                strncpy(c.cfg_val.as_str, value, c.cfg_len);
+                c.cfg_val.as_str[c.cfg_len] = '\0';
+                return true;
+            } else {
+                return false;  // Тип не строковый
+            }
+        }
+    }
+    return false;  // Ключ не найден
+}
+
 /*****************************************************************
  * write config to spiffs                                        *
  *****************************************************************/
