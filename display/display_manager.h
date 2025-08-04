@@ -9,7 +9,7 @@
 #include "driver/EPD.h"
 #include "driver/DEV_Config.h"
 #include "../utils.h"
-#include "buttons/button_manager.h"
+#include "../buttons/button_manager.h"
 
 #define DISPLAY_REFRESH_INTERVAL 300000L
 
@@ -30,7 +30,6 @@ public:
 private:
     device_status_t &deviceStatus;
     JsonDocument &sensors_data;
-    // ButtonManager button_manager;
     bool refresh_now = false;
 
     ScreenPage currentScreenID = ScreenPage::MAIN;

@@ -1,9 +1,7 @@
-#ifdef ALTRUIST_INSIDE
-
 #include <Arduino.h>
 #include "button.h"
-#include "../../defines.h"
-#include "../../utils.h"
+#include "../defines.h"
+#include "../utils.h"
 
 void ButtonController::init() {
     pinMode(_pin, INPUT_PULLUP);
@@ -40,5 +38,3 @@ PressType ButtonController::process() {
     last_state = current_state;
     return res;
 }
-
-#endif

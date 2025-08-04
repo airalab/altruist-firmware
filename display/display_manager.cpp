@@ -13,7 +13,6 @@ void DisplayManager::setScreen(ScreenPage pageID) {
 }
 
 void DisplayManager::process(button_pressed_t &btn_press) {
-    // button_pressed_t btn_press = button_manager.process();
     if (btn_press.pressed) {
         btn_press.pressed = false;
         if (currentScreenID == ScreenPage::MAIN) {

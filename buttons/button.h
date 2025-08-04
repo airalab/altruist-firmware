@@ -1,5 +1,3 @@
-#ifdef ALTRUIST_INSIDE
-
 #ifndef BUTTON_ONE_H
 #define BUTTON_ONE_H
 
@@ -31,5 +29,3 @@ private:
 };
 
 #endif // BUTTON_ONE_H
-
-#endif

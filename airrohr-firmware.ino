@@ -82,6 +82,7 @@
 #include "webserver/webserver.h"
 #include "OTA_Update.h"
 #include "sd_card/sd_card.h"
+#include "buttons/button_manager.h"
 #if defined(ALTRUIST_INSIDE)
 #include "display/display_manager.h"
 #endif
@@ -108,137 +109,6 @@ SensorWebServer webserver(sensors_data, deviceStatus, mutex);
  * Variables for Robonomics                                      *
  *****************************************************************/
 Robonomics robonomics;
-
-
-/*****************************************************************
- * send data to influxdb                                         *
- *****************************************************************/
-// static void create_influxdb_string_from_data(String& data_4_influxdb, const String& data) {
-// 	debug_outln_verbose(F("Parse JSON for influx DB: "), data);
-// 	DynamicJsonDocument json2data(JSON_BUFFER_SIZE);
-// 	DeserializationError err = deserializeJson(json2data, data);
-// 	if (!err) {
-// 		data_4_influxdb += cfg::measurement_name_influx;
-// 		data_4_influxdb += F(",node=" SENSOR_BASENAME);
-// 		data_4_influxdb += esp_chipid + " ";
-// 		for (JsonObject measurement : json2data[FPSTR(JSON_SENSOR_DATA_VALUES)].as<JsonArray>()) {
-// 			data_4_influxdb += measurement["value_type"].as<char*>();
-// 			data_4_influxdb += "=";
-
-// 			if (isNumeric(measurement["value"])) {
-// 				//send numerics without quotes
-// 				data_4_influxdb += measurement["value"].as<char*>();
-// 			} else {
-// 				//quote string values
-// 				data_4_influxdb += "\"";
-// 				data_4_influxdb += measurement["value"].as<char*>();
-// 				data_4_influxdb += "\"";
-// 			}
-// 			data_4_influxdb += ",";
-// 		}
-// 		if ((unsigned)(data_4_influxdb.lastIndexOf(',') + 1) == data_4_influxdb.length()) {
-// 			data_4_influxdb.remove(data_4_influxdb.length() - 1);
-// 		}
-
-// 		data_4_influxdb += '\n';
-// 	} else {
-// 		debug_outln_error(FPSTR(DBG_TXT_DATA_READ_FAILED));
-// 	}
-// }
-
-/*****************************************************************
- * send data as csv to serial out                                *
- *****************************************************************/
-// static void send_csv(const String& data) {
-// 	DynamicJsonDocument json2data(JSON_BUFFER_SIZE);
-// 	DeserializationError err = deserializeJson(json2data, data);
-// 	debug_outln_info(F("CSV Output: "), data);
-// 	if (!err) {
-// 		String headline = F("Timestamp_ms;");
-// 		String valueline(act_milli);
-// 		valueline += ';';
-// 		for (JsonObject measurement : json2data[FPSTR(JSON_SENSOR_DATA_VALUES)].as<JsonArray>()) {
-// 			headline += measurement["value_type"].as<char*>();
-// 			headline += ';';
-// 			valueline += measurement["value"].as<char*>();
-// 			valueline += ';';
-// 		}
-// 		static bool first_csv_line = true;
-// 		if (first_csv_line) {
-// 			if (headline.length() > 0) {
-// 				headline.remove(headline.length() - 1);
-// 			}
-// 			Debug.println(headline);
-// 			first_csv_line = false;
-// 		}
-// 		if (valueline.length() > 0) {
-// 			valueline.remove(valueline.length() - 1);
-// 		}
-// 		Debug.println(valueline);
-// 	} else {
-// 		debug_outln_error(FPSTR(DBG_TXT_DATA_READ_FAILED));
-// 	}
-// }
-
-/*****************************************************************
- * read DHT22 sensor values                                      *
- *****************************************************************/
-// static void fetchSensorDHT(String& s) {
-// 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DHT22));
-
-// 	// Check if valid number if non NaN (not a number) will be send.
-// 	last_value_DHT_T = -128;
-// 	last_value_DHT_H = -1;
-
-// 	int count = 0;
-// 	const int MAX_ATTEMPTS = 5;
-// 	while ((count++ < MAX_ATTEMPTS)) {
-// 		auto t = dht.readTemperature();
-// 		auto h = dht.readHumidity();
-// 		if (isnan(t) || isnan(h)) {
-// 			delay(100);
-// 			t = dht.readTemperature(false);
-// 			h = dht.readHumidity();
-// 		}
-// 		if (isnan(t) || isnan(h)) {
-// 			debug_outln_error(F("DHT11/DHT22 read failed"));
-// 		} else {
-// 			last_value_DHT_T = t + readCorrectionOffset(cfg::temp_correction);
-// 			last_value_DHT_H = h;
-// 			add_Value2Json(s, F("temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_DHT_T);
-// 			add_Value2Json(s, F("humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_DHT_H);
-// 			break;
-// 		}
-// 	}
-// 	debug_outln_info(FPSTR(DBG_TXT_SEP));
-
-// 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_DHT22));
-// }
-
-/*****************************************************************
- * read HTU21D sensor values                                     *
- *****************************************************************/
-// static void fetchSensorHTU21D(String& s) {
-// 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_HTU21D));
-
-// 	const auto t = htu21d.readTemperature();
-// 	const auto h = htu21d.readHumidity();
-// 	if (isnan(t) || isnan(h)) {
-// 		last_value_HTU21D_T = -128.0;
-// 		last_value_HTU21D_H = -1.0;
-// 		debug_outln_error(F("HTU21D read failed"));
-// 	} else {
-// 		last_value_HTU21D_T = t;
-// 		last_value_HTU21D_H = h;
-// 		add_Value2Json(s, F("HTU21D_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_HTU21D_T);
-// 		add_Value2Json(s, F("HTU21D_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_HTU21D_H);
-// 	}
-// 	debug_outln_info(FPSTR(DBG_TXT_SEP));
-
-// 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_HTU21D));
-// }
-
-
 
 const int maxSensors = 10;
 Sensor* activeSensors[maxSensors];
@@ -378,6 +248,12 @@ void buttonsWorker(void *pvParameters) {
 			btn_press.button_num = res.button_num;
 			btn_press.press_type = res.press_type;
 			btn_press.pressed = true;
+#ifdef ALTRUIST_URBAN
+			if (btn_press.press_type == PressType::LONG) {
+				removeWiFiCredentials();
+				esp_restart();
+			}
+#endif
 		}
 	}
 }
@@ -393,10 +269,11 @@ void setup(void) {
 	Serial.begin(115200);
 	Serial.println("Start setup");
 
+#ifdef ALTRUIST_INSIDE
 	DEV_Module_Init();
-
 	displayManager.setScreen(ScreenPage::LOADING);
 	displayManager.process(btn_press);
+#endif
 
 #if defined(WIFI_LoRa_32_V2)
 	// reset the OLED display, e.g. of the heltec_wifi_lora_32 board
@@ -475,19 +352,15 @@ void setup(void) {
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
+#ifdef ALTRUIST_INSIDE
 	last_display_refresh = -DISPLAY_REFRESH_INTERVAL + 2000 + millis();
 	displayManager.setScreen(ScreenPage::MAIN);
+#endif
 	debug_outln_info(F("Setup finished"));
 	// button_controller.init();
 }
 
 void loop(void) {
-	// PressType res = button_controller.process();
-	// if (res != PressType::NONE) {
-	// 	debug_outln_info(F("Button pressed short"), res != PressType::LONG);
-	// }
-	// debug_outln_info(F("Press type"), res != PressType::NONE);
-	// delay(100);
 	webserver.handleClient();
 #if defined(ALTRUIST_INSIDE)
 	displayManager.process(btn_press);

@@ -3,7 +3,7 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_STR "R-INS_2025-06"
+#define SOFTWARE_VERSION_STR "R-INS_2025-08"
 #endif
 #if defined(ALTRUIST_URBAN)
 #define SOFTWARE_VERSION_STR "R-URB_2025-07-beta"
@@ -19,6 +19,7 @@
 #endif
 
 #define ATRUIST_URBAN_SENSOR "altruist_urban"
+
 #define DEVICE_MODEL_MDNS_PROPERTY "device_model"
 #define DEVICE_MODEL_INSIGHT "insight"
 #define DEVICE_MODEL_URBAN "urban"

@@ -1,7 +1,5 @@
-#ifdef ALTRUIST_INSIDE
-
 #include "button_manager.h"
-#include "../../utils.h"
+#include "../utils.h"
 
 void print_button_pressed(button_pressed_t &res) {
     String name;
@@ -22,19 +20,28 @@ void print_button_pressed(button_pressed_t &res) {
     debug_outln_info(F("[Button] "), message);
 }
 
+#ifdef ALTRUIST_INSIDE
 ButtonManager::ButtonManager()
     : up_button(BTN_UP_PIN),
       down_button(BTN_DOWN_PIN),
       set_button(BTN_SET_PIN) {}
+#endif
+#ifdef ALTRUIST_URBAN
+ButtonManager::ButtonManager()
+    : set_button(BTN_SET_PIN) {}
+#endif
 
 void ButtonManager::init() {
+#ifdef ALTRUIST_INSIDE
     up_button.init();
     down_button.init();
+#endif
     set_button.init();
 }
 
 button_pressed_t ButtonManager::process() {
     button_pressed_t res;
+#ifdef ALTRUIST_INSIDE
     PressType up_press = up_button.process();
     if (up_press != PressType::NONE) {
         res.pressed = true;
@@ -48,7 +55,7 @@ button_pressed_t ButtonManager::process() {
         res.button_num = ButtonNum::DOWN;
         res.press_type = down_press;
     }
-
+#endif
     PressType set_press = set_button.process();
     if (set_press != PressType::NONE) {
         res.pressed = true;
@@ -61,5 +68,3 @@ button_pressed_t ButtonManager::process() {
 
     return res;
 }
-
-#endif
