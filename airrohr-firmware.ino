@@ -166,10 +166,12 @@ static void setupEnabledAPIs() {
 static void setupNetworkTime() {
 	// server name ptrs must be persisted after the call to configTime because internally
 	// the pointers are stored see implementation of lwip sntp_setservername()
+	debug_outln_info(F("Setup time, timezone: "), cfg::timezone);
 	static char ntpServer1[18], ntpServer2[18];
 	strcpy_P(ntpServer1, NTP_SERVER_1);
 	strcpy_P(ntpServer2, NTP_SERVER_2);
-	configTime(0, 0, ntpServer1, ntpServer2);
+
+	configTzTime(cfg::timezone, ntpServer1, ntpServer2);
 }
 
 void fetchSensors() {

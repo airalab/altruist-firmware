@@ -3,6 +3,20 @@
 #include "graphPainter.h"
 #include "utils.h"
 #include "../utils.h"
+#include "../../config_manager/config_helpers.h"
+
+int get_timezone_offset() {
+    String tz_string(cfg::timezone);
+    int start = tz_string.indexOf('<');
+    int end = tz_string.indexOf('>');
+
+    if (start == -1 || end == -1 || end <= start + 1) {
+        return 0;  // значение по умолчанию
+    }
+
+    String offset_str = tz_string.substring(start + 1, end);
+    return offset_str.toInt();  // автоматически распарсит -12, +3 и т.д.
+}
 
 GraphPainter::GraphPainter(uint16_t left_bottom_x, uint16_t left_bottom_y,
                            uint16_t height, uint16_t width)
@@ -123,7 +137,13 @@ void GraphPainter::drawXLabels(time_t *time_now) {
     uint32_t start_hour_time = 3600 - start_seconds;
     // Serial.printf("start_hour: %d, start_seconds: %d, start_hour_time: %d\n\r", start_hour, start_seconds, start_hour_time);
     for (int i = 0; i < 4; i++) {
-        uint8_t current_hour = (start_hour + i * show_hours / 4) % 24;
+        int timezone_offset = get_timezone_offset();
+        int current_hour = start_hour + i * show_hours / 4 + timezone_offset;
+        if (current_hour < 0) {
+            current_hour = 24 + current_hour;
+        } else if (current_hour > 24) {
+            current_hour = current_hour - 24;
+        }
         char label[5];
         snprintf(label, sizeof(label), "%02dh", current_hour);
         float time_span = (float)(*time_now - start_time); // Ensure float division

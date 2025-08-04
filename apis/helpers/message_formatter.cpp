@@ -42,6 +42,7 @@ void addTimeAndSign(const String &data, String &signature, Robonomics *robonomic
     debug_outln_error(F("Failed to obtain time"));
     return;
   }
+  debug_outln_info(F("Local time: "), timeinfo.tm_hour);
   
   // Convert local time to a Unix timestamp.
   time_t timestamp = mktime(&timeinfo);

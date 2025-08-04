@@ -144,6 +144,8 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 
 	page_content += form_select_lang();
 
+	page_content += form_select_timezone();
+
 	// page_content += form_select_reg();
 
 	page_content += F("<script>"

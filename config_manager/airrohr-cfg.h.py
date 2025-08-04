@@ -46,6 +46,7 @@ String      current_reg
 String      temp_correction
 String      local_hostname
 String      chosen_altruist_urban
+String      timezone
 """
 
 with open("airrohr-cfg.h", "w") as h:

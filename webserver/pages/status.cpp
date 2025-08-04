@@ -29,8 +29,14 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus)
 		add_table_row_from_value(page_content, FPSTR(INTL_LAST_OTA), delayToString(millis() - deviceStatus.last_update_attempt));
 	}
 
-	time_t now = time(nullptr);
-	add_table_row_from_value(page_content, FPSTR(INTL_TIME_UTC), ctime(&now));
+	struct tm timeinfo;
+	if (!getLocalTime(&timeinfo)) {
+		add_table_row_from_value(page_content, FPSTR(INTL_TIME_LOCAL), "Failed to get time");
+	} else {
+		char time_str[32];
+		strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+		add_table_row_from_value(page_content, FPSTR(INTL_TIME_LOCAL), time_str);
+	}
 	add_table_row_from_value(page_content, FPSTR(INTL_UPTIME), delayToString(millis() - deviceStatus.time_point_device_start_ms));
 	add_table_row_from_value(page_content, FPSTR(INTL_RESET_REASON), get_reset_reason_text());
 }

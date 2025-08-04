@@ -147,7 +147,7 @@ const char INTL_LA_MAX[] PROGMEM = "LA max";
 const char INTL_LATITUDE[] PROGMEM = "Latitude";
 const char INTL_LONGITUDE[] PROGMEM = "Longitude";
 const char INTL_ALTITUDE[] PROGMEM = "Altitude";
-const char INTL_TIME_UTC[] PROGMEM = "Time (UTC)";
+const char INTL_TIME_LOCAL[] PROGMEM = "Time";
 const char INTL_SIGNAL_STRENGTH[] PROGMEM = "signal strength";
 const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_NUMBER_OF_MEASUREMENTS "Number of measurements"
