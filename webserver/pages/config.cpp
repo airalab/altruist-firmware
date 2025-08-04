@@ -96,7 +96,12 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_GPS "</h3>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+#ifdef ALTRUIST_URBAN
+	add_form_input(page_content, Config_sds_meas_interval_ms, FPSTR(INTL_SDS_MEAS_INTERVAL), 5);
+#endif
+#ifdef ALTRUIST_INSIDE
 	page_content += form_select_altruist(data);
+#endif
 	page_content += F("<div class='map-container'><div id='map'></div>");
 	page_content += F("</div><span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
 	page_content += F("</div>");
@@ -125,7 +130,6 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_DEBUG "</h3>");
 	add_form_input(page_content, Config_debug, FPSTR(INTL_DEBUG_LEVEL), 1);
 	add_form_input(page_content, Config_sending_intervall_ms, FPSTR(INTL_MEASUREMENT_INTERVAL), 5);
-	add_form_input(page_content, Config_sds_meas_interval_ms, FPSTR(INTL_SDS_MEAS_INTERVAL), 5);
 	page_content += F("</div>");
 
 	server.sendContent(page_content);
@@ -140,7 +144,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 
 	page_content += form_select_lang();
 
-	page_content += form_select_reg();
+	// page_content += form_select_reg();
 
 	page_content += F("<script>"
 	    "var $ = function(e) { return document.getElementById(e); };"
