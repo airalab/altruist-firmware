@@ -109,6 +109,15 @@ const char INTL_DEVICE_STATUS[] PROGMEM = "Состояние устройств
 const char INTL_SAVE_AND_RESTART[] PROGMEM = "Сохранить и перезапустить";
 #define INTL_FIRMWARE "Прошивка"
 #define INTL_IP_ADDRESS "IP адрес"
+const char INTL_SD_CONNECTED[] PROGMEM = "SD карта подключена";
+const char INTL_FREE_RAM[] PROGMEM = "Свободно памяти (ОЗУ)";
+const char INTL_LAST_OTA[] PROGMEM = "Последний OTA";
+const char INTL_UPTIME[] PROGMEM = "Время работы";
+const char INTL_RESET_REASON[] PROGMEM = "Причина перезагрузки";
+const char INTL_OTA_RETURN[] PROGMEM = "OTA Ответ";
+const char INTL_COUNT_SUCCESS_SENDS[] PROGMEM = "количество успешных отправок";
+const char INTL_LAST_SEND_TIME[] PROGMEM = "время последней отправки";
+#define INTL_CHIP_TYPE "Тип чипа"
 #define INTL_ROBONOMICS_ADDR "Адрес в Робономике"
 const char INTL_DEBUG_SETTING_TO[] PROGMEM = "Настройки отладки";
 #define INTL_NONE "отключена"

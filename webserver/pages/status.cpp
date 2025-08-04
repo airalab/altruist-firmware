@@ -17,22 +17,28 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus)
 	versionHtml.replace("/", FPSTR(BR_TAG));
 	add_table_row_from_value(page_content, FPSTR(INTL_FIRMWARE), versionHtml);
 	add_table_row_from_value(page_content, FPSTR(INTL_IP_ADDRESS), deviceStatus.ip_address);
-	add_table_row_from_value(page_content, F("SD Card connected"), deviceStatus.sd_card_connected ? "YES" : "NO");
-	add_table_row_from_value(page_content, F("Free Memory (RAM)"), String(ESP.getFreeHeap()));
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+	add_table_row_from_value(page_content, FPSTR(INTL_CHIP_TYPE), "esp32c6");
+#endif
+#ifdef CONFIG_IDF_TARGET_ESP32C3
+	add_table_row_from_value(page_content, FPSTR(INTL_CHIP_TYPE), "esp32c3");
+#endif
+	add_table_row_from_value(page_content, FPSTR(INTL_SD_CONNECTED), deviceStatus.sd_card_connected ? "YES" : "NO");
+	add_table_row_from_value(page_content, FPSTR(INTL_FREE_RAM), String(ESP.getFreeHeap()));
 	if (cfg::auto_update) {
-		add_table_row_from_value(page_content, F("Last OTA"), delayToString(millis() - deviceStatus.last_update_attempt));
+		add_table_row_from_value(page_content, FPSTR(INTL_LAST_OTA), delayToString(millis() - deviceStatus.last_update_attempt));
 	}
 
 	time_t now = time(nullptr);
 	add_table_row_from_value(page_content, FPSTR(INTL_TIME_UTC), ctime(&now));
-	add_table_row_from_value(page_content, F("Uptime"), delayToString(millis() - deviceStatus.time_point_device_start_ms));
-	add_table_row_from_value(page_content, F("Reset Reason"), get_reset_reason_text());
+	add_table_row_from_value(page_content, FPSTR(INTL_UPTIME), delayToString(millis() - deviceStatus.time_point_device_start_ms));
+	add_table_row_from_value(page_content, FPSTR(INTL_RESET_REASON), get_reset_reason_text());
 }
 
 void webserver_status_part2(String &page_content, device_status_t &deviceStatus) {
 
 	if (deviceStatus.last_update_returncode != 0) {
-		add_table_row_from_value(page_content, F("OTA Return"),
+		add_table_row_from_value(page_content, FPSTR(INTL_OTA_RETURN),
 			deviceStatus.last_update_returncode > 0 ? String(deviceStatus.last_update_returncode) : HTTPClient::errorToString(deviceStatus.last_update_returncode));
 	}
     for (const auto& [key, value] : deviceStatus.apis_status) {
@@ -41,7 +47,7 @@ void webserver_status_part2(String &page_content, device_status_t &deviceStatus)
         String api_last_send = ctime(&value.last_send_time);
 		std::string boldKey = "<b>" + key + "</b>";
         add_table_row_from_value(page_content, boldKey.c_str(), api_is_ok);
-        add_table_row_from_value(page_content, F("    count success sends"), api_count_sends);
-        add_table_row_from_value(page_content, F("    last send time"), api_last_send);
+        add_table_row_from_value(page_content, FPSTR(INTL_COUNT_SUCCESS_SENDS), api_count_sends);
+        add_table_row_from_value(page_content, FPSTR(INTL_LAST_SEND_TIME), api_last_send);
     }
 }

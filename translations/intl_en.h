@@ -109,6 +109,15 @@ const char INTL_DEVICE_STATUS[] PROGMEM = "Device status";
 const char INTL_SAVE_AND_RESTART[] PROGMEM = "Save configuration and restart";
 #define INTL_FIRMWARE "Firmware version"
 #define INTL_IP_ADDRESS "IP Address"
+const char INTL_SD_CONNECTED[] PROGMEM = "SD Card connected";
+const char INTL_FREE_RAM[] PROGMEM = "Free Memory (RAM)";
+const char INTL_LAST_OTA[] PROGMEM = "Last OTA";
+const char INTL_UPTIME[] PROGMEM = "Uptime";
+const char INTL_RESET_REASON[] PROGMEM = "Reset Reason";
+const char INTL_OTA_RETURN[] PROGMEM = "OTA Return";
+const char INTL_COUNT_SUCCESS_SENDS[] PROGMEM = "count success sends";
+const char INTL_LAST_SEND_TIME[] PROGMEM = "last send time";
+#define INTL_CHIP_TYPE "Chip type"
 #define INTL_ROBONOMICS_ADDR "Robonomics Address"
 const char INTL_DEBUG_SETTING_TO[] PROGMEM = "Set debug level to";
 #define INTL_NONE "off"
