@@ -128,6 +128,39 @@ String form_select_lang() {
 	return s;
 }
 
+String form_select_altruist(JsonDocument& data) {
+	String s_select = F(" selected='selected'");
+	String s = F("<div class='form-group'>"
+				"<label for='chosen_altruist_urban'>Altruist Urban</label>"
+				"<select id='chosen_altruist_urban' name='chosen_altruist_urban'>");
+
+	for (JsonPair kv : data.as<JsonObject>()) {
+		const String key = kv.key().c_str();
+
+		if (!key.startsWith("altruist_urban")) {
+			continue;
+		}
+
+		JsonObject sensor = kv.value().as<JsonObject>();
+		const char* ip = sensor["IP_address"]["value"] | "unknown";
+
+		s += F("<option value='");
+		s += ip;
+		s += "'";
+
+		if (key == cfg::chosen_altruist_urban) {
+			s += s_select;
+		}
+
+		s += ">";
+		s += ip;
+		s += "</option>";
+	}
+
+	s += F("</select></div>");
+	return s;
+}
+
 String form_select_reg() {
 	String s_select = F(" selected='selected'");
 	String s = F(	"<div class='form-group'>"

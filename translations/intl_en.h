@@ -52,7 +52,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 
 #define INTL_PANEL_TITLE_WIFI "WiFi Credentials"
 #define INTL_PANEL_TITLE_ROBONOMICS "Robonomics"
-#define INTL_PANEL_TITLE_GPS "GPS & Temperature Correction"
+#define INTL_PANEL_TITLE_GPS "GPS & Sensors"
 #define INTL_PANEL_TITLE_AUTH "Authentication"
 #define INTL_PANEL_TITLE_DEBUG "Debug Level"
 #define INTL_PANEL_TITLE_FIRMWARE "Firmware Version"

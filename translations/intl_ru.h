@@ -52,7 +52,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 
 #define INTL_PANEL_TITLE_WIFI "Настройка WiFi"
 #define INTL_PANEL_TITLE_ROBONOMICS "Robonomics"
-#define INTL_PANEL_TITLE_GPS "GPS & Коррекция температуры"
+#define INTL_PANEL_TITLE_GPS "GPS & Датчики"
 #define INTL_PANEL_TITLE_AUTH "Аутентификация"
 #define INTL_PANEL_TITLE_DEBUG "Уровень отладки"
 #define INTL_PANEL_TITLE_FIRMWARE "Версия Прошивки"

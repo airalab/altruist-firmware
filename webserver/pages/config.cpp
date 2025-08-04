@@ -43,7 +43,7 @@ void webserver_config_send_body_post(WebServer &server) {
  * Webserver config: show config page                            *
  *****************************************************************/
 
-void webserver_config_send_body_get(WebServer &server, String& page_content, bool wificonfig_loop) {
+void webserver_config_send_body_get(WebServer &server, String& page_content, bool wificonfig_loop, JsonDocument &data) {
 	auto add_form_checkbox = [&page_content](const ConfigShapeId cfgid, const String& info, bool enabled) {
 		page_content += form_checkbox(cfgid, info, true, enabled);
 	};
@@ -96,6 +96,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_GPS "</h3>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+	page_content += form_select_altruist(data);
 	page_content += F("<div class='map-container'><div id='map'></div>");
 	page_content += F("</div><span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
 	page_content += F("</div>");

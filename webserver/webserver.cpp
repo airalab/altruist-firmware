@@ -287,7 +287,7 @@ void SensorWebServer::_webserver_config() {
 		}
 
 		if (server.method() == HTTP_GET) {
-			webserver_config_send_body_get(server, page_content, wificonfig_loop);
+			webserver_config_send_body_get(server, page_content, wificonfig_loop, sensors_data);
 		} else {
 			webserver_config_send_body_post(server);
 			page_content += FPSTR(INTL_SENSOR_IS_REBOOTING);
