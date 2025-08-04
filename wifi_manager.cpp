@@ -220,6 +220,7 @@ bool connectWifi(SensorWebServer &webserver) {
 	if (MDNS.begin(cfg::local_hostname)) {
 		MDNS.addService("altruist", "tcp", 80);
 		MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
+		MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
 	}
 	return true;
 }

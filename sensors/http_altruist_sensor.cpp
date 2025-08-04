@@ -39,18 +39,24 @@ bool HTTPAltruistSensor::begin() {
 
     for (int i = 0; i < nrOfServices; i++) {
         String ip_str = MDNS.address(i).toString();
+        String device_type = DEVICE_MODEL_URBAN;
+        if (MDNS.hasTxt(i, DEVICE_MODEL_MDNS_PROPERTY)) {
+            device_type = MDNS.txt(i, DEVICE_MODEL_MDNS_PROPERTY);
+        }
 
         debug_outln_info(F("---------------"));
         debug_outln_info(F("Hostname: "), MDNS.hostname(i));
         debug_outln_info(F("IP address: "), ip_str);
         debug_outln_info(F("Port: "), MDNS.port(i));
+        debug_outln_info(F("Device type: "), device_type);
         debug_outln_info(F("---------------"));
 
-        sensor_addresses.push_back(ip_str);
+        if (device_type == DEVICE_MODEL_URBAN) {
+            sensor_addresses.push_back(ip_str);
 
-        // Проверка, совпадает ли текущий IP с выбранным
-        if (ip_str == cfg::chosen_altruist_urban) {
-            found_chosen = true;
+            if (ip_str == cfg::chosen_altruist_urban) {
+                found_chosen = true;
+            }
         }
     }
     if (!found_chosen && !sensor_addresses.empty()) {

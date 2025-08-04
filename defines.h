@@ -19,6 +19,16 @@
 #endif
 
 #define ATRUIST_URBAN_SENSOR "altruist_urban"
+#define DEVICE_MODEL_MDNS_PROPERTY "device_model"
+#define DEVICE_MODEL_INSIGHT "insight"
+#define DEVICE_MODEL_URBAN "urban"
+#if defined(ALTRUIST_INSIDE)
+#define DEVICE_MODEL DEVICE_MODEL_INSIGHT
+#endif
+#if defined(ALTRUIST_URBAN)
+#define DEVICE_MODEL DEVICE_MODEL_URBAN
+#endif
+
 
 #define SSID_BASENAME "Altruist-"
 #define HOSTNAME_BASE "Altruist-"
