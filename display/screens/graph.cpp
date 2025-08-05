@@ -25,14 +25,15 @@ static uint16_t drawOneGraph(int left_x, int left_y, const char* sensor_name, co
 void drawGraphScreen() {
     debug_outln_info(F("Set graph screen "), current_graph_screen);
 #if defined(USE_SD_CARD)
-    String urban_ip = cfg::chosen_altruist_urban;
-    int last_dot = urban_ip.lastIndexOf('.');
-    if (last_dot == -1) {
-        debug_outln_info(F("Invalid IP address in cfg::chosen_altruist_urban"));
-        return;
-    }
-    String last_octet = urban_ip.substring(last_dot + 1);
-    String urban_key = ATRUIST_URBAN_SENSOR + last_octet;
+    // String urban_ip = cfg::chosen_altruist_urban;
+    // int last_dot = urban_ip.lastIndexOf('.');
+    // if (last_dot == -1) {
+    //     debug_outln_info(F("Invalid IP address in cfg::chosen_altruist_urban"));
+    //     return;
+    // }
+    // String last_octet = urban_ip.substring(last_dot + 1);
+    // String urban_key = ATRUIST_URBAN_SENSOR + last_octet;
+    String urban_key = ATRUIST_URBAN_SENSOR;
     if (current_graph_screen == 1) {
         drawOneGraph(10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "SDS_P1", "PM10");
         drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "SDS_P2", "PM2.5");

@@ -18,7 +18,7 @@ protected:
     last_fetch_time = millis();
   }
 
-  void addValueToJSON(JsonDocument &data, const String &meas_id, const float value, const char* intl_name, const String &units) {
+  void addValueToJSON(JsonDocument &data, const String &meas_id, const float value, const String &intl_name, const String &units) {
     // Ensure sensor_name object exists
     // debug_outln_info(F("Meas_id: "), meas_id);
     // debug_outln_info(F("Value: "), value);
@@ -41,7 +41,7 @@ protected:
     _jsonUpdated = true;
   }
 
-  void addValueToJSON(JsonDocument &data, const String &meas_id, const uint8_t &value, const char* intl_name, const String &units) {
+  void addValueToJSON(JsonDocument &data, const String &meas_id, const uint8_t &value, const String &intl_name, const String &units) {
     // Ensure sensor_name object exists
     String sensor_name_copy(sensor_name);
     JsonObject sensorObj = data[sensor_name_copy];  
@@ -62,7 +62,7 @@ protected:
     _jsonUpdated = true;
   }
 
-  void addValueToJSON(JsonDocument &data, const String &meas_id, const double &value, const char* intl_name, const String &units) {
+  void addValueToJSON(JsonDocument &data, const String &meas_id, const double &value, const String &intl_name, const String &units) {
     // Ensure sensor_name object exists
     String sensor_name_copy(sensor_name);
     JsonObject sensorObj = data[sensor_name_copy];  
@@ -83,7 +83,7 @@ protected:
     _jsonUpdated = true;
   }
 
-  void addValueToJSON(JsonDocument &data, const String &meas_id, const String &value, const char* intl_name, const String &units) {
+  void addValueToJSON(JsonDocument &data, const String &meas_id, const String &value, const String &intl_name, const String &units) {
     // Ensure sensor_name object exists
     String sensor_name_copy(sensor_name);
     JsonObject sensorObj = data[sensor_name_copy];  

@@ -303,6 +303,8 @@ void setup(void) {
 	setupNetworkTime();
 	setupEnabledAPIs();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
+	displayManager.setScreen(ScreenPage::CONNECTING);
+	displayManager.process(btn_press);
 	if (!connectWifi(webserver)) {
 		displayManager.setScreen(ScreenPage::SETUP);
 		displayManager.process(btn_press);

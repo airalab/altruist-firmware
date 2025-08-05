@@ -39,14 +39,15 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &main_scr
     JsonObject data = doc.as<JsonObject>();
     debug_outln_info(F("---"));
 
-    String urban_ip = cfg::chosen_altruist_urban;
-    int last_dot = urban_ip.lastIndexOf('.');
-    if (last_dot == -1) {
-        debug_outln_info(F("Invalid IP address in cfg::chosen_altruist_urban"));
-        return;
-    }
-    String last_octet = urban_ip.substring(last_dot + 1);
-    String urban_key = ATRUIST_URBAN_SENSOR + last_octet;
+    // String urban_ip = cfg::chosen_altruist_urban;
+    // int last_dot = urban_ip.lastIndexOf('.');
+    // if (last_dot == -1) {
+    //     debug_outln_info(F("Invalid IP address in cfg::chosen_altruist_urban"));
+    //     return;
+    // }
+    // String last_octet = urban_ip.substring(last_dot + 1);
+    // String urban_key = ATRUIST_URBAN_SENSOR + last_octet;
+    String urban_key = ATRUIST_URBAN_SENSOR;
     
     // serializeJson(data, Serial);
     if (data.containsKey(urban_key)) {

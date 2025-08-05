@@ -16,7 +16,7 @@
 enum class ScreenPage {
     MAIN,
     GRAPHS,
-    CANT_CONNECT,
+    CONNECTING,
     SETUP,
     LOADING
 };

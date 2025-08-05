@@ -72,14 +72,21 @@ bool HTTPAltruistSensor::begin() {
 void HTTPAltruistSensor::_fetch(JsonDocument &data) {
     debug_outln_info(F("fetch HTTP Altruist"));
     HTTPClient http;
+    JsonArray addresses = data["service_data"].createNestedArray("altruist_addresses");
     for (const auto& ip_address : sensor_addresses) {
-        int lastDot = ip_address.lastIndexOf('.');
-        String lastOctet = ip_address.substring(lastDot + 1);   
-        String current_sensor_name = HTTP_ALTRUIST_SENSOR_NAME + lastOctet;
-        sensor_name = current_sensor_name.c_str();
-        _fetch_one_sensor(data, http, ip_address);
+        bool already_exists = false;
+        for (JsonVariant v : addresses) {
+            if (v.as<String>() == ip_address) {
+                already_exists = true;
+                break;
+            }
+        }
+        if (!already_exists) {
+            addresses.add(ip_address);
+        }
     }
-    sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
+    _fetch_one_sensor(data, http, cfg::chosen_altruist_urban);
+    // sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
 }
 
 void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http, const String &ip_address) {
@@ -107,7 +114,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
 
             // Пример соответствия intl_name и units
             String units;
-            const char* intl_name;
+            String intl_name;
             if (type == "SDS_P1") {
                 intl_name = "PM10";
                 units = F("µg/m³");
@@ -130,7 +137,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
                 intl_name = INTL_NOISE_MEAN;
                 units = F("db");
             } else {
-                intl_name = type.c_str();  // по умолчанию просто тип
+                intl_name = type;  // по умолчанию просто тип
                 units = "";
             }
 

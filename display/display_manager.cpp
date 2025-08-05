@@ -1,11 +1,7 @@
 #ifdef ALTRUIST_INSIDE
 
 #include "display_manager.h"
-#include "screens/main_screen.h"
-#include "screens/graph.h"
-#include "screens/setup.h"
-#include "screens/loading.h"
-#include "screens/display_common.h"
+#include "screens/screens.h"
 
 void DisplayManager::setScreen(ScreenPage pageID) {
     currentScreenID = pageID;
@@ -48,6 +44,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             showSetupPage(BlackImage);
         } else if(currentScreenID == ScreenPage::LOADING) {
             showLoadingPage(BlackImage);
+        } else if(currentScreenID == ScreenPage::CONNECTING) {
+            showConnectingPage(BlackImage);
         }
         last_refresh_time = millis();
         showImageLong(BlackImage);
