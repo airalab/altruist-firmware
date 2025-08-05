@@ -22,6 +22,7 @@ public:
     ButtonManager(); 
     void init();
     button_pressed_t process();
+    uint8_t get_button_state(ButtonNum button_num);
 
 private:
 #ifdef ALTRUIST_INSIDE

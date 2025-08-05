@@ -68,3 +68,18 @@ button_pressed_t ButtonManager::process() {
 
     return res;
 }
+
+uint8_t ButtonManager::get_button_state(ButtonNum button_num) {
+    if (button_num == ButtonNum::SET) {
+        return set_button.get_last_state();
+    }
+#ifdef ALTRUIST_INSIDE
+    if (button_num == ButtonNum::UP) {
+        return up_button.get_last_state();
+    }
+    if (button_num == ButtonNum::DOWN) {
+        return down_button.get_last_state();
+    }
+#endif
+    return 2;
+}

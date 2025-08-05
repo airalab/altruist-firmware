@@ -20,6 +20,9 @@ public:
     ButtonController(int pin) : _pin(pin) {}
     void init();
     PressType process();
+    uint8_t get_last_state() const {
+        return last_state;
+    }
 
 private:
     int _pin;

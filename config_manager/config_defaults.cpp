@@ -65,7 +65,7 @@ namespace cfg {
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
 	char local_hostname[LEN_LOCAL_HOSTNAME] = LOCAL_HOSTNAME;
 	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
-	char timezone[LEN_TIMEZONE] = "UTC-0";
+	char timezone[LEN_TIMEZONE] = "<+00>0";
 
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);

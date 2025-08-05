@@ -67,6 +67,7 @@
 #define ARDUINOJSON_ENABLE_ARDUINO_PRINT 0
 #define ARDUINOJSON_DECODE_UNICODE 0
 #include <ArduinoJson.h>
+#include <SPIFFS.h>
 
 #include "./intl.h"
 
@@ -261,8 +262,6 @@ void buttonsWorker(void *pvParameters) {
 }
 
 
-int last_display_refresh;
-// ButtonController button_controller(1);
 void setup(void) {
 	delay(300);
 	// Debug.begin(115200);		// Output to Serial at 115200 from web console 
@@ -271,29 +270,30 @@ void setup(void) {
 	Serial.begin(115200);
 	Serial.println("Start setup");
 
+	// If SET button pressed while turn on, reset the configuration
+	button_manager.init();
+	bool reset_needed = true;
+	for (int i=0; i<5; i++) {
+		button_manager.process();
+		reset_needed = reset_needed && (button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE);
+		delay(10);
+	}
+	if (reset_needed) {
+		debug_outln_info(F("Delete configuration and restart"));
+		init_config();
+		SPIFFS.remove(F("/config.json.old"));
+		SPIFFS.remove(F("/config.json"));
+		delay(2000);
+		esp_restart();
+	}
+
 #ifdef ALTRUIST_INSIDE
 	DEV_Module_Init();
 	displayManager.setScreen(ScreenPage::LOADING);
 	displayManager.process(btn_press);
 #endif
 
-#if defined(WIFI_LoRa_32_V2)
-	// reset the OLED display, e.g. of the heltec_wifi_lora_32 board
-	pinMode(RST_OLED, OUTPUT);
-	digitalWrite(RST_OLED, LOW);
-	delay(50);
-	digitalWrite(RST_OLED, HIGH);
-#endif
-
-#if defined(ESP8266)
-	esp_chipid = std::move(String(ESP.getChipId()));
-	esp_mac_id = std::move(String(WiFi.macAddress().c_str()));
-	esp_mac_id.replace(":", "");
-	esp_mac_id.toLowerCase();
-#endif
-#if defined(ESP32)
 	String esp_chipid = get_chipid();
-#endif
 	cfg::initNonTrivials(esp_chipid.c_str());
 	WiFi.persistent(false);
 
@@ -303,11 +303,17 @@ void setup(void) {
 	setupNetworkTime();
 	setupEnabledAPIs();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
-	displayManager.setScreen(ScreenPage::CONNECTING);
-	displayManager.process(btn_press);
+#ifdef ALTRUIST_INSIDE
+	if (strcmp(cfg::wlanssid, WLANSSID) != 0) {
+		displayManager.setScreen(ScreenPage::CONNECTING);
+		displayManager.process(btn_press);
+	}
+#endif
 	if (!connectWifi(webserver)) {
+#ifdef ALTRUIST_INSIDE
 		displayManager.setScreen(ScreenPage::SETUP);
 		displayManager.process(btn_press);
+#endif
 		wifiConfig(webserver);
 	}
 	powerOnTestSensors();
@@ -346,7 +352,6 @@ void setup(void) {
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
-	button_manager.init();
 	xTaskCreatePinnedToCore(
 		buttonsWorker,  // task function
 		"ButtonWorker",   // name
@@ -357,7 +362,6 @@ void setup(void) {
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
 #ifdef ALTRUIST_INSIDE
-	last_display_refresh = -DISPLAY_REFRESH_INTERVAL + 2000 + millis();
 	displayManager.setScreen(ScreenPage::MAIN);
 #endif
 	debug_outln_info(F("Setup finished"));

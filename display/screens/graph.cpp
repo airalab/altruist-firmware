@@ -40,14 +40,14 @@ void drawGraphScreen() {
         drawOneGraph(10, DISPLAY_HEIGHT - 10, urban_key.c_str(), "PCBA_noiseMax", "Max Noise");
         drawOneGraph(DISPLAY_WIDTH / 2 + 10, DISPLAY_HEIGHT - 10, urban_key.c_str(), "PCBA_noiseAvg", "Avg Noise");
     } else if (current_graph_screen == 2) {
-        drawOneGraph(10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "BME280_temperature", "Out Temp");
-        drawOneGraph(DISPLAY_WIDTH / 2 - GRAPH_HEIGHT / 2, DISPLAY_HEIGHT - 10, urban_key.c_str(), "BME280_humidity", "Out Hum");
-        drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "BME280_pressure", "Out Press");
+        drawOneGraph(10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "BME280_temperature", "Urban Temp");
+        drawOneGraph(DISPLAY_WIDTH / 2 - GRAPH_HEIGHT / 2, DISPLAY_HEIGHT - 10, urban_key.c_str(), "BME280_humidity", "Urban Hum");
+        drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, urban_key.c_str(), "BME280_pressure", "Urban Press");
     } else if (current_graph_screen == 3) {
-        drawOneGraph(10, 10 + GRAPH_HEIGHT, "BME680", "temperature", "Inside Temp");
-        drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, "BME680", "pressure", "Inside Press");
-        drawOneGraph(10, DISPLAY_HEIGHT - 10, "BME680", "humidity", "Inside Hum");
-        drawOneGraph(DISPLAY_WIDTH / 2 + 10, DISPLAY_HEIGHT - 10, "SCD4x", "co2", "Inside CO2");
+        drawOneGraph(10, 10 + GRAPH_HEIGHT, "BME680", "temperature", "Insight Temp");
+        drawOneGraph(DISPLAY_WIDTH / 2 + 10, 10 + GRAPH_HEIGHT, "BME680", "pressure", "Insight Press");
+        drawOneGraph(10, DISPLAY_HEIGHT - 10, "BME680", "humidity", "Insight Hum");
+        drawOneGraph(DISPLAY_WIDTH / 2 + 10, DISPLAY_HEIGHT - 10, "SCD4x", "co2", "Insight CO2");
     }
 #else
     Paint_DrawString_EN_Center("No history available", &Font24, WHITE, BLACK);
