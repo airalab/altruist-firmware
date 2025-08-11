@@ -87,6 +87,9 @@
 #if defined(ALTRUIST_INSIDE)
 #include "display/display_manager.h"
 #endif
+#if defined(ALTRUIST_URBAN)
+#include "leds/leds_controller_urban.h"
+#endif
 
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
@@ -99,9 +102,13 @@ SDCard sdCardLogger;
 
 #if defined(ALTRUIST_INSIDE)
 DisplayManager displayManager(sensors_data, deviceStatus);
+#endif
 ButtonManager button_manager;
 
 button_pressed_t btn_press;
+
+#if defined(ALTRUIST_URBAN)
+LedControllerUrban leds_controller_urban;
 #endif
 
 SensorWebServer webserver(sensors_data, deviceStatus, mutex);
@@ -224,6 +231,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 			debug_outln_info(get_reset_reason_text());
 
 			Serial.println(F("Device Status:"));
+			bool senders_ok = true;
 			for (const auto& [api_name, status] : deviceStatus.apis_status) {
 				Serial.print(F("API Name: "));
 				Serial.println(api_name.c_str());
@@ -233,13 +241,30 @@ void sensorAndAPIWorker(void *pvParameters) {
 				Serial.println(ctime(&status.last_send_time));
 				Serial.print(F("  Is OK: "));
 				Serial.println(status.is_ok ? F("Yes") : F("No"));
+				senders_ok = senders_ok && status.is_ok;
 			}
 
 			sensors_data.shrinkToFit();
+#ifdef ALTRUIST_URBAN
+			if (senders_ok) {
+				leds_controller_urban.setMode(LedMode::BLINK_GREEN);
+			} else {
+				leds_controller_urban.setMode(LedMode::BLINK_RED);
+			}
+#endif
 			}
 		}
 
 		vTaskDelay(100 / portTICK_PERIOD_MS);  // yield to other tasks, run ~10x/sec
+	}
+}
+
+void ledsWorker(void *pvParameters) {
+	for (;;) {
+		vTaskDelay(10 / portTICK_PERIOD_MS);
+#ifdef ALTRUIST_URBAN
+		leds_controller_urban.process();
+#endif
 	}
 }
 
@@ -250,10 +275,23 @@ void buttonsWorker(void *pvParameters) {
 		if (res.pressed) {
 			btn_press.button_num = res.button_num;
 			btn_press.press_type = res.press_type;
+			btn_press.double_long = res.double_long;
+			btn_press.second_button_num = res.second_button_num;
 			btn_press.pressed = true;
 #ifdef ALTRUIST_URBAN
 			if (btn_press.press_type == PressType::LONG) {
 				removeWiFiCredentials();
+				esp_restart();
+			}
+#endif
+#ifdef ALTRUIST_INSIDE
+			if (btn_press.double_long) {
+				debug_outln_info(F("Get double long press, reset wifi"));
+				removeWiFiCredentials();
+				btn_press.pressed = false;
+				displayManager.setScreen(ScreenPage::LOGO);
+				displayManager.process(btn_press);
+				delay(10000);
 				esp_restart();
 			}
 #endif
@@ -271,11 +309,19 @@ void setup(void) {
 	Serial.println("Start setup");
 
 	// If SET button pressed while turn on, reset the configuration
+#ifdef ALTRUIST_URBAN
+	leds_controller_urban.init();
+#endif
 	button_manager.init();
 	bool reset_needed = true;
 	for (int i=0; i<5; i++) {
 		button_manager.process();
+#ifdef ALTRUIST_URBAN
 		reset_needed = reset_needed && (button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE);
+#endif
+#ifdef ALTRUIST_INSIDE
+		reset_needed = reset_needed && button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE && button_manager.get_button_state(ButtonNum::DOWN) == PRESSED_STATE;
+#endif
 		delay(10);
 	}
 	if (reset_needed) {
@@ -284,7 +330,7 @@ void setup(void) {
 		SPIFFS.remove(F("/config.json.old"));
 		SPIFFS.remove(F("/config.json"));
 		delay(2000);
-		esp_restart();
+		// esp_restart();
 	}
 
 #ifdef ALTRUIST_INSIDE
@@ -309,10 +355,14 @@ void setup(void) {
 		displayManager.process(btn_press);
 	}
 #endif
-	if (!connectWifi(webserver)) {
+	if (strcmp(cfg::wlanssid, WLANSSID) == 0 || !connectWifi(webserver)) {
 #ifdef ALTRUIST_INSIDE
 		displayManager.setScreen(ScreenPage::SETUP);
 		displayManager.process(btn_press);
+#endif
+#ifdef ALTRUIST_URBAN
+		leds_controller_urban.setMode(LedMode::BLUE);
+		leds_controller_urban.process();
 #endif
 		wifiConfig(webserver);
 	}
@@ -343,6 +393,10 @@ void setup(void) {
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
 
+#ifdef ALTRUIST_URBAN
+	leds_controller_urban.setMode(LedMode::NONE);
+#endif
+
 	xTaskCreatePinnedToCore(
 		sensorAndAPIWorker,  // task function
 		"SensorAPIWorker",   // name
@@ -358,6 +412,15 @@ void setup(void) {
 		2048,                // stack size
 		NULL,                // parameters
 		1,                   // priority (>=1 to not be preempted too much)
+		NULL,                // task handle (optional)
+		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
+	);
+	xTaskCreatePinnedToCore(
+		ledsWorker,  // task function
+		"LedsWorker",   // name
+		2048,                // stack size
+		NULL,                // parameters
+		2,                   // priority (>=1 to not be preempted too much)
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);

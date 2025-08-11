@@ -134,6 +134,10 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define BTN_SET_PIN -1
 #define BTN_UP_PIN -1
 
+// Led pin
+
+#define LED_PIN -1
+
 #elif defined(CONFIG_IDF_TARGET_ESP32C6)
 
 // i2s pins
@@ -203,6 +207,20 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define BTN_DOWN_PIN 3
 #define BTN_SET_PIN 2
 #define BTN_UP_PIN 10
+#endif
+#ifdef ALTRUIST_URBAN
+#define BTN_DOWN_PIN -1
+#define BTN_SET_PIN -1
+#define BTN_UP_PIN -1
+#endif
+
+// Led pin
+
+#ifdef ALTRUIST_INSIDE
+#define LED_PIN -1
+#endif
+#ifdef ALTRUIST_URBAN
+#define LED_PIN -1
 #endif
 
 #else

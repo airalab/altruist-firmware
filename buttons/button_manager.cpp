@@ -17,6 +17,9 @@ void print_button_pressed(button_pressed_t &res) {
         type = "LONG";
     }
     String message = "Button " + name + " was pressed " + type;
+    if (res.double_long) {
+        message += " DOUBLE"; 
+    }
     debug_outln_info(F("[Button] "), message);
 }
 
@@ -62,6 +65,21 @@ button_pressed_t ButtonManager::process() {
         res.button_num = ButtonNum::SET;
         res.press_type = set_press;
     }
+#ifdef ALTRUIST_INSIDE
+    if (res.press_type == PressType::LONG) {
+        if (res.button_num == ButtonNum::DOWN) {
+            if (set_button.get_last_state() == PRESSED_STATE) {
+                res.double_long = true;
+                res.second_button_num = ButtonNum::SET;
+            }
+        } else if (res.button_num == ButtonNum::SET) {
+            if (down_button.get_last_state() == PRESSED_STATE) {
+                res.double_long = true;
+                res.second_button_num = ButtonNum::DOWN;
+            }
+        }
+    }
+#endif
     if (res.pressed) {
         print_button_pressed(res);
     }

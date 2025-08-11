@@ -12,7 +12,7 @@ enum class PressType {
 #define PRESSED_STATE 0
 #define NOT_PRESSED_STATE 1
 
-#define LONG_PRESS_TIMEOUT 2000
+#define LONG_PRESS_TIMEOUT 4000
 #define SHORT_PRESS_TIMEOUT 100
 
 class ButtonController {

@@ -9,7 +9,7 @@ void DisplayManager::setScreen(ScreenPage pageID) {
 }
 
 void DisplayManager::process(button_pressed_t &btn_press) {
-    if (btn_press.pressed) {
+    if (btn_press.pressed && !btn_press.double_long) {
         btn_press.pressed = false;
         if (currentScreenID == ScreenPage::MAIN) {
             if (btn_press.button_num == ButtonNum::DOWN || btn_press.button_num == ButtonNum::UP) {
@@ -46,6 +46,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             showLoadingPage(BlackImage);
         } else if(currentScreenID == ScreenPage::CONNECTING) {
             showConnectingPage(BlackImage);
+        } else if(currentScreenID == ScreenPage::LOGO) {
+            showLogoPage();
         }
         last_refresh_time = millis();
         showImageLong(BlackImage);

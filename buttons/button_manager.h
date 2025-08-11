@@ -13,7 +13,9 @@ enum class ButtonNum {
 
 struct button_pressed_t {
     bool pressed = false;
+    bool double_long = false;
     ButtonNum button_num = ButtonNum::NONE;
+    ButtonNum second_button_num = ButtonNum::NONE;
     PressType press_type = PressType::NONE;
 };
 

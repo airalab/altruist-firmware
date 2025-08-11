@@ -9,6 +9,7 @@
 #include "setup.h"
 #include "loading.h"
 #include "display_common.h"
+#include "logo.h"
 
 #endif
 #endif

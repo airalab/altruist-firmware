@@ -4,16 +4,23 @@
 #include "../utils.h"
 
 void ButtonController::init() {
-    pinMode(_pin, INPUT_PULLUP);
+    if (_pin != -1) {
+        pinMode(_pin, INPUT_PULLUP);
+    } else {
+        debug_outln_info(F("Can't setup button pin "), _pin);
+    }
 }
 
 PressType ButtonController::process() {
+    PressType res = PressType::NONE;
+    if (_pin == -1) {
+        return res;
+    }
     uint8_t current_state = digitalRead(_pin);
     // debug_outln_info(F("Pin: "), _pin);
     // debug_outln_info(F("Current state: "), current_state);
     // debug_outln_info(F("Last state: "), last_state);
     // debug_outln_info(F("Pressed time: "), pressed_time);
-    PressType res = PressType::NONE;
     if (current_state == PRESSED_STATE) {
         if (last_state == NOT_PRESSED_STATE) {
             pressed_time = millis();
