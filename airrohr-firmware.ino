@@ -86,6 +86,7 @@
 #include "buttons/button_manager.h"
 #if defined(ALTRUIST_INSIDE)
 #include "display/display_manager.h"
+#include "leds/leds_controller_insight.h"
 #endif
 #if defined(ALTRUIST_URBAN)
 #include "leds/leds_controller_urban.h"
@@ -109,6 +110,9 @@ button_pressed_t btn_press;
 
 #if defined(ALTRUIST_URBAN)
 LedControllerUrban leds_controller_urban;
+#endif
+#if defined(ALTRUIST_INSIDE)
+LedControllerInsight leds_controller_insight(sensors_data);
 #endif
 
 SensorWebServer webserver(sensors_data, deviceStatus, mutex);
@@ -265,6 +269,9 @@ void ledsWorker(void *pvParameters) {
 #ifdef ALTRUIST_URBAN
 		leds_controller_urban.process();
 #endif
+#ifdef ALTRUIST_INSIDE
+		leds_controller_insight.process();
+#endif
 	}
 }
 
@@ -311,6 +318,9 @@ void setup(void) {
 	// If SET button pressed while turn on, reset the configuration
 #ifdef ALTRUIST_URBAN
 	leds_controller_urban.init();
+#endif
+#ifdef ALTRUIST_INSIDE
+	leds_controller_insight.init();
 #endif
 	button_manager.init();
 	bool reset_needed = true;

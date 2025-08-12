@@ -11,6 +11,7 @@ void LedControllerUrban::init() {
     if (LED_PIN != -1) {
         pixels.begin();
         pixels.clear();
+        pixels.show();
         debug_outln_info(F("Setup leds on pin "), LED_PIN);
     } else {
         debug_outln_info(F("Will not setup leds on pin "), LED_PIN);
@@ -48,6 +49,7 @@ void LedControllerUrban::process() {
                     delay(500);
                 }
         }
+        pixels.show();
     }
 }
 
