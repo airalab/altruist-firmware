@@ -15,14 +15,15 @@
 class BME680Sensor : public Sensor {
 public:
     explicit BME680Sensor(unsigned long sending_timeout = 300000UL);
+    ~BME680Sensor();
     bool begin();
 
 protected:
     void _fetch(JsonDocument &data) override;
 
 private:
-    // Объект драйвера BME680
-    Adafruit_BME680 bme680;
+    Adafruit_BME680 *bme680 = nullptr;
+    uint8_t sensor_address = 0;
 
     // Последние считанные значения
     float last_temperature_value = 0.0f;

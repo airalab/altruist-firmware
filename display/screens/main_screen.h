@@ -16,6 +16,7 @@ struct main_screen_values_t {
     float press_outdoor = -1;
     float temp_indoor = -1;
     float hum_indoor = -1;
+    float press_indoor = -1;
     float co2 = -1;
     String ip_address = "";
 };
