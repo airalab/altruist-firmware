@@ -126,7 +126,7 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
 
     drawValue("Temperature", main_screen_values.temp_indoor, 1,  house_thermometer_40x40, "C", 40, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height);
     drawValue("Humidity", main_screen_values.hum_indoor, 1,  house_humidity_40x40, "%", 40, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + four_values_interval + value_item_height);
-    drawValue("Pressure", main_screen_values.press_indoor, 1,  wi_barometer_cropped_35x35, "mm/Hg", 35, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + 2*four_values_interval + 2*value_item_height, 5);
+    drawValue("Pressure", main_screen_values.press_indoor, 0,  wi_barometer_cropped_35x35, "mm/Hg", 35, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + 2*four_values_interval + 2*value_item_height, 5);
     drawValue("CO2", main_screen_values.co2, 1,  co2_svgrepo_com_35x35, "ppm", 35, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + 3*four_values_interval + 3*value_item_height, 5);
 
     Paint_DrawRectangle(0, 0, main_screen_values.ip_address.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
