@@ -8,6 +8,7 @@ void LedControllerInsight::init() {
     if (LED_PIN != -1) {
         pixels.begin();
         pixels.clear();
+        pixels.setBrightness(25);
         pixels.show();
         debug_outln_info(F("Setup leds on pin "), LED_PIN);
     } else {
@@ -37,13 +38,13 @@ void LedControllerInsight::process() {
             }
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("BME280_temperature")) {
                 color = _getTempColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_temperature"]["value"].as<float>());
-                _setPartColor(7, 9, color);
+                _setPartColor(10, 12, color);
                 debug_outln_info(F("Set Temp color "), getColorName(color));
             }
         }
         if (sensors_data.containsKey("SCD4x")) {
             color = _getCO2Color(sensors_data["SCD4x"]["co2"]["value"].as<float>());
-            _setPartColor(10, 12, color);
+            _setPartColor(7, 9, color);
             debug_outln_info(F("Set CO2 color "), getColorName(color));
         }
         pixels.show();

@@ -15,9 +15,11 @@
 #endif
 
 String supported_sensor_names[] = {
-  SDS_SENSOR_NAME, 
   BME_SENSOR_NAME, 
-  I2S_NOISE_SENSOR_NAME, 
+#if defined(ALTRUIST_URBAN)
+  SDS_SENSOR_NAME,
+  I2S_NOISE_SENSOR_NAME,
+#endif
   SCD4X_SENSOR_NAME, 
   RADSENS_SENSOR_NAME,
 #if defined(ALTRUIST_INSIDE)
