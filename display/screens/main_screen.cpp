@@ -106,6 +106,8 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     uint8_t four_values_interval = (values_part_height - 4*value_item_height) / 3;
     uint8_t three_values_interval = (values_part_height - 3*value_item_height) / 2;
 
+    Paint_DrawRectangle(0, 0, DISPLAY_WIDTH, Font12.Height + 6, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+
     // 1 column
 
     drawValue("PM10", main_screen_values.pm10, 2, air_filter_35x35, "ppm", 35, 0, up_line_height + values_part_border_height);
@@ -120,7 +122,7 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     drawValue("Humidity", main_screen_values.hum_outdoor, 1, wi_humidity_cropped_35x35, "%", 35, column_width + column_horizontal_interval, up_line_height + values_part_border_height + values_part_height / 2 - value_item_height / 2);
     drawValue("Pressure", main_screen_values.press_outdoor, 0, wi_barometer_cropped_35x35, "mm/Hg", 35, column_width + column_horizontal_interval, up_line_height + values_part_border_height + values_part_height / 2 + four_values_interval + value_item_height / 2);
 
-    Paint_DrawLine(2*column_width, 0, 2*column_width, 240, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(2*column_width, 0, 2*column_width, DISPLAY_HEIGHT, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
     // 3 column
 
@@ -129,17 +131,31 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     drawValue("Pressure", main_screen_values.press_indoor, 0,  wi_barometer_cropped_35x35, "mm/Hg", 35, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + 2*four_values_interval + 2*value_item_height, 5);
     drawValue("CO2", main_screen_values.co2, 1,  co2_svgrepo_com_35x35, "ppm", 35, 2*column_width + column_horizontal_interval, up_line_height + values_part_border_height + 3*four_values_interval + 3*value_item_height, 5);
 
+    
     Paint_DrawRectangle(0, 0, main_screen_values.ip_address.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
     Paint_DrawString_EN(5, 5, "Urban", &Font16, BLACK, WHITE);
     Paint_DrawString_EN(5, Font16.Height + 5, main_screen_values.ip_address.c_str(), &Font12, BLACK, WHITE);
 
 
-    Paint_DrawRectangle(2*column_width, 3, 2*column_width + device_ip_adrress.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawRectangle(2*column_width, 0, 2*column_width + device_ip_adrress.length() * Font12.Width + 10, Font16.Height + Font12.Height + 8, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
     Paint_DrawString_EN(2*column_width + 5, 5, "Insight", &Font16, BLACK, WHITE);
     Paint_DrawString_EN(2*column_width + 5, Font16.Height + 5, device_ip_adrress.c_str(), &Font12, BLACK, WHITE);
 
-    debug_outln_info(F("Draw main screen 6"));
-    // refreshScreen(BlackImage);
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+        char date_str[18];
+        // char time_str[16];
+        strftime(date_str, sizeof(date_str), "%Y-%m-%d %H:%M", &timeinfo);
+        // strftime(time_str, sizeof(time_str), "%H:%M", &timeinfo);
+
+        int x = ((2*column_width - main_screen_values.ip_address.length() * Font12.Width - 10) - 16*Font12.Width)/2 + main_screen_values.ip_address.length() * Font12.Width + 10;
+        // int x = 2*column_width - 16* Font12.Width - 3;
+        Paint_DrawString_EN(x, 5, date_str, &Font12, BLACK, WHITE);
+        // Paint_DrawString_EN(x, Font12.Height + 8, time_str, &Font12, WHITE, BLACK);
+    }
+
+    Paint_DrawLine(2*column_width - 1, 0, 2*column_width -1, Font12.Height + 6, WHITE, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(main_screen_values.ip_address.length() * Font12.Width + 10 + 1, 0, main_screen_values.ip_address.length() * Font12.Width + 10 + 1, Font12.Height + 6, WHITE, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 }
 
 
