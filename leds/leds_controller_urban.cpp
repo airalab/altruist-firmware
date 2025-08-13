@@ -8,9 +8,18 @@ LedControllerUrban::LedControllerUrban():
     pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800) {}
 
 void LedControllerUrban::init() {
-    if (LED_PIN != -1) {
+    if (LED_PIN != -1 && cfg::leds_on) {
         pixels.begin();
         pixels.clear();
+        uint8_t brightness;
+        if (cfg::leds_brightness * 255 / 100 < 0) {
+            brightness = 0;
+        } else if (cfg::leds_brightness * 255 / 100 > 255) {
+            brightness = 255;
+        } else {
+            brightness = cfg::leds_brightness * 255 / 100;
+        }
+        pixels.setBrightness(brightness);
         pixels.show();
         debug_outln_info(F("Setup leds on pin "), LED_PIN);
     } else {
@@ -24,7 +33,7 @@ void LedControllerUrban::setMode(LedMode mode) {
 }
 
 void LedControllerUrban::process() {
-    if (LED_PIN == -1) {
+    if (LED_PIN == -1 || !cfg::leds_on) {
         return;
     }
     if (mode_changed) {

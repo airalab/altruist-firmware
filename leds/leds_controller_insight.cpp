@@ -2,13 +2,22 @@
 
 #include "leds_controller_insight.h"
 #include "../utils.h"
+#include "../config_manager/config_helpers.h"
 
 
 void LedControllerInsight::init() {
-    if (LED_PIN != -1) {
+    if (LED_PIN != -1 && cfg::leds_on) {
         pixels.begin();
         pixels.clear();
-        pixels.setBrightness(25);
+        uint8_t brightness;
+        if (cfg::leds_brightness * 255 / 100 < 0) {
+            brightness = 0;
+        } else if (cfg::leds_brightness * 255 / 100 > 255) {
+            brightness = 255;
+        } else {
+            brightness = cfg::leds_brightness * 255 / 100;
+        }
+        pixels.setBrightness(brightness);
         pixels.show();
         debug_outln_info(F("Setup leds on pin "), LED_PIN);
     } else {
@@ -18,7 +27,7 @@ void LedControllerInsight::init() {
 }
 
 void LedControllerInsight::process() {
-    if (LED_PIN == -1) {
+    if (LED_PIN == -1 || !cfg::leds_on) {
         return;
     }
     uint32_t color;

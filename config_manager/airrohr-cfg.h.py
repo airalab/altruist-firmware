@@ -47,6 +47,8 @@ String      temp_correction
 String      local_hostname
 String      chosen_altruist_urban
 String      timezone
+UInt		leds_brightness
+Bool        leds_on
 """
 
 with open("airrohr-cfg.h", "w") as h:

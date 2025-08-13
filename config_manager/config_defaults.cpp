@@ -67,6 +67,9 @@ namespace cfg {
 	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	char timezone[LEN_TIMEZONE] = "<+00>0";
 
+	unsigned leds_brightness = 10;
+	bool leds_on = true;
+
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
 		strcpy(cfg::current_reg, CURRENT_REG);
