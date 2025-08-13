@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="40" height="40" aria-labelledby="title desc" role="img">
+  <title id="title">Иконка атмосферного давления</title>
+  <desc id="desc">Два облака и круглый барометр со стрелкой</desc>
+
+  <!-- Облака с белой заливкой, толстый контур -->
+  <path d="
+    M18,76
+    a16,16 0 0 1 16,-16
+    a18,18 0 0 1 34,6
+    a12,12 0 0 1 4,24
+    H26
+    a14,14 0 0 1 -8,-14
+    z" fill="white" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+
+  <path d="
+    M52,58
+    a14,14 0 0 1 14,-14
+    a16,16 0 0 1 30,6
+    a10,10 0 0 1 3,20
+    H60
+    a12,12 0 0 1 -8,-12
+    z" fill="white" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Барометр -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <!-- Контур -->
+    <circle cx="84" cy="84" r="20" fill="white" stroke="currentColor" stroke-width="8" />
+
+    <!-- Риски -->
+    <g stroke="currentColor" stroke-width="4">
+      <line x1="84" y1="64" x2="84" y2="68" />
+      <line x1="98.14" y1="69.86" x2="95.31" y2="72.69" />
+      <line x1="104" y1="84" x2="100" y2="84" />
+      <line x1="98.14" y1="98.14" x2="95.31" y2="95.31" />
+      <line x1="84" y1="104" x2="84" y2="100" />
+      <line x1="69.86" y1="98.14" x2="72.69" y2="95.31" />
+      <line x1="64" y1="84" x2="68" y2="84" />
+      <line x1="69.86" y1="69.86" x2="72.69" y2="72.69" />
+    </g>
+
+    <!-- Ось стрелки -->
+    <circle cx="84" cy="84" r="3" fill="currentColor" stroke="none" />
+
+    <!-- Стрелка -->
+    <path d="M84 84 L94 74" fill="none" stroke="currentColor" stroke-width="5" />
+    <path d="M94 74 L92 78 L98 72 Z" fill="currentColor" stroke="none"/>
+  </g>
+</svg>

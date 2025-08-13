@@ -6,6 +6,8 @@
 #include "35x35/house_humidity_35x35.h"
 #include "35x35/house_thermometer_35x35.h"
 #include "35x35/ionizing_radiation_symbol_35x35.h"
+#include "35x35/pressure_35x35.h"
+#include "35x35/robo_hw_logo_black_35x35.h"
 #include "35x35/temperature_svgrepo_com_35x35.h"
 #include "35x35/volume_down_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_35x35.h"
 #include "35x35/volume_up_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_35x35.h"
