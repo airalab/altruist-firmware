@@ -223,7 +223,7 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #endif
 #ifdef ALTRUIST_URBAN
 #define BTN_DOWN_PIN -1
-#define BTN_SET_PIN -1
+#define BTN_SET_PIN 7
 #define BTN_UP_PIN -1
 #endif
 
@@ -234,7 +234,7 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define LED_PIN 11
 #endif
 #ifdef ALTRUIST_URBAN
-#define LED_PIN -1
+#define LED_PIN 0
 #endif
 
 #else
