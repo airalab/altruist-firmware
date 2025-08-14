@@ -65,7 +65,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     i2c_master_init();
 
     if (bme680->performReading()) {
-        last_temperature_value = bme680->temperature;    // °C
+        last_temperature_value = bme680->temperature + readCorrectionOffset(cfg::temp_correction);    // °C
         last_pressure_value = bme680->pressure;  // Pa
         last_humidity_value = bme680->humidity;          // %
         // last_gas_resistance_value = bme680.gas_resistance; // Ом (Омми)

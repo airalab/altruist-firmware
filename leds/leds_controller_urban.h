@@ -6,14 +6,15 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
-#define LED_COUNT 1
+#define LED_COUNT 2
 #define MAX_BLINK_COUNT 3
 
 enum class LedMode {
     NONE,
     BLINK_RED,
     BLUE,
-    BLINK_GREEN
+    BLINK_GREEN,
+    GREEN
 };
 
 class LedControllerUrban {

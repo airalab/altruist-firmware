@@ -3,6 +3,10 @@
 #include "leds_controller_urban.h"
 #include "../defines.h"
 #include "../utils.h"
+#include "../config_manager/config_helpers.h"
+
+#define LED_NUM_DATA_SENDING 0
+#define LED_NUM_CONNECTION 1
 
 LedControllerUrban::LedControllerUrban():
     pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800) {}
@@ -42,19 +46,21 @@ void LedControllerUrban::process() {
             case LedMode::NONE:
                 pixels.clear();
             case LedMode::BLUE:
-                _setAllPixels(pixels.Color(0, 0, 255));
+                pixels.setPixelColor(LED_NUM_CONNECTION, pixels.Color(0, 0, 255));
+            case LedMode::GREEN:
+                pixels.setPixelColor(LED_NUM_CONNECTION, pixels.Color(0, 255, 0));
             case LedMode::BLINK_RED:
                 for (int blink_count = 0; blink_count < MAX_BLINK_COUNT; blink_count++) {
-                    _setAllPixels(pixels.Color(255, 0, 0));
+                    pixels.setPixelColor(LED_NUM_DATA_SENDING, pixels.Color(255, 0, 0));
                     delay(500);
-                    _setAllPixels(pixels.Color(0, 0, 0));
+                    pixels.setPixelColor(LED_NUM_DATA_SENDING, pixels.Color(0, 0, 0));
                     delay(500);
                 }
             case LedMode::BLINK_GREEN:
                 for (int blink_count = 0; blink_count < MAX_BLINK_COUNT; blink_count++) {
-                    _setAllPixels(pixels.Color(0, 255, 0));
+                    pixels.setPixelColor(LED_NUM_DATA_SENDING, pixels.Color(0, 255, 0));
                     delay(500);
-                    _setAllPixels(pixels.Color(0, 0, 0));
+                    pixels.setPixelColor(LED_NUM_DATA_SENDING, pixels.Color(0, 0, 0));
                     delay(500);
                 }
         }

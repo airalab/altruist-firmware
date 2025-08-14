@@ -4,9 +4,11 @@
 // increment on change
 #if defined(ALTRUIST_INSIDE)
 #define SOFTWARE_VERSION_STR "R-INS_2025-08"
+#define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_STR "R-URB_2025-07-beta"
+#define SOFTWARE_VERSION_STR "R-URB_2025-08"
+#define PM_SENSOR_NAME "Altruist Urban"
 #endif
 
 #if defined(ESP8266)
@@ -157,8 +159,10 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 // I2C pins
 
 #ifdef ALTRUIST_INSIDE
-#define SDA_I2C_PIN 19
-#define SCL_I2C_PIN 18
+// #define SDA_I2C_PIN 19
+// #define SCL_I2C_PIN 18
+#define SDA_I2C_PIN 2
+#define SCL_I2C_PIN 3
 #endif
 #ifdef ALTRUIST_URBAN
 #define SDA_I2C_PIN 3
@@ -180,32 +184,41 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 // SPI SD Card pins
 
 #ifdef ALTRUIST_INSIDE
-#define SPI_SCK_PIN 0
-#define SPI_MISO_PIN 1
-#define SPI_MOSI_PIN 7
-#define SPI_CS_PIN 6
+// #define SPI_SCK_PIN 0
+// #define SPI_MISO_PIN 1
+// #define SPI_MOSI_PIN 7
+// #define SPI_CS_PIN 6
+#define SPI_SCK_PIN 5
+#define SPI_MISO_PIN 18
+#define SPI_MOSI_PIN 6
+#define SPI_CS_PIN 19
 #endif
-// #define SPI_SCK_PIN 21
-// #define SPI_MISO_PIN 18
-// #define SPI_MOSI_PIN 20
-// #define SPI_CS_PIN 19
 
 // Display
 
 #ifdef ALTRUIST_INSIDE
+// #define EPD_SCK_PIN  21
+// #define EPD_MOSI_PIN 20
+// #define EPD_CS_PIN   22
+// #define EPD_RST_PIN  15
+// #define EPD_DC_PIN   23
+// #define EPD_BUSY_PIN 4
 #define EPD_SCK_PIN  21
 #define EPD_MOSI_PIN 20
 #define EPD_CS_PIN   22
 #define EPD_RST_PIN  15
 #define EPD_DC_PIN   23
-#define EPD_BUSY_PIN 4
+#define EPD_BUSY_PIN 7
 #endif
 
 // Buttons
 
 #ifdef ALTRUIST_INSIDE
-#define BTN_DOWN_PIN 3
-#define BTN_SET_PIN 2
+// #define BTN_DOWN_PIN 3
+// #define BTN_SET_PIN 2
+// #define BTN_UP_PIN 10
+#define BTN_DOWN_PIN 0
+#define BTN_SET_PIN 1
 #define BTN_UP_PIN 10
 #endif
 #ifdef ALTRUIST_URBAN
@@ -217,7 +230,8 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 // Led pin
 
 #ifdef ALTRUIST_INSIDE
-#define LED_PIN -1
+// #define LED_PIN -1
+#define LED_PIN 11
 #endif
 #ifdef ALTRUIST_URBAN
 #define LED_PIN -1

@@ -376,6 +376,10 @@ void setup(void) {
 #endif
 		wifiConfig(webserver);
 	}
+#ifdef ALTRUIST_URBAN
+		leds_controller_urban.setMode(LedMode::GREEN);
+		leds_controller_urban.process();
+#endif
 	powerOnTestSensors();
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);

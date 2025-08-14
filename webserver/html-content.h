@@ -56,7 +56,7 @@ const char WEB_PAGE_HEADER_CONFIG_HEAD[] PROGMEM = "<meta name='viewport' conten
 <img src='" STATIC_PREFIX "?r=logo' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:16px' width='100' height='89'/></a>";
 
 const char WEB_PAGE_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
-    <h3>" INTL_PM_SENSOR "</h3>\
+    <h3>" PM_SENSOR_NAME "</h3>\
     <small>\
     <span>ID</span>: {id}<br />\
     <span>" INTL_FIRMWARE "</span>: " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
@@ -66,7 +66,7 @@ const char WEB_PAGE_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
     </div><div class='content'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";
 
 const char WEB_PAGE_DEBUG_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
-    <h3>" INTL_PM_SENSOR "</h3>\
+    <h3>" PM_SENSOR_NAME "</h3>\
     <small>\
     <span>ID</span>: {id}<br />\
     <span>" INTL_FIRMWARE "</span>: " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
@@ -76,7 +76,7 @@ const char WEB_PAGE_DEBUG_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
     </div><div class='content content-debug'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";
 
 const char WEB_PAGE_CONFIG_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
-    <h3>" INTL_PM_SENSOR "</h3>\
+    <h3>" PM_SENSOR_NAME "</h3>\
     <small>\
     <span>ID</span>: {id}<br />\
     <span>" INTL_FIRMWARE "</span>: " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
