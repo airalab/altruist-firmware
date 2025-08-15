@@ -3,6 +3,7 @@
 #include "40x40/air_filter_40x40.h"
 #include "40x40/co2_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_40x40.h"
 #include "40x40/co2_svgrepo_com_40x40.h"
+#include "40x40/ear_hearing_40x40.h"
 #include "40x40/house_humidity_40x40.h"
 #include "40x40/house_thermometer_40x40.h"
 #include "40x40/ionizing_radiation_symbol_40x40.h"

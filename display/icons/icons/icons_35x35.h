@@ -3,6 +3,7 @@
 #include "35x35/air_filter_35x35.h"
 #include "35x35/co2_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_35x35.h"
 #include "35x35/co2_svgrepo_com_35x35.h"
+#include "35x35/ear_hearing_35x35.h"
 #include "35x35/house_humidity_35x35.h"
 #include "35x35/house_thermometer_35x35.h"
 #include "35x35/ionizing_radiation_symbol_35x35.h"
