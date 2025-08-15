@@ -5,7 +5,11 @@
 
 void ButtonController::init() {
     if (_pin != -1) {
+#ifdef PULLUP_BUTTONS
         pinMode(_pin, INPUT_PULLUP);
+#else
+        pinMode(_pin, INPUT);
+#endif
     } else {
         debug_outln_info(F("Can't setup button pin "), _pin);
     }

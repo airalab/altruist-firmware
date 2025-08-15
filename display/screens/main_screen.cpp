@@ -125,8 +125,8 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     drawValue("PM10", main_screen_values.pm10, 2, air_filter_35x35, "ppm", 35, 0, up_line_height + values_part_border_height);
     drawValue("PM2.5", main_screen_values.pm25, 2, air_filter_35x35, "ppm", 35, 0, up_line_height + values_part_border_height + four_values_interval + value_item_height);
 
-    drawValue("Noise Max", main_screen_values.noise_max, 0, volume_up_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_35x35, "db", 35, 0, up_line_height + values_part_border_height + 2*four_values_interval + 2*value_item_height);
-    drawValue("Noise Avg", main_screen_values.noise_avg, 0, volume_down_24dp_1F1F1F_FILL0_wght400_GRAD0_opsz24_35x35, "db", 35, 0, up_line_height + values_part_border_height + 3*four_values_interval + 3*value_item_height);
+    drawValue("Noise Max", main_screen_values.noise_max, 0, ear_hearing_35x35, "db", 35, 0, up_line_height + values_part_border_height + 2*four_values_interval + 2*value_item_height);
+    drawValue("Noise Avg", main_screen_values.noise_avg, 0, ear_hearing_35x35, "db", 35, 0, up_line_height + values_part_border_height + 3*four_values_interval + 3*value_item_height);
 
     // 2 column
     

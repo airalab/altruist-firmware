@@ -360,6 +360,7 @@ void setup(void) {
 	setupEnabledAPIs();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
 #ifdef ALTRUIST_INSIDE
+	displayManager.setRobonomicsAddress(robonomics.getSs58Address());
 	if (strcmp(cfg::wlanssid, WLANSSID) != 0) {
 		displayManager.setScreen(ScreenPage::CONNECTING);
 		displayManager.process(btn_press);

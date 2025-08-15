@@ -10,6 +10,7 @@
 #include "loading.h"
 #include "display_common.h"
 #include "logo.h"
+#include "sensors_map.h"
 
 #endif
 #endif

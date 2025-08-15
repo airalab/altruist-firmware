@@ -19,7 +19,8 @@ enum class ScreenPage {
     CONNECTING,
     SETUP,
     LOADING,
-    LOGO
+    LOGO,
+    SENSOR_MAP
 };
 
 class DisplayManager {
@@ -28,10 +29,14 @@ public:
 
     void process(button_pressed_t &btn_press);
     void setScreen(ScreenPage pageID);
+    void setRobonomicsAddress(const char *address) { robonomics_address = String(address);};
 private:
     device_status_t &deviceStatus;
     JsonDocument &sensors_data;
     bool refresh_now = false;
+    String robonomics_address;
+    uint8_t refresh_count_for_qr = 0;
+    uint32_t refresh_time_for_qr = 0;
 
     ScreenPage currentScreenID = ScreenPage::MAIN;
     unsigned long last_refresh_time = -DISPLAY_REFRESH_INTERVAL;
