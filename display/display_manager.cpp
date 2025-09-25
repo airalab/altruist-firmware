@@ -3,6 +3,10 @@
 #include "display_manager.h"
 #include "screens/screens.h"
 
+void DisplayManager::setup() {
+    createNewImage(BlackImage);
+}
+
 void DisplayManager::setScreen(ScreenPage pageID) {
     currentScreenID = pageID;
     refresh_now = true;
@@ -28,26 +32,24 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             refresh_now = true;
         }
     }
-    if (refresh_time_for_qr > 0 && msSince(refresh_time_for_qr) > 3000) {
+    if (refresh_time_for_qr > 0 && msSince(refresh_time_for_qr) > 30000) {
         refresh_time_for_qr = 0;
         refresh_now = true;
     }
     if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now) {
         refresh_now = false;
         initAndClearScreen();
-        UBYTE *BlackImage;
-        createNewImage(BlackImage);
         if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL && currentScreenID == ScreenPage::MAIN) {
-            // if (refresh_count_for_qr > 0) {
-            //     refresh_count_for_qr = 0;
+            if (refresh_count_for_qr > 1) {
+                refresh_count_for_qr = 0;
                 refresh_time_for_qr = millis();
                 showSensorsMapPage(robonomics_address);
                 last_refresh_time = millis();
                 showImageLong(BlackImage);
                 return;
-            // } else {
-            //     refresh_count_for_qr++;
-            // }
+            } else {
+                refresh_count_for_qr++;
+            }
         }
         if (currentScreenID == ScreenPage::MAIN) {
             String jsonString;

@@ -345,6 +345,7 @@ void setup(void) {
 
 #ifdef ALTRUIST_INSIDE
 	DEV_Module_Init();
+	displayManager.setup();
 	displayManager.setScreen(ScreenPage::LOADING);
 	displayManager.process(btn_press);
 #endif

@@ -27,6 +27,7 @@ class DisplayManager {
 public:
     DisplayManager(JsonDocument &_data, device_status_t &_deviceStatus) : sensors_data(_data), deviceStatus(_deviceStatus) {}
 
+    void setup();
     void process(button_pressed_t &btn_press);
     void setScreen(ScreenPage pageID);
     void setRobonomicsAddress(const char *address) { robonomics_address = String(address);};
@@ -37,6 +38,7 @@ private:
     String robonomics_address;
     uint8_t refresh_count_for_qr = 0;
     uint32_t refresh_time_for_qr = 0;
+    UBYTE *BlackImage;
 
     ScreenPage currentScreenID = ScreenPage::MAIN;
     unsigned long last_refresh_time = -DISPLAY_REFRESH_INTERVAL;
