@@ -10,6 +10,9 @@ void initAndClearScreen() {
     EPD_3IN52_lut_GC();
     EPD_3IN52_refresh();
 #endif
+#ifdef DISPLAY_4IN2
+    Paint_Clear(WHITE);
+#endif
 }
 
 void createNewImage(UBYTE *&BlackImage) {
