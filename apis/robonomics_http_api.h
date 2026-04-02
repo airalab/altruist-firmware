@@ -9,10 +9,16 @@
 
 static const char URL_ROBONOMICS[] PROGMEM = "/";
 #define PORT_ROBONOMICS 65
+#define MAX_DISCOVERED_SERVERS 10
+
+struct DiscoveredServer {
+    String host;
+    int sensors;
+    bool onServer;
+};
 
 class RobonomicsHTTPAPI : public API {
 public:
-  // Constructor with a default timeout value (e.g., 1000 milliseconds)
   void setup() override;
 
   void setRobonomcis(Robonomics* robonomics) {
@@ -26,9 +32,15 @@ private:
     String donated_by;
     String rws_owner;
     Robonomics* robonomics;
+    String selectedHost;
+    DiscoveredServer discoveredServers[MAX_DISCOVERED_SERVERS];
+    int discoveredCount = 0;
     void _send(JsonDocument &data) override;
     void POSTRequest(const String& data, const char* host);
-    int chooseRobonomicsServer(bool onlyGlobal);
+    void POSTRequest(const String& data, const String& host);
+    bool chooseRobonomicsServer();
+    bool discoverServers();
+    bool probeServer(HTTPClient& http, const String& host, int& sensors, bool& onServer);
     void formatDataToSend(String &data_to_send, JsonDocument &data);
 };
 

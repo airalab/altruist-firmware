@@ -4,6 +4,7 @@
 #include "helpers/message_formatter.h"
 #include "../config_manager/config_helpers.h"
 #include <WiFi.h>
+#include <ArduinoJson.h>
 
 void RobonomicsHTTPAPI::setup() {
 	api_name = "Robonomics Map";
@@ -17,7 +18,6 @@ void RobonomicsHTTPAPI::setup() {
 }
 
 void RobonomicsHTTPAPI::_send(JsonDocument &data) {
-    int num_of_host;
 	String data_to_send;
 	if (WiFi.status() != WL_CONNECTED) {
 		debug_outln_error(F("[Map] Skipping send: WiFi is disconnected"));
@@ -25,18 +25,13 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data) {
 		return;
 	}
 	formatDataToSend(data_to_send, data);
-    debug_outln_verbose(F("[Map] Payload: "), data_to_send);
+	debug_outln_verbose(F("[Map] Payload: "), data_to_send);
 	is_ok = false;
-    num_of_host = chooseRobonomicsServer(false);
-    if (num_of_host == 255) {
-        debug_outln_verbose(F("[Map] No regional server found, trying global..."));
-        num_of_host = chooseRobonomicsServer(true);
-    }
-    if (num_of_host != 255) {
-        POSTRequest(data_to_send, HOST_ROBONOMICS[num_of_host][0]);
-    } else {
-        debug_outln_error(F("[Map] FAILED: No server available (all hosts unreachable or returned errors)"));
-    }
+	if (chooseRobonomicsServer()) {
+		POSTRequest(data_to_send, selectedHost);
+	} else {
+		debug_outln_error(F("[Map] FAILED: No server available (all hosts unreachable or returned errors)"));
+	}
 }
 
 void RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &data) {
@@ -77,15 +72,19 @@ void RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &dat
     data_to_send += "\"}";
 }
 
+void RobonomicsHTTPAPI::POSTRequest(const String& data, const String& host) {
+	POSTRequest(data, host.c_str());
+}
+
 void RobonomicsHTTPAPI::POSTRequest(const String& data, const char* host) {
 	HTTPClient _http;
 	String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
-    int result = 0;
+	int result = 0;
 	if (WiFi.status() != WL_CONNECTED) {
 		debug_outln_error(F("[Map] POST skipped: WiFi disconnected"));
 		return;
 	}
-    String s_Host(FPSTR(host));
+	String s_Host(FPSTR(host));
 	String s_url(FPSTR(URL_ROBONOMICS));
 	debug_outln_verbose(F("[Map] POST to "), s_Host + ":" + String(PORT_ROBONOMICS) + s_url);
     _http.setTimeout(20 * 1000);
@@ -114,70 +113,161 @@ void RobonomicsHTTPAPI::POSTRequest(const String& data, const char* host) {
 	}
 }
 
-int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal) {
-	HTTPClient _http;
-	int num_of_robonomics_host = 255;
-	int min_sensors = 255;
-	int result = 0;
+bool RobonomicsHTTPAPI::probeServer(HTTPClient& http, const String& host, int& sensors, bool& onServer) {
 	String s_url = FPSTR(URL_ROBONOMICS);
-	int numRobonomicsHosts = sizeof(HOST_ROBONOMICS) / sizeof(HOST_ROBONOMICS[0]);
-	debug_outln_verbose(F("[Map] Selecting server: "), String(numRobonomicsHosts) + " hosts, region=" + current_reg.c_str() + (onlyGlobal ? " (global only)" : ""));
+	debug_outln_verbose(F("[Map] Trying GET "), host + ":" + String(PORT_ROBONOMICS));
 
-	for (int i = 0; i < numRobonomicsHosts; i++) {
-		if (WiFi.status() != WL_CONNECTED) {
-			debug_outln_error(F("[Map] Stop server selection: WiFi disconnected"));
-			break;
-		}
-		if (onlyGlobal) {
-			if (strcmp(HOST_ROBONOMICS[i][1], INTL_REGION_GLOBAL) != 0) {
-				continue;
-			}
-		} else if (strcmp(current_reg.c_str(), HOST_ROBONOMICS[i][1]) != 0) {
-			continue;
-		}
-		String s_Host = FPSTR(HOST_ROBONOMICS[i][0]);
-		debug_outln_verbose(F("[Map] Trying GET "), s_Host + ":" + String(PORT_ROBONOMICS));
+	if (!http.begin(*_client, host, PORT_ROBONOMICS, s_url)) {
+		debug_outln_error(F("[Map] Cannot connect to host"));
+		debug_outln_verbose(F("[Map] Host: "), host);
+		return false;
+	}
 
-		if (_http.begin(*_client, s_Host, PORT_ROBONOMICS, s_url)) {
-			const char * headerKeys[] = {"sensors-count", "on-server"} ;
-			const size_t numberOfHeaders = 2;
-			_http.collectHeaders(headerKeys, numberOfHeaders);
-			_http.addHeader("Sensor-id", robonomics->getSs58Address());
+	const char* headerKeys[] = {"sensors-count", "on-server"};
+	http.collectHeaders(headerKeys, 2);
+	http.addHeader("Sensor-id", robonomics->getSs58Address());
 
-			result = _http.GET();
-
-			if (result >= HTTP_CODE_OK && result <= HTTP_CODE_ALREADY_REPORTED) {
-				String header = _http.header("sensors-count");
-				String on_server = _http.header("on-server");
-				int num = atoi(header.c_str());
-				debug_outln_verbose(F("[Map] OK from "), s_Host + " sensors=" + header + " on_server=" + on_server);
-				if (on_server == "True") {
-					num_of_robonomics_host = i;
-					_http.end();
-					break;
-				}
-				if (num < min_sensors) {
-					min_sensors = num;
-					num_of_robonomics_host = i;
-				}
-			} else if (result >= HTTP_CODE_BAD_REQUEST) {
-				debug_outln_verbose(F("[Map] Server error from "), s_Host + " HTTP " + String(result));
-				debug_outln_verbose(F("[Map] Response: "), _http.getString());
-			} else {
-				debug_outln_verbose(F("[Map] Connection error to "), s_Host + " code=" + String(result) + " " + HTTPClient::errorToString(result));
-			}
-			_http.end();
-
+	int result = http.GET();
+	if (result < HTTP_CODE_OK || result > HTTP_CODE_ALREADY_REPORTED) {
+		if (result >= HTTP_CODE_BAD_REQUEST) {
+			debug_outln_verbose(F("[Map] Server error from "), host + " HTTP " + String(result));
 		} else {
-			debug_outln_error(F("[Map] Cannot connect to host"));
-			debug_outln_verbose(F("[Map] Host: "), s_Host);
+			debug_outln_verbose(F("[Map] Connection error to "), host + " code=" + String(result) + " " + HTTPClient::errorToString(result));
+		}
+		http.end();
+		return false;
+	}
+
+	String body = http.getString();
+	sensors = atoi(http.header("sensors-count").c_str());
+	onServer = (http.header("on-server") == "True");
+	debug_outln_verbose(F("[Map] OK from "), host + " sensors=" + String(sensors) + " on_server=" + String(onServer));
+
+	if (body.length() > 0 && body[0] == '{') {
+		DynamicJsonDocument peersDoc(2048);
+		DeserializationError err = deserializeJson(peersDoc, body);
+		if (!err && peersDoc.containsKey("servers")) {
+			JsonArray serverList = peersDoc["servers"];
+			discoveredCount = 0;
+			for (JsonObject srv : serverList) {
+				if (discoveredCount >= MAX_DISCOVERED_SERVERS) break;
+				const char* h = srv["host"];
+				if (!h) continue;
+				discoveredServers[discoveredCount].host = h;
+				discoveredServers[discoveredCount].sensors = srv["sensors"] | 0;
+				discoveredServers[discoveredCount].onServer = false;
+				discoveredCount++;
+			}
+			debug_outln_verbose(F("[Map] Discovered peers from JSON: "), String(discoveredCount));
 		}
 	}
-	if (num_of_robonomics_host < numRobonomicsHosts) {
-		debug_outln_verbose(F("[Map] Selected server: "), HOST_ROBONOMICS[num_of_robonomics_host][0]);
+
+	http.end();
+	return true;
+}
+
+bool RobonomicsHTTPAPI::discoverServers() {
+	if (WiFi.status() != WL_CONNECTED) return false;
+
+	IPAddress resolved;
+	if (WiFi.hostByName(DISCOVERY_HOST, resolved)) {
+		debug_outln_verbose(F("[Map] DNS resolved "), String(DISCOVERY_HOST) + " -> " + resolved.toString());
+
+		HTTPClient http;
+		http.setTimeout(20 * 1000);
+		http.setReuse(false);
+		int sensors = 0;
+		bool onServer = false;
+
+		if (probeServer(http, resolved.toString(), sensors, onServer)) {
+			if (onServer) {
+				selectedHost = resolved.toString();
+				return true;
+			}
+			if (discoveredCount > 0) return true;
+			discoveredServers[0].host = resolved.toString();
+			discoveredServers[0].sensors = sensors;
+			discoveredServers[0].onServer = false;
+			discoveredCount = 1;
+			return true;
+		}
 	} else {
-		debug_outln_error(F("[Map] No suitable server found among all hosts"));
+		debug_outln_verbose(F("[Map] DNS resolve failed for "), String(DISCOVERY_HOST));
 	}
-	
-	return num_of_robonomics_host;
+	return false;
+}
+
+bool RobonomicsHTTPAPI::chooseRobonomicsServer() {
+	selectedHost = "";
+	discoveredCount = 0;
+
+	if (discoverServers() && selectedHost.length() > 0) {
+		debug_outln_verbose(F("[Map] Selected server (already registered): "), selectedHost);
+		return true;
+	}
+
+	if (discoveredCount > 0) {
+		HTTPClient http;
+		http.setTimeout(20 * 1000);
+		http.setReuse(false);
+		int bestIdx = -1;
+		int minSensors = INT_MAX;
+
+		for (int i = 0; i < discoveredCount; i++) {
+			if (WiFi.status() != WL_CONNECTED) break;
+			int sensors = 0;
+			bool onServer = false;
+			if (probeServer(http, discoveredServers[i].host, sensors, onServer)) {
+				if (onServer) {
+					selectedHost = discoveredServers[i].host;
+					debug_outln_verbose(F("[Map] Selected server (registered, discovered): "), selectedHost);
+					return true;
+				}
+				if (sensors < minSensors) {
+					minSensors = sensors;
+					bestIdx = i;
+				}
+			}
+		}
+		if (bestIdx >= 0) {
+			selectedHost = discoveredServers[bestIdx].host;
+			debug_outln_verbose(F("[Map] Selected server (least loaded, discovered): "), selectedHost);
+			return true;
+		}
+	}
+
+	debug_outln_verbose(F("[Map] Discovery failed, falling back to hardcoded servers"));
+	int numHosts = sizeof(HOST_ROBONOMICS) / sizeof(HOST_ROBONOMICS[0]);
+	int bestIdx = -1;
+	int minSensors = INT_MAX;
+	HTTPClient http;
+	http.setTimeout(20 * 1000);
+	http.setReuse(false);
+
+	for (int i = 0; i < numHosts; i++) {
+		if (WiFi.status() != WL_CONNECTED) break;
+		String host = FPSTR(HOST_ROBONOMICS[i][0]);
+		int sensors = 0;
+		bool onServer = false;
+		if (probeServer(http, host, sensors, onServer)) {
+			if (onServer) {
+				selectedHost = host;
+				debug_outln_verbose(F("[Map] Selected server (registered, hardcoded): "), selectedHost);
+				return true;
+			}
+			if (sensors < minSensors) {
+				minSensors = sensors;
+				bestIdx = i;
+			}
+		}
+	}
+
+	if (bestIdx >= 0) {
+		selectedHost = FPSTR(HOST_ROBONOMICS[bestIdx][0]);
+		debug_outln_verbose(F("[Map] Selected server (least loaded, hardcoded): "), selectedHost);
+		return true;
+	}
+
+	debug_outln_error(F("[Map] No suitable server found among all hosts"));
+	return false;
 }

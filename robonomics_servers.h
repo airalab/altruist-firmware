@@ -12,6 +12,8 @@
 // South America - REGION_SA
 
 
+static const char* const DISCOVERY_HOST PROGMEM = "discovery.connectivity.robonomics.network";
+
 static const char* const HOST_ROBONOMICS[][2] PROGMEM = {
                                                     {"connectivity.robonomics.network", REGION_GLOBAL},
                                                     {"1.connectivity.robonomics.network", REGION_GLOBAL}, 
