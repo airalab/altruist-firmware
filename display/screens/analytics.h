@@ -28,7 +28,6 @@ struct analytics_screen_values_t {
     analytics_metric_t temp_urban;
     analytics_metric_t hum_urban;
     // Air
-    analytics_metric_t pm10;
     analytics_metric_t co2;
     analytics_metric_t pm25;
     analytics_metric_t pm10_insight;

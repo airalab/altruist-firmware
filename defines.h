@@ -5,11 +5,11 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_STR "R-INS_2026-04.4"
+#define SOFTWARE_VERSION_STR "R-INS_2026-05"
 #define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_STR "R-URB_2026-04.4"
+#define SOFTWARE_VERSION_STR "R-URB_2026-05"
 #define PM_SENSOR_NAME "Altruist Urban"
 #endif
 
@@ -96,11 +96,32 @@ constexpr const unsigned long ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 constexpr const unsigned long PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS = ONE_DAY_IN_MS;		// check for firmware updates once a day
 constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS * 28;	// force a reboot every ~4 weeks
 
+// STA recovery when home Wi‑Fi is configured but link drops (Urban/Insight).
+constexpr const unsigned long WIFI_STA_PERIODIC_RECONNECT_MS = 18000UL;
+/** After association, STA can report WL_CONNECTED before IPv4; do not tear down the link during this window. */
+constexpr const unsigned long WIFI_STA_DHCP_GRACE_MS = 40000UL;
+/** After this long without a usable STA link, use radio off/on (WIFI_OFF) before re-begin — stronger than disconnect() alone, no MCU reboot. */
+constexpr const unsigned long WIFI_STA_DEEP_RECOVER_AFTER_MS = 180000UL;
+/** Minimum gap between WIFI_OFF deep recoveries (avoids IDF un-init timeouts if hammered). */
+constexpr const unsigned long WIFI_STA_DEEP_RADIO_MIN_INTERVAL_MS = 90000UL;
+/**
+ * If deep recovery is wanted but throttled, force WIFI_OFF after this many stalled attempts
+ * (~one per WIFI_STA_PERIODIC_RECONNECT_MS) so the link can return without an MCU reboot.
+ */
+constexpr const uint8_t WIFI_STA_DEEP_FORCE_AFTER_THROTTLED_SKIPS = 5;
+/**
+ * Last-resort MCU reboot if STA link never returns (rare stuck WiFi stack).
+ * 0 = never reboot on STA loss (soft recovery only). 30 min = long failsafe without the old ~10 min surprise reboot.
+ */
+constexpr const unsigned long WIFI_STA_REBOOT_AFTER_MS = (30UL * 60UL * 1000UL);
+
 // ------------------------------------------------------------
 // Urban TTL constants (Insight only)
 // ------------------------------------------------------------
-constexpr const uint32_t URBAN_STALE_AFTER_MS   = 6UL * 60UL * 1000UL;   // ~1 fetch interval + buffer
-constexpr const uint32_t URBAN_OFFLINE_AFTER_MS = 10UL * 60UL * 1000UL;  // ~2 fetch intervals
+constexpr const uint32_t URBAN_STALE_AFTER_MS   = 10UL * 60UL * 1000UL;   // ~1 fetch interval + buffer
+constexpr const uint32_t URBAN_OFFLINE_AFTER_MS = 20UL * 60UL * 1000UL;  // ~2 fetch intervals
+/** Consecutive UI/LED evaluation cycles in the stale window before showing stale (reduces flicker). */
+constexpr const uint8_t URBAN_STALE_CONFIRMATIONS_REQUIRED = 3;
 constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL;
 
 // Pins Config
@@ -436,6 +457,12 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // Set debug level for serial output
 #ifndef DEBUG
 #define DEBUG 3
+#endif
+
+// Insight standalone main: 1 = force all four footer warnings (Hum/Temp/Press/CO2) for layout preview.
+// Default 0. Set to 1 while tuning UI, or build with: -DINSIGHT_DEBUG_ALL_WARNINGS=1
+#ifndef INSIGHT_DEBUG_ALL_WARNINGS
+#define INSIGHT_DEBUG_ALL_WARNINGS 0
 #endif
 
 #endif // __DEFINES_H__

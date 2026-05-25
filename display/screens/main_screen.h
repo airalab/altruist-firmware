@@ -27,6 +27,9 @@ struct main_screen_values_t {
     // 0 = unknown/online, 1 = stale, 2 = offline
     uint8_t urban_ttl_state = 0;
     uint16_t urban_age_min = 0;
+
+    /** Insight STA: connected and usable IPv4 (see wifiStaLinkReady). */
+    bool wifi_sta_link_ok = false;
 };
 
 void extractMainScreenValues(const JsonDocument &data, main_screen_values_t &values);

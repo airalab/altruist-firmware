@@ -7,16 +7,20 @@
 #include <Adafruit_NeoPixel.h>
 
 #define LED_COUNT 2
-#define MAX_BLINK_COUNT 1
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#define URBAN_BOARD_RGB_LED_PIN 8
+#else
+#define URBAN_BOARD_RGB_LED_PIN -1
+#endif
+#define URBAN_BOARD_RGB_LED_COUNT 1
 
 enum class LedMode {
     NONE,
-    BLINK_RED,
     BLUE,
     PROVISIONING,
     RESETTING,
-    BLINK_GREEN,
-    GREEN
+    GREEN,
+    RED
 };
 
 class LedControllerUrban {
@@ -30,9 +34,11 @@ class LedControllerUrban {
         LedMode current_mode = LedMode::NONE;
         bool mode_changed = false;
         Adafruit_NeoPixel pixels;
-        uint32_t connection_color = 0;
-        bool connection_color_set = false;
+        Adafruit_NeoPixel board_pixels;
 
+        bool _hasBoardRgbLed();
+        String _modeName(LedMode mode);
+        void _setSolidColor(uint8_t red, uint8_t green, uint8_t blue);
         void _setAllPixels(uint32_t color);
 };
 

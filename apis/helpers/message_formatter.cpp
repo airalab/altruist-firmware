@@ -43,11 +43,12 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
             else if (type == "humidity" && cfg::share_humidity && datalog_data.indexOf("h:") == -1
                      && !skip_temp_hum) datalog_data += "h:" + value + ",";
             else if (type == "radiation") datalog_data += "gc:" + value + ",";
-            else if (type == "co2" && cfg::share_co2) datalog_data += "co:" + value + ",";
-            else if (type == "o3") datalog_data += "o3:" + value + ",";
-            else if (type == "no2") datalog_data += "no2:" + value + ",";
-            else if (type == "fast_aqi") datalog_data += "fa:" + value + ",";
-            else if (type == "epa_aqi") datalog_data += "ea:" + value + ",";
+            else if (type == "co2" && cfg::share_co2) datalog_data += "co2:" + value + ",";
+            else if (type == "co" && cfg::share_co) datalog_data += "co:" + value + ",";
+            else if (type == "o3" && cfg::share_o3) datalog_data += "o3:" + value + ",";
+            else if (type == "no2" && cfg::share_no2) datalog_data += "no2:" + value + ",";
+            else if (type == "fast_aqi" && cfg::share_fast_aqi) datalog_data += "fa:" + value + ",";
+            else if (type == "epa_aqi" && cfg::share_epa_aqi) datalog_data += "ea:" + value + ",";
         }
     }
     if (datalog_data.length() > 0) {

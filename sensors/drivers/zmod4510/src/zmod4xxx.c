@@ -71,6 +71,7 @@ zmod4xxx_err zmod4xxx_read_sensor_info(zmod4xxx_dev_t *dev)
     uint16_t product_id;
     uint8_t cmd = 0;
     uint16_t i = 0;
+    const uint16_t sensor_info_wait_limit = 50; /* 50 * 200 ms = 10 s */
 
     api_ret = zmod4xxx_null_ptr_check(dev);
     if (api_ret) {
@@ -88,9 +89,9 @@ zmod4xxx_err zmod4xxx_read_sensor_info(zmod4xxx_dev_t *dev)
         }
         i++;
         dev->delay_ms(200);
-    } while ((0x00 != (status & 0x80)) && (i < 1000));
+    } while ((0x00 != (status & 0x80)) && (i < sensor_info_wait_limit));
 
-    if (1000 <= i) {
+    if (sensor_info_wait_limit <= i) {
         return ERROR_GAS_TIMEOUT;
     }
 
@@ -160,6 +161,8 @@ zmod4xxx_err zmod4xxx_init_sensor(zmod4xxx_dev_t *dev)
     uint8_t hsp[HSP_MAX * 2];
     uint8_t data_r[RSLT_MAX];
     uint8_t zmod4xxx_status;
+    uint16_t sequencer_wait_count = 0;
+    const uint16_t sequencer_wait_limit = 200; /* 200 * 50 ms = 10 s */
 
     i2c_ret = dev->read(dev->i2c_addr, 0xB7, data_r, 1);
     if (i2c_ret) {
@@ -202,8 +205,16 @@ zmod4xxx_err zmod4xxx_init_sensor(zmod4xxx_dev_t *dev)
         if (api_ret) {
             return api_ret;
         }
+        if (!(zmod4xxx_status & STATUS_SEQUENCER_RUNNING_MASK)) {
+            break;
+        }
         dev->delay_ms(50);
-    } while (zmod4xxx_status & STATUS_SEQUENCER_RUNNING_MASK);
+        sequencer_wait_count++;
+    } while (sequencer_wait_count < sequencer_wait_limit);
+
+    if (zmod4xxx_status & STATUS_SEQUENCER_RUNNING_MASK) {
+        return ERROR_GAS_TIMEOUT;
+    }
 
     i2c_ret = dev->read(dev->i2c_addr, dev->init_conf->r.addr, data_r,
                         dev->init_conf->r.len);

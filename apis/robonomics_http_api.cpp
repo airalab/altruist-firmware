@@ -180,6 +180,8 @@ void RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &dat
     data_to_send += donated_by;
     data_to_send += "\", \"owner\": \"";
     data_to_send += rws_owner;
+    data_to_send += "\", \"device_model\": \"";
+    data_to_send += DEVICE_MODEL;
     data_to_send += "\", \"signature\": \"";
     data_to_send += signature;
     data_to_send += "\", \"GPS_lat\": \"";

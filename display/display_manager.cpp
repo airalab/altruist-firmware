@@ -42,13 +42,6 @@ static uint8_t analytics_refresh_cycle_pos = 0;
 static bool analytics_priority_autoswitch_done = false;
 static bool analytics_priority_prev_window_state = false;
 
-static bool isAnalyticsPriorityWindowNow() {
-    struct tm timeinfo;
-    if (!getLocalTime(&timeinfo)) return false;
-    const int h = timeinfo.tm_hour;
-    return (h >= 6 && h < 12);
-}
-
 // Cycle order for screens when navigating with UP/SET
 // Order: MAIN -> ANALYTICS -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
 ScreenPage DisplayManager::getNextScreen(ScreenPage current) {
@@ -359,20 +352,27 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         return;
     }
 
-    // Between 06:00 and 12:00 analytics is the default screen.
+    // Between 06:00 and 12:00 (local) analytics is the default screen.
     // Auto-switch only once per window so user can still navigate back to MAIN.
-    const bool in_analytics_priority_window = isAnalyticsPriorityWindowNow();
-    if (!in_analytics_priority_window) {
-        // Leaving the priority window: if analytics is still open, return to MAIN once.
-        if (analytics_priority_prev_window_state && currentScreenID == ScreenPage::ANALYTICS) {
-            setScreen(ScreenPage::MAIN);
+    // Only evaluate when getLocalTime() succeeds: if time is not synced yet, do not
+    // treat "unknown" as "outside the window" (avoids a brief ANALYTICS flash then MAIN on boot).
+    struct tm timeinfo;
+    const bool time_valid = getLocalTime(&timeinfo);
+    const bool in_analytics_priority_window =
+        time_valid && (timeinfo.tm_hour >= 6 && timeinfo.tm_hour < 12);
+    if (time_valid) {
+        if (!in_analytics_priority_window) {
+            // Leaving the priority window: if analytics is still open, return to MAIN once.
+            if (analytics_priority_prev_window_state && currentScreenID == ScreenPage::ANALYTICS) {
+                setScreen(ScreenPage::MAIN);
+            }
+            analytics_priority_autoswitch_done = false;
+        } else if (!analytics_priority_autoswitch_done && currentScreenID == ScreenPage::MAIN) {
+            analytics_priority_autoswitch_done = true;
+            setScreen(ScreenPage::ANALYTICS);
         }
-        analytics_priority_autoswitch_done = false;
-    } else if (!analytics_priority_autoswitch_done && currentScreenID == ScreenPage::MAIN) {
-        analytics_priority_autoswitch_done = true;
-        setScreen(ScreenPage::ANALYTICS);
+        analytics_priority_prev_window_state = in_analytics_priority_window;
     }
-    analytics_priority_prev_window_state = in_analytics_priority_window;
 
     // Periodic EPD re-initialization watchdog:
     // This helps recover from stuck display states after many partial updates.
@@ -397,7 +397,10 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             wake_loading_active = false;
             bool wifi_connected = (WiFi.status() == WL_CONNECTED);
             if (wifi_connected) {
-                currentScreenID = ScreenPage::MAIN;
+                // Allow morning rule (MAIN -> ANALYTICS 06:00-12:00) on the next process() pass;
+                // autoswitch_done may still be true from before sleep.
+                analytics_priority_autoswitch_done = false;
+                setScreen(ScreenPage::MAIN);
                 debug_outln_verbose(F("[EPD] Wake complete - WiFi connected, showing MAIN screen"));
             } else {
                 currentScreenID = ScreenPage::SETUP;
@@ -519,7 +522,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 xSemaphoreGive(mutex);
             }
             populateAnalyticsPeriodStats(cached_analytics_values);
-            String analytics_map_addr = cached_urban_address.length() > 0 ? cached_urban_address : robonomics_address;
+            String analytics_map_addr = cfg::standalone
+                ? robonomics_address
+                : (cached_urban_address.length() > 0 ? cached_urban_address : robonomics_address);
             showAnalyticsPage(BlackImage, cached_analytics_values, analytics_map_addr);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
             // Always draw graph screen - it will show appropriate message if no data/card
@@ -551,6 +556,13 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             };
 
             if (insightHasValidCoords()) {
+                sensor_map_waiting_addr  = false;
+                sensor_map_waiting_tries = 0;
+                showSensorsMapPage(robonomics_address);
+                goto draw_complete;
+            }
+
+            if (cfg::standalone) {
                 sensor_map_waiting_addr  = false;
                 sensor_map_waiting_tries = 0;
                 showSensorsMapPage(robonomics_address);

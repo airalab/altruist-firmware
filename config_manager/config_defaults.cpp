@@ -71,13 +71,15 @@ namespace cfg {
 	char timezone[LEN_TIMEZONE] = "<+00>0";
 	char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	bool use_custom_urban = false;
+	bool standalone = false;
+	bool analytics_sleep_add_urban = false;
 
 	unsigned leds_brightness = 100; // Default 100% = 30% actual brightness (scaled down)
 	bool leds_on = true;
 	unsigned leds_off_hour = 0; // Default off at 00:00 (local time)
 	unsigned leds_on_hour = 6;  // Default on at 06:00 (local time)
-	unsigned analytics_night_start_hour = 22; // Default night starts at 22:00
-	unsigned analytics_night_end_hour = 10;   // Default night ends at 10:00
+	unsigned analytics_night_start_hour = 22 * 60; // minutes from midnight (key name legacy)
+	unsigned analytics_night_end_hour = 7 * 60;    // exclusive end, minutes (07:00)
 
 	// data sharing preferences (all shared by default)
 	bool share_temperature = true;
@@ -87,6 +89,7 @@ namespace cfg {
 	bool share_pm = true;
 	bool share_noise = true;
 	// Additional (optional) sensors: default OFF (most devices don't have them)
+	bool share_co = false;
 	bool share_radiation = false;
 	bool share_o3 = false;
 	bool share_no2 = false;

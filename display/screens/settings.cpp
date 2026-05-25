@@ -199,17 +199,19 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
     uint16_t value_indent = label_indent_after_icon + label_width - 2;
     int value_max_width = usable_width - value_indent - content_left;
 
-    // Urban IP Address
-    Paint_DrawImage(ip_address_15x15, icon_indent, info_y, icon_size, icon_size);
-    Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_DISP_URBAN_IP, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
-    String urban_display = urban_ip.length() > 0 ? urban_ip : INTL_DISP_NOT_CONNECTED;
-    Paint_DrawString_Display(value_indent, info_y + (icon_size - Font12.Height) / 2, urban_display.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    info_y += line_spacing;
-    // Divider
-    Paint_DrawLine(icon_indent, info_y + divider_spacing, usable_width - 8, info_y + divider_spacing, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    info_y += divider_spacing + 2;
+    if (!cfg::standalone) {
+        // Urban IP Address
+        Paint_DrawImage(ip_address_15x15, icon_indent, info_y, icon_size, icon_size);
+        Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_DISP_URBAN_IP, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+        String urban_display = urban_ip.length() > 0 ? urban_ip : INTL_DISP_NOT_CONNECTED;
+        Paint_DrawString_Display(value_indent, info_y + (icon_size - Font12.Height) / 2, urban_display.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        info_y += line_spacing;
+        // Divider
+        Paint_DrawLine(icon_indent, info_y + divider_spacing, usable_width - 8, info_y + divider_spacing, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        info_y += divider_spacing + 2;
+    }
 
-    // Altruist IP Address
+    // Altruist IP Address (Insight)
     Paint_DrawImage(ip_address_15x15, icon_indent, info_y, icon_size, icon_size);
     Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_DISP_INSIGHT_IP, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     String altruist_display = deviceStatus.ip_address.length() > 0 ? deviceStatus.ip_address : INTL_DISP_NOT_CONNECTED;

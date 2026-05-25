@@ -58,6 +58,8 @@ UInt        analytics_night_start_hour
 UInt        analytics_night_end_hour
 String      custom_altruist_urban
 Bool		use_custom_urban
+Bool		standalone
+Bool		analytics_sleep_add_urban
 Bool		share_temperature
 Bool		share_humidity
 Bool		share_pressure
@@ -65,11 +67,11 @@ Bool		share_co2
 Bool		share_pm
 Bool		share_noise
 Bool		share_co
-Bool        share_radiation
-Bool        share_o3
-Bool        share_no2
-Bool        share_fast_aqi
-Bool        share_epa_aqi
+Bool		share_radiation
+Bool		share_o3
+Bool		share_no2
+Bool		share_fast_aqi
+Bool		share_epa_aqi
 """
 
 with open("airrohr-cfg.h", "w") as h:

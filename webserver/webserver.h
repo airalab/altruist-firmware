@@ -11,6 +11,8 @@ class SensorWebServer {
 public:
     SensorWebServer(JsonDocument &_data, device_status_t &_deviceStatus, SemaphoreHandle_t _mutex) : server(80), sensors_data(_data), deviceStatus(_deviceStatus), mutex{_mutex} {}
     void setup();
+    /** After STA gets a usable IP again (post-outage); re-open listen socket — some lwIP stacks keep a dead listener. */
+    void notifyStaIpRestored();
     void setWifiConfigLoop(bool loop) { wificonfig_loop = loop; };
     void handleClient() { server.handleClient(); };
     void setWifiInfo(struct_wifiInfo* info, uint8_t count);
@@ -61,6 +63,8 @@ private:
 #ifdef ALTRUIST_INSIDE
     void _webserver_select_urban();
     void _webserver_scan_urbans();
+    /** After user opts to pair: mDNS scan + Urban IP form (no reboot). */
+    void _send_urban_pairing_form_html();
 #endif
 };
 

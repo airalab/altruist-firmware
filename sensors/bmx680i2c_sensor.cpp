@@ -35,6 +35,9 @@ bool BME680Sensor::begin() {
     for (uint8_t addr : {0x77, 0x76}) {
         auto test_bme680 = new Adafruit_BME680(I2C_NUM_0, addr);
         if (test_bme680->begin()) {
+            // We currently use BME680 only for temperature / humidity / pressure.
+            // Disable gas heater to reduce power use and self-heating unless gas measurements are explicitly needed.
+            test_bme680->setGasHeater(0, 0);
             bme680 = test_bme680;
             sensor_address = addr;
             break;

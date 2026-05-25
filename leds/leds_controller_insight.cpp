@@ -42,6 +42,17 @@ void LedControllerInsight::init() {
     last_refresh_time = millis() - REFRESH_INTERVAL; 
 }
 
+void LedControllerInsight::scheduleNextLedRefresh(unsigned long delay_ms) {
+    if (delay_ms < 500UL) {
+        delay_ms = 500UL;
+    }
+    if (delay_ms > REFRESH_INTERVAL - 2000UL) {
+        delay_ms = REFRESH_INTERVAL - 2000UL;
+    }
+    const unsigned long now = millis();
+    last_refresh_time = now + delay_ms - REFRESH_INTERVAL - 1UL;
+}
+
 void LedControllerInsight::process() {
     if (LED_PIN == -1 || !cfg::leds_on) {
         return;
@@ -168,11 +179,15 @@ void LedControllerInsight::process() {
         uint32_t urban_pressure_color = white;
         uint32_t insight_pressure_color = white;
 
-        // Apply the same TTL semantics as the main screen:
-        // if Urban hasn't been refreshed recently, ignore cached Urban values
-        // so LED segments don't look "connected" forever.
-        bool urban_fresh = true;
+        enum class urban_link_state_t : uint8_t { FRESH, STALE, OFFLINE };
+        urban_link_state_t urban_link_state = urban_link_state_t::FRESH;
+        if (!cfg::standalone) {
+        // Apply the same TTL semantics as the main screen (with stale debounce).
+        // UX requirement: show WHITE only when Urban is OFFLINE (not just stale).
         {
+            static uint8_t urban_led_stale_confirm = 0;
+            static uint32_t urban_led_tracked_last_ok_ms = 0xFFFFFFFFu;
+
             uint32_t last_ok_ms = 0;
             if (sensors_data.containsKey("service_data")) {
                 JsonObjectConst service = sensors_data["service_data"].as<JsonObjectConst>();
@@ -180,22 +195,37 @@ void LedControllerInsight::process() {
                     last_ok_ms = service["urban_last_ok_ms"].as<uint32_t>();
                 }
             }
+            if (last_ok_ms != urban_led_tracked_last_ok_ms) {
+                urban_led_stale_confirm = 0;
+                urban_led_tracked_last_ok_ms = last_ok_ms;
+            }
+
             const uint32_t now_ms = (uint32_t)millis();
             if (last_ok_ms != 0 && last_ok_ms <= now_ms) {
                 const uint32_t age_ms = (uint32_t)(now_ms - last_ok_ms);
                 if (age_ms > URBAN_OFFLINE_AFTER_MS) {
-                    urban_fresh = false;
+                    urban_led_stale_confirm = 0;
+                    urban_link_state = urban_link_state_t::OFFLINE;
                 } else if (age_ms > URBAN_STALE_AFTER_MS) {
-                    // Stale: treat as disconnected for LEDs to match UI icon behavior.
-                    urban_fresh = false;
+                    if (urban_led_stale_confirm < URBAN_STALE_CONFIRMATIONS_REQUIRED) {
+                        urban_led_stale_confirm++;
+                    }
+                    urban_link_state =
+                        (urban_led_stale_confirm < URBAN_STALE_CONFIRMATIONS_REQUIRED)
+                            ? urban_link_state_t::FRESH
+                            : urban_link_state_t::STALE;
+                } else {
+                    urban_led_stale_confirm = 0;
+                    urban_link_state = urban_link_state_t::FRESH;
                 }
             } else if (last_ok_ms > now_ms) {
                 // Invalid timestamp; don't force "disconnected" instantly.
-                urban_fresh = true;
+                urban_link_state = urban_link_state_t::FRESH;
             }
         }
 
-        if (urban_fresh && sensors_data.containsKey(ATRUIST_URBAN_SENSOR)) {
+        const bool allow_urban_values = (urban_link_state != urban_link_state_t::OFFLINE);
+        if (allow_urban_values && sensors_data.containsKey(ATRUIST_URBAN_SENSOR)) {
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P1")) {
                 pm10_color = _getColorByThresholds(
                     sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P1"]["value"].as<float>(),
@@ -235,6 +265,7 @@ void LedControllerInsight::process() {
                 debug_outln_verbose(F("Set U Pressure color "), getColorName(urban_pressure_color));
             }
         }
+        }
         if (sensors_data.containsKey("BME680")) {
             insight_temp_color = _getTempColor(sensors_data["BME680"]["temperature"]["value"].as<float>());
             debug_outln_verbose(F("Set Temp color "), getColorName(insight_temp_color));
@@ -248,32 +279,57 @@ void LedControllerInsight::process() {
             co2_color = _getCO2Color(sensors_data["SCD4x"]["co2"]["value"].as<float>());
             debug_outln_verbose(F("Set CO2 color "), getColorName(co2_color));
         }
+
+        if (cfg::standalone) {
+            // No Urban stream: reuse Insight + CO2 semantics so the bar is coherent (not long white runs).
+            pm10_color = co2_color;
+            pm25_color = co2_color;
+            noise_avg_color = co2_color;
+            noise_max_color = co2_color;
+            urban_temp_color = insight_temp_color;
+            urban_humidity_color = insight_humidity_color;
+            urban_pressure_color = insight_pressure_color;
+        }
         xSemaphoreGive(mutex);
 
-        // matching the main screen.
+        // If Urban link is stale (not offline), dim Urban-driven segments instead of turning them white.
+        // White is reserved for OFFLINE only.
+        if (urban_link_state == urban_link_state_t::STALE) {
+            const uint8_t stale_dim_percent = 35;
+            pm10_color = scaleColor(pm10_color, stale_dim_percent);
+            pm25_color = scaleColor(pm25_color, stale_dim_percent);
+            noise_avg_color = scaleColor(noise_avg_color, stale_dim_percent);
+            noise_max_color = scaleColor(noise_max_color, stale_dim_percent);
+            urban_temp_color = scaleColor(urban_temp_color, stale_dim_percent);
+            urban_humidity_color = scaleColor(urban_humidity_color, stale_dim_percent);
+            urban_pressure_color = scaleColor(urban_pressure_color, stale_dim_percent);
+        }
+
+        // Map metrics to physical LED ranges so the bar order is:
+        // Noise -> PM -> CO2 -> Temp -> Hum -> Pressure
         const uint8_t seg_start[SEGMENT_COUNT] = {
-            16, // Noise avg (Urban)
-            17, // Noise max (Urban)
-            19, // PM10 (Urban)
-            20, // PM2.5 (Urban)
+            1,  // Noise avg (Urban)
+            4,  // Noise max (Urban)
+            7,  // PM10 (Urban)
+            10, // PM2.5 (Urban)
             13, // CO2 (Insight)
-            1,  // Temp (Urban)
-            4,  // Temp (Insight)
-            7,  // Hum (Urban)
-            10, // Hum (Insight)
+            16, // Temp (Urban)
+            17, // Temp (Insight)
+            19, // Hum (Urban)
+            20, // Hum (Insight)
             22, // Pressure (Urban)
             26  // Pressure (Insight)
         };
         const uint8_t seg_end[SEGMENT_COUNT] = {
-            16,
-            18,
-            19,
-            21,
-            15,
             3,
             6,
             9,
             12,
+            15,
+            16,
+            18,
+            19,
+            21,
             25,
             28
         };

@@ -72,11 +72,16 @@ namespace cfg {
 
 	extern char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
 	extern bool use_custom_urban;
+	/** When true (Insight), do not register the HTTP Urban client sensor. */
+	extern bool standalone;
+	/** Paired mode: add Urban PM2.5 & noise to sleep analytics hourly history (default off = Insight PM2.5 only). */
+	extern bool analytics_sleep_add_urban;
 
 	extern unsigned leds_brightness;
 	extern bool leds_on;
 	extern unsigned leds_off_hour;
 	extern unsigned leds_on_hour;
+	/** Sleep analytics window: minutes from midnight [0..1439] (local). NVS keys stay *_hour for compatibility; values <=23 are treated as legacy whole hours. */
 	extern unsigned analytics_night_start_hour;
 	extern unsigned analytics_night_end_hour;
 
@@ -87,6 +92,7 @@ namespace cfg {
 	extern bool share_co2;
 	extern bool share_pm;
 	extern bool share_noise;
+	extern bool share_co;
 	extern bool share_radiation;
 	extern bool share_o3;
 	extern bool share_no2;

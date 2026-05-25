@@ -47,7 +47,6 @@ struct RollingHourHistory {
 RollingHourHistory g_temp_hour_hist;
 RollingHourHistory g_hum_hour_hist;
 RollingHourHistory g_dew_hour_hist;
-RollingHourHistory g_pm10_hour_hist;
 RollingHourHistory g_pm25_hour_hist;
 RollingHourHistory g_co2_hour_hist;
 RollingHourHistory g_noise_hour_hist;
@@ -94,7 +93,6 @@ static void loadRollingHistoryIfNeeded() {
     if (prefs.getBytesLength("h_temp") == sizeof(g_temp_hour_hist)) prefs.getBytes("h_temp", &g_temp_hour_hist, sizeof(g_temp_hour_hist));
     if (prefs.getBytesLength("h_hum") == sizeof(g_hum_hour_hist)) prefs.getBytes("h_hum", &g_hum_hour_hist, sizeof(g_hum_hour_hist));
     if (prefs.getBytesLength("h_dew") == sizeof(g_dew_hour_hist)) prefs.getBytes("h_dew", &g_dew_hour_hist, sizeof(g_dew_hour_hist));
-    if (prefs.getBytesLength("h_pm10") == sizeof(g_pm10_hour_hist)) prefs.getBytes("h_pm10", &g_pm10_hour_hist, sizeof(g_pm10_hour_hist));
     if (prefs.getBytesLength("h_pm25") == sizeof(g_pm25_hour_hist)) prefs.getBytes("h_pm25", &g_pm25_hour_hist, sizeof(g_pm25_hour_hist));
     if (prefs.getBytesLength("h_co2") == sizeof(g_co2_hour_hist)) prefs.getBytes("h_co2", &g_co2_hour_hist, sizeof(g_co2_hour_hist));
     if (prefs.getBytesLength("h_noise") == sizeof(g_noise_hour_hist)) prefs.getBytes("h_noise", &g_noise_hour_hist, sizeof(g_noise_hour_hist));
@@ -128,7 +126,6 @@ static void saveRollingHistoryIfNeeded(bool force) {
         prefs.putBytes("h_temp", &g_temp_hour_hist, sizeof(g_temp_hour_hist));
         prefs.putBytes("h_hum", &g_hum_hour_hist, sizeof(g_hum_hour_hist));
         prefs.putBytes("h_dew", &g_dew_hour_hist, sizeof(g_dew_hour_hist));
-        prefs.putBytes("h_pm10", &g_pm10_hour_hist, sizeof(g_pm10_hour_hist));
         prefs.putBytes("h_pm25", &g_pm25_hour_hist, sizeof(g_pm25_hour_hist));
         prefs.putBytes("h_co2", &g_co2_hour_hist, sizeof(g_co2_hour_hist));
         prefs.putBytes("h_noise", &g_noise_hour_hist, sizeof(g_noise_hour_hist));
@@ -350,7 +347,6 @@ static void dumpAnalyticsToSdDev(uint32_t now_ts, bool forced_save) {
     appendHourlyDump(content, "temp", g_temp_hour_hist);
     appendHourlyDump(content, "hum", g_hum_hour_hist);
     appendHourlyDump(content, "dew", g_dew_hour_hist);
-    appendHourlyDump(content, "pm10", g_pm10_hour_hist);
     appendHourlyDump(content, "pm25", g_pm25_hour_hist);
     appendHourlyDump(content, "co2", g_co2_hour_hist);
     appendHourlyDump(content, "noise", g_noise_hour_hist);
@@ -572,13 +568,19 @@ bool analyticsHistoryIsLoaded() {
 
 bool analyticsHistoryHasData() {
     loadRollingHistoryIfNeeded();
-    return rollingHistoryHasAnyData(g_temp_hour_hist) ||
-           rollingHistoryHasAnyData(g_hum_hour_hist) ||
-           rollingHistoryHasAnyData(g_dew_hour_hist) ||
-           rollingHistoryHasAnyData(g_pm10_hour_hist) ||
-           rollingHistoryHasAnyData(g_pm25_hour_hist) ||
-           rollingHistoryHasAnyData(g_co2_hour_hist) ||
-           rollingHistoryHasAnyData(g_noise_hour_hist);
+    const bool indoor = rollingHistoryHasAnyData(g_temp_hour_hist) ||
+                        rollingHistoryHasAnyData(g_hum_hour_hist) ||
+                        rollingHistoryHasAnyData(g_dew_hour_hist) ||
+                        rollingHistoryHasAnyData(g_co2_hour_hist);
+    if (cfg::standalone) {
+        return indoor || rollingHistoryHasAnyData(g_pm25_hour_hist);
+    }
+    // Paired Insight has no local PM; PM/noise in sleep analytics only when Urban is enabled.
+    if (cfg::analytics_sleep_add_urban) {
+        return indoor || rollingHistoryHasAnyData(g_pm25_hour_hist) ||
+               rollingHistoryHasAnyData(g_noise_hour_hist);
+    }
+    return indoor;
 }
 
 analytics_view_t analyticsGetView() {
@@ -608,7 +610,6 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
 
     values = analytics_screen_values_t{};
     JsonObjectConst data = doc.as<JsonObjectConst>();
-    String urban_key = ATRUIST_URBAN_SENSOR;
 
     updateMetrics();
     bool use_bme680_for_temp_hum = (system_metrics.uptime_sec < 360);
@@ -660,41 +661,37 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
         }
     }
 
-    if (data.containsKey(urban_key)) {
-        JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
-        if (urban.containsKey("BME280_temperature")) {
-            float t_urban = urban["BME280_temperature"]["value"].as<float>();
-            if (isValidTemp(t_urban)) {
-                values.temp_urban.current = t_urban;
-                values.temp_urban.has_current = true;
+    if (!cfg::standalone) {
+        const char* urban_key = ATRUIST_URBAN_SENSOR;
+        if (data.containsKey(urban_key)) {
+            JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
+            if (urban.containsKey("BME280_temperature")) {
+                float t_urban = urban["BME280_temperature"]["value"].as<float>();
+                if (isValidTemp(t_urban)) {
+                    values.temp_urban.current = t_urban;
+                    values.temp_urban.has_current = true;
+                }
             }
-        }
-        if (urban.containsKey("BME280_humidity")) {
-            float h_urban = urban["BME280_humidity"]["value"].as<float>();
-            if (isValidHumidity(h_urban)) {
-                values.hum_urban.current = h_urban;
-                values.hum_urban.has_current = true;
+            if (urban.containsKey("BME280_humidity")) {
+                float h_urban = urban["BME280_humidity"]["value"].as<float>();
+                if (isValidHumidity(h_urban)) {
+                    values.hum_urban.current = h_urban;
+                    values.hum_urban.has_current = true;
+                }
             }
-        }
-        if (urban.containsKey("SDS_P1")) {
-            float pm10 = urban["SDS_P1"]["value"].as<float>();
-            if (isValidPM10(pm10)) {
-                values.pm10.current = pm10;
-                values.pm10.has_current = true;
+            if (urban.containsKey("SDS_P2")) {
+                float pm25 = urban["SDS_P2"]["value"].as<float>();
+                if (isValidPM25(pm25)) {
+                    values.pm25.current = pm25;
+                    values.pm25.has_current = true;
+                }
             }
-        }
-        if (urban.containsKey("SDS_P2")) {
-            float pm25 = urban["SDS_P2"]["value"].as<float>();
-            if (isValidPM25(pm25)) {
-                values.pm25.current = pm25;
-                values.pm25.has_current = true;
-            }
-        }
-        if (urban.containsKey("PCBA_noiseAvg")) {
-            float noise = urban["PCBA_noiseAvg"]["value"].as<float>();
-            if (isValidNoise(noise)) {
-                values.noise_avg.current = noise;
-                values.noise_avg.has_current = true;
+            if (urban.containsKey("PCBA_noiseAvg")) {
+                float noise = urban["PCBA_noiseAvg"]["value"].as<float>();
+                if (isValidNoise(noise)) {
+                    values.noise_avg.current = noise;
+                    values.noise_avg.has_current = true;
+                }
             }
         }
     }
@@ -753,23 +750,26 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
             updated = true;
             updated_metrics++;
         }
-        if (values.pm10.has_current) {
-            updateRollingHourMetric(g_pm10_hour_hist, values.pm10.current, hour_key);
-            updated = true;
-            updated_metrics++;
-        }
-        if (values.pm25.has_current) {
-            updateRollingHourMetric(g_pm25_hour_hist, values.pm25.current, hour_key);
+        if (!cfg::standalone) {
+            if (cfg::analytics_sleep_add_urban) {
+                if (values.pm25.has_current) {
+                    updateRollingHourMetric(g_pm25_hour_hist, values.pm25.current, hour_key);
+                    updated = true;
+                    updated_metrics++;
+                }
+                if (values.noise_avg.has_current) {
+                    updateRollingHourMetric(g_noise_hour_hist, values.noise_avg.current, hour_key);
+                    updated = true;
+                    updated_metrics++;
+                }
+            }
+        } else if (values.pm25_insight.has_current) {
+            updateRollingHourMetric(g_pm25_hour_hist, values.pm25_insight.current, hour_key);
             updated = true;
             updated_metrics++;
         }
         if (values.co2.has_current) {
             updateRollingHourMetric(g_co2_hour_hist, values.co2.current, hour_key);
-            updated = true;
-            updated_metrics++;
-        }
-        if (values.noise_avg.has_current) {
-            updateRollingHourMetric(g_noise_hour_hist, values.noise_avg.current, hour_key);
             updated = true;
             updated_metrics++;
         }
@@ -855,21 +855,24 @@ void populateAnalyticsPeriodStats(analytics_screen_values_t &values) {
             ok = applyHourlyMedianForDay(values.dew_indoor, g_dew_hour_hist, completed_day);
             if (!ok) applyHourlyMedianForDay(values.dew_indoor, g_dew_hour_hist, today);
         }
-        if (!values.pm10.has_24h) {
-            ok = applyHourlyMedianForDay(values.pm10, g_pm10_hour_hist, completed_day);
-            if (!ok) applyHourlyMedianForDay(values.pm10, g_pm10_hour_hist, today);
-        }
-        if (!values.pm25.has_24h) {
-            ok = applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, completed_day);
-            if (!ok) applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, today);
+        if (!cfg::standalone) {
+            if (cfg::analytics_sleep_add_urban) {
+                if (!values.pm25.has_24h) {
+                    ok = applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, completed_day);
+                    if (!ok) applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, today);
+                }
+                if (!values.noise_avg.has_24h) {
+                    ok = applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, completed_day);
+                    if (!ok) applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, today);
+                }
+            }
+        } else if (!values.pm25_insight.has_24h) {
+            ok = applyHourlyMedianForDay(values.pm25_insight, g_pm25_hour_hist, completed_day);
+            if (!ok) applyHourlyMedianForDay(values.pm25_insight, g_pm25_hour_hist, today);
         }
         if (!values.co2.has_24h) {
             ok = applyHourlyMedianForDay(values.co2, g_co2_hour_hist, completed_day);
             if (!ok) applyHourlyMedianForDay(values.co2, g_co2_hour_hist, today);
-        }
-        if (!values.noise_avg.has_24h) {
-            ok = applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, completed_day);
-            if (!ok) applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, today);
         }
     }
 }
@@ -958,40 +961,95 @@ static char gradeLetter(int score) {
     return 'F';
 }
 
-static uint8_t safeHourCfg(unsigned v, uint8_t fallback) {
-    return (v <= 23U) ? (uint8_t)v : fallback;
+
+/** NVS keys remain analytics_night_*_hour; value is minutes 0..1439, or legacy 0..23 meaning that whole hour. */
+static uint16_t nightCfgStartMinutes() {
+    unsigned v = cfg::analytics_night_start_hour;
+    if (v <= 23u) {
+        return (uint16_t)(v * 60u);
+    }
+    if (v > 1439u) {
+        return (uint16_t)(22 * 60);
+    }
+    return (uint16_t)v;
 }
 
-static uint16_t buildNightHourList(uint8_t start_h, uint8_t end_h, uint8_t out_hours[24]) {
+static uint16_t nightCfgEndMinutes() {
+    unsigned v = cfg::analytics_night_end_hour;
+    if (v <= 23u) {
+        return (uint16_t)(v * 60u);
+    }
+    if (v > 1439u) {
+        return (uint16_t)(7 * 60);
+    }
+    return (uint16_t)v;
+}
+
+/** Hour h covers [h*60, h*60+60); night window uses half-open ranges, end exclusive. */
+static bool hourTouchesNightWindow(uint8_t h, uint16_t start_m, uint16_t end_m) {
+    if (start_m == end_m) {
+        return true;
+    }
+    const uint32_t hb = (uint32_t)h * 60U;
+    const uint32_t he = hb + 60U;
+    auto overlap = [](uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1) -> bool { return a0 < b1 && b0 < a1; };
+    if (start_m < end_m) {
+        return overlap(hb, he, (uint32_t)start_m, (uint32_t)end_m);
+    }
+    return overlap(hb, he, (uint32_t)start_m, 1440u) || overlap(hb, he, 0u, (uint32_t)end_m);
+}
+
+static uint16_t buildNightHourListMinutes(uint16_t start_m, uint16_t end_m, uint8_t out_hours[24]) {
+    if (start_m == end_m) {
+        uint16_t n = 0;
+        for (uint8_t hh = 0; hh < 24; hh++) {
+            out_hours[n++] = hh;
+        }
+        return n;
+    }
     uint16_t n = 0;
-    if (start_h == end_h) {
-        for (uint8_t h = 0; h < 24; h++) out_hours[n++] = h;
+    const bool wrap = (start_m > end_m);
+    if (!wrap) {
+        const uint8_t h0 = (uint8_t)(start_m / 60u);
+        const uint8_t h1 = (end_m > 0u) ? (uint8_t)((end_m - 1u) / 60u) : 0u;
+        for (uint8_t hh = h0; hh <= h1; hh++) {
+            if (hourTouchesNightWindow(hh, start_m, end_m)) {
+                out_hours[n++] = hh;
+            }
+        }
         return n;
     }
-    if (start_h < end_h) {
-        for (uint8_t h = start_h; h < end_h; h++) out_hours[n++] = h;
-        return n;
+    for (uint8_t hh = (uint8_t)(start_m / 60u); hh < 24u; hh++) {
+        if (hourTouchesNightWindow(hh, start_m, end_m)) {
+            out_hours[n++] = hh;
+        }
     }
-    for (uint8_t h = start_h; h < 24; h++) out_hours[n++] = h;
-    for (uint8_t h = 0; h < end_h; h++) out_hours[n++] = h;
+    if (end_m > 0u) {
+        const uint8_t h1 = (uint8_t)((end_m - 1u) / 60u);
+        for (uint8_t hh = 0; hh <= h1; hh++) {
+            if (hourTouchesNightWindow(hh, start_m, end_m)) {
+                out_hours[n++] = hh;
+            }
+        }
+    }
     return n;
 }
 
-static uint32_t resolveLastCompletedNightEndDay(uint8_t /*start_h*/, uint8_t end_h) {
+static uint32_t resolveLastCompletedNightEndDay(uint16_t /*start_m*/, uint16_t end_m) {
     time_t now = time(nullptr);
     if (now <= 0) return 0U;
     struct tm lt;
     localtime_r(&now, &lt);
-    const uint8_t now_h = (uint8_t)lt.tm_hour;
+    const uint16_t now_m = (uint16_t)lt.tm_hour * 60U + (uint16_t)lt.tm_min;
     uint32_t today = currentLocalDayKey(now);
 
     // Night analytics progressive recompute window:
-    // from 06:00 until configured end hour (default 10:00), use today's end-day
+    // from 06:00 until configured end time, use today's end-day
     // so the report is updated hourly as new night hours appear.
     // Outside this window before 06:00, keep showing the previously completed night.
-    const uint8_t progressive_recalc_start_h = 6;
-    if (now_h >= end_h) return today;
-    if (end_h > progressive_recalc_start_h && now_h >= progressive_recalc_start_h) return today;
+    const uint16_t progressive_recalc_start_m = 6 * 60;
+    if (end_m > 0u && now_m >= end_m) return today;
+    if (end_m > progressive_recalc_start_m && now_m >= progressive_recalc_start_m) return today;
 
     return (today > 0U) ? (today - 1U) : 0U;
 }
@@ -1235,26 +1293,38 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     const int cy = content_top + content_height / 2 + 19;
     const int r = 92;
 
-    const uint8_t night_start = safeHourCfg(cfg::analytics_night_start_hour, 22);
-    const uint8_t night_end = safeHourCfg(cfg::analytics_night_end_hour, 10);
+    const uint16_t night_start_m = nightCfgStartMinutes();
+    const uint16_t night_end_m = nightCfgEndMinutes();
+    const uint8_t night_first_hour = (uint8_t)(night_start_m / 60U);
     uint8_t night_hours[24];
-    const uint16_t n_hours = buildNightHourList(night_start, night_end, night_hours);
-    const uint32_t end_day = resolveLastCompletedNightEndDay(night_start, night_end);
-    const bool cross_midnight = (night_start >= night_end);
+    const uint16_t n_hours = buildNightHourListMinutes(night_start_m, night_end_m, night_hours);
+    const uint32_t end_day = resolveLastCompletedNightEndDay(night_start_m, night_end_m);
+    const bool full_day_window = (night_start_m == night_end_m);
+    const bool cross_midnight = !full_day_window && (night_start_m > night_end_m);
 
     float co2_day[24] = {0}, pm25_day[24] = {0}, noise_day[24] = {0}, temp_day[24] = {0}, hum_day[24] = {0};
     bool co2_has_day[24] = {false}, pm25_has_day[24] = {false}, noise_has_day[24] = {false}, temp_has_day[24] = {false}, hum_has_day[24] = {false};
     float co2_prev[24] = {0}, pm25_prev[24] = {0}, noise_prev[24] = {0}, temp_prev[24] = {0}, hum_prev[24] = {0};
     bool co2_has_prev[24] = {false}, pm25_has_prev[24] = {false}, noise_has_prev[24] = {false}, temp_has_prev[24] = {false}, hum_has_prev[24] = {false};
     readHourlyDayValuesFromHistory(g_co2_hour_hist, end_day, co2_day, co2_has_day);
-    readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day, pm25_day, pm25_has_day);
-    readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day, noise_day, noise_has_day);
+    const bool sleep_include_pm25 = cfg::standalone || cfg::analytics_sleep_add_urban;
+    const bool sleep_use_urban_pm_noise = !cfg::standalone && cfg::analytics_sleep_add_urban;
+    if (sleep_include_pm25) {
+        readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day, pm25_day, pm25_has_day);
+    }
+    if (sleep_use_urban_pm_noise) {
+        readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day, noise_day, noise_has_day);
+    }
     readHourlyDayValuesFromHistory(g_temp_hour_hist, end_day, temp_day, temp_has_day);
     readHourlyDayValuesFromHistory(g_hum_hour_hist, end_day, hum_day, hum_has_day);
     if (cross_midnight && end_day > 0U) {
         readHourlyDayValuesFromHistory(g_co2_hour_hist, end_day - 1U, co2_prev, co2_has_prev);
-        readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day - 1U, pm25_prev, pm25_has_prev);
-        readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day - 1U, noise_prev, noise_has_prev);
+        if (sleep_include_pm25) {
+            readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day - 1U, pm25_prev, pm25_has_prev);
+        }
+        if (sleep_use_urban_pm_noise) {
+            readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day - 1U, noise_prev, noise_has_prev);
+        }
         readHourlyDayValuesFromHistory(g_temp_hour_hist, end_day - 1U, temp_prev, temp_has_prev);
         readHourlyDayValuesFromHistory(g_hum_hour_hist, end_day - 1U, hum_prev, hum_has_prev);
     }
@@ -1264,9 +1334,10 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     uint16_t co2_count = 0, pm25_count = 0, noise_count = 0, temp_count = 0, hum_count = 0;
     for (uint16_t i = 0; i < n_hours; i++) {
         const uint8_t h = night_hours[i];
-        const bool use_prev = cross_midnight && (h >= night_start);
+        const bool use_prev = !full_day_window && cross_midnight && (h >= night_first_hour);
         const bool c_has = use_prev ? co2_has_prev[h] : co2_has_day[h];
-        const bool p_has = use_prev ? pm25_has_prev[h] : pm25_has_day[h];
+        const bool p_has =
+            sleep_include_pm25 && (use_prev ? pm25_has_prev[h] : pm25_has_day[h]);
         const bool n_has = use_prev ? noise_has_prev[h] : noise_has_day[h];
         const bool t_has = use_prev ? temp_has_prev[h] : temp_has_day[h];
         const bool hum_has = use_prev ? hum_has_prev[h] : hum_has_day[h];
@@ -1603,10 +1674,18 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     // No extra label here; the header clarifies night average semantics.
 
-    drawMetricCard(card_x, cards_top + 0 * (card_h + card_gap), card_w, card_h, "CO2",   co2v, "ppm",   f_co2,   -1, false, 4, true, true);
-    drawMetricCard(card_x, cards_top + 1 * (card_h + card_gap), card_w, card_h, "PM2.5", pmv,  "µg/m³", f_pm25,  -1, false, 4, true, true);
-    drawMetricCard(card_x, cards_top + 2 * (card_h + card_gap), card_w, card_h, A_TXT("Noise", "Шум"), nv, "dB", f_noise, -1, false, 4, true, true);
-    drawMetricCard(card_x, cards_top + 3 * (card_h + card_gap), card_w, card_h, "RH", hv, "", f_hum, -1, false, 4, true, true);
+    int metric_row = 0;
+    drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, "CO2", co2v, "ppm", f_co2, -1, false, 4, true, true);
+    metric_row++;
+    if (has_pm25) {
+        drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, "PM2.5", pmv, "µg/m³", f_pm25, -1, false, 4, true, true);
+        metric_row++;
+    }
+    if (has_noise) {
+        drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, A_TXT("Noise", "Шум"), nv, "dB", f_noise, -1, false, 4, true, true);
+        metric_row++;
+    }
+    drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, "RH", hv, "", f_hum, -1, false, 4, true, true);
 
     // circle/cards-only screen
     return;

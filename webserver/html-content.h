@@ -12,6 +12,7 @@ const char TXT_CONTENT_TYPE_TEXT_CSS[] PROGMEM = "text/css";
 const char TXT_CONTENT_TYPE_TEXT_JS[] PROGMEM = "text/javascript";
 const char TXT_CONTENT_TYPE_TEXT_PLAIN[] PROGMEM = "text/plain";
 const char TXT_CONTENT_TYPE_IMAGE_PNG[] PROGMEM = "image/png";
+const char TXT_CONTENT_TYPE_IMAGE_SVG[] PROGMEM = "image/svg+xml";
 
 const char SENSORS_SDS011[] PROGMEM = "SDS011";
 const char SENSORS_GC[] PROGMEM = "Geiger Counter";
@@ -37,6 +38,8 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 <title>{t}</title>";
 
 #define STATIC_PREFIX "/" INTL_LANG "_s1.4"
+// Bust browser cache after PNG→SVG / logo changes; `m` reflects build (insight vs urban).
+#define WEB_HEADER_LOGO_SRC STATIC_PREFIX "?r=logo&v=" SOFTWARE_VERSION_STR "&m=" DEVICE_MODEL
 
 const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>\
     <link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
@@ -44,7 +47,7 @@ const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='widt
     </head><body>\
     <div class='canvas'>\
     <a class='b' href='/' style='background:none;display:inline'>\
-    <img src='" STATIC_PREFIX "?r=logo' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:16px' width='100' height='89'/></a>";
+    <img src='" WEB_HEADER_LOGO_SRC "' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:12px' width='160' height='160'/></a>";
 
 const char WEB_PAGE_HEADER_CONFIG_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>\
 <link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
@@ -53,7 +56,7 @@ const char WEB_PAGE_HEADER_CONFIG_HEAD[] PROGMEM = "<meta name='viewport' conten
 </head><body>\
 <div class='canvas'>\
 <a class='b' href='/' style='background:none;display:inline'>\
-<img src='" STATIC_PREFIX "?r=logo' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:16px' width='100' height='89'/></a>";
+<img src='" WEB_HEADER_LOGO_SRC "' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:12px' width='160' height='160'/></a>";
 
 const char WEB_PAGE_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
     <h3>" PM_SENSOR_NAME "</h3>\
@@ -96,12 +99,12 @@ const char EMPTY_ROW[] PROGMEM = "<tr><td colspan='3' style='background: #f4f4f4
 const char WEB_PAGE_FOOTER[] PROGMEM = "<br/><br/>"
 	"<a class='b home-btn' href='/'>" INTL_BACK_TO_HOME "</a><br/><br/><br/>"
 	"</div><footer class='footer'><div style='padding:16px'>"
-	"<a href='https://robonomics.network/' target='_blank' rel='noreferrer' style='color:#fff;'>© Robonomics Network</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>)<br/><span class='footer-polkadot'>Secured by</span>"
+	"<a href='https://robonomics.network/' target='_blank' rel='noreferrer' style='color:#fff;'>© Robonomics Network</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/altruist-firmware/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>)<br/><span class='footer-polkadot'>Secured by</span>"
 	"</div></footer></body></html>\r\n";
 
 const char WEB_PAGE_ROOT_FOOTER[] PROGMEM = "<br/><br/>"
     "</div><footer class='footer'><div style='padding:16px'>"
-    "<a href='https://robonomics.network/' target='_blank' rel='noreferrer' style='color:#fff;'>© Robonomics Network</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>)<br/><span class='footer-polkadot'>Secured by</span>"
+    "<a href='https://robonomics.network/' target='_blank' rel='noreferrer' style='color:#fff;'>© Robonomics Network</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/altruist-firmware/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>)<br/><span class='footer-polkadot'>Secured by</span>"
     "</div></footer></body></html>\r\n";
 
 

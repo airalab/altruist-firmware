@@ -59,6 +59,8 @@ class LedControllerInsight {
             : sensors_data(_data), mutex(_mutex), pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800) {}
         void init();
         void process();
+        /** After a synchronous boot paint, allow another refresh after delay_ms (then normal REFRESH_INTERVAL cadence). */
+        void scheduleNextLedRefresh(unsigned long delay_ms);
         void setSleepMode(bool enabled);
 
     private:

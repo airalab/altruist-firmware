@@ -1,9 +1,11 @@
 #include "webserver.h"
 #include "pages/pages.h"
 #include "html-content.h"
+#include <WiFi.h>
 #include "script-js.h"
 #include "utils.h"
 #include "../config_manager/config_helpers.h"
+#include "web-header-logo-select.h"
 #include "robonomics-logo-common.h"
 
 #ifdef ALTRUIST_INSIDE
@@ -41,6 +43,18 @@ void SensorWebServer::setup() {
 
 	debug_outln_info(F("Starting Webserver... "), WiFi.localIP().toString());
 	server.begin();
+}
+
+void SensorWebServer::notifyStaIpRestored() {
+#if defined(ESP32)
+	// WebServer::begin() calls close() internally, but after a netif/IP change an explicit stop + short yield
+	// avoids a stuck listen socket so phones/browsers can reach the device again on the LAN IP.
+	debug_outln_info(F("Webserver: rebind after STA IP "), WiFi.localIP().toString());
+	server.stop();
+	yield();
+	delay(30);
+	server.begin();
+#endif
 }
 
 void SensorWebServer::_webserver_status() {
@@ -87,13 +101,15 @@ void SensorWebServer::_webserver_not_found() {
 }
 
 void SensorWebServer::_webserver_static() {
+	if (server.arg(String('r')) == F("logo")) {
+		// Device-specific SVG (Insight vs Urban build); avoid stale PNG/SVG from old Cache-Control.
+		server.sendHeader(F("Cache-Control"), F("no-cache"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_HEADER_LOGO_SVG, WEB_HEADER_LOGO_SIZE);
+		return;
+	}
 	server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
 
-	if (server.arg(String('r')) == F("logo")) {
-		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG,
-			ROBONOMICS_INFO_LOGO_PNG, ROBONOMICS_INFO_LOGO_PNG_SIZE);
-	}
-	else if (server.arg(String('r')) == F("css")) {
+	if (server.arg(String('r')) == F("css")) {
 		server.send_P(200, TXT_CONTENT_TYPE_TEXT_CSS,
 			WEB_PAGE_STATIC_CSS, sizeof(WEB_PAGE_STATIC_CSS)-1);
 	} else if (server.arg(String('r')) == F("js")) {
@@ -105,7 +121,8 @@ void SensorWebServer::_webserver_static() {
 }
 
 void SensorWebServer::_webserver_favicon() {
-	server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+	// Keep the colored Robonomics PNG favicon (visible on light tab backgrounds); header logo stays device SVG.
+	server.sendHeader(F("Cache-Control"), F("max-age=86400, public"));
 
 	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG,
 		ROBONOMICS_INFO_LOGO_PNG, ROBONOMICS_INFO_LOGO_PNG_SIZE);
@@ -253,106 +270,30 @@ void SensorWebServer::_webserver_guest() {
 				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>\n";
 				page_content += "<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
 #ifdef ALTRUIST_INSIDE
-				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_KEEP_OPEN_HINT "</p>";
-#else
 				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_OPEN_IP_HINT "</p>";
 #endif
 				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
 				server.sendContent(page_content);
 
 #ifdef ALTRUIST_INSIDE
-				// Save WiFi config immediately
 				writeConfig();
 
-				// Scan for Urban devices via mDNS
-				page_content = F("<div class='guest__connect-status' id='urban-scanning'>"
-					"<h3 class='guest__connect-subtitle'>" INTL_SCANNING_URBANS "</h3>"
-					"<div class='loader'></div></div>");
-				server.sendContent(page_content);
-
-				// Initialize mDNS and scan
-				MDNS.begin(cfg::local_hostname);
-				MDNS.addService("altruist", "tcp", 80);
-				MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
-				delay(1000); // Allow mDNS to settle
-
-				int nrOfServices = MDNS.queryService("altruist", "tcp");
-				debug_outln_info(F("mDNS scan found services: "), String(nrOfServices));
-
-				// Hide scanning spinner
-				page_content = F("<script>document.getElementById('urban-scanning').style.display='none';</script>");
-
-				// Build Urban selection form
-				page_content += F(
+				page_content = F(
 					"<div style='margin:20px auto;max-width:480px;padding:20px;'>"
-					"<h3 style='margin-bottom:15px;text-align:center;'>" INTL_SELECT_URBAN_TITLE "</h3>"
-					"<p style='color:#666;font-size:14px;margin-bottom:15px;text-align:center;'>"
-					INTL_SELECT_URBAN_DESC "</p>"
-					"<form method='POST' action='/select_urban'>");
-
-				int urban_count = 0;
-				for (int i = 0; i < nrOfServices; i++) {
-					String device_type = "";
-					if (MDNS.hasTxt(i, DEVICE_MODEL_MDNS_PROPERTY)) {
-						device_type = MDNS.txt(i, DEVICE_MODEL_MDNS_PROPERTY);
-					}
-					// Only show Urban devices, never Insights
-					if (device_type == DEVICE_MODEL_URBAN) {
-						String ip = MDNS.address(i).toString();
-						String hostname = MDNS.hostname(i);
-						debug_outln_info(F("Found Urban: "), hostname + " (" + ip + ")");
-
-						page_content += F("<div style='margin:8px 0;padding:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;'>"
-							"<label style='cursor:pointer;display:flex;align-items:center;gap:10px;font-size:15px;'>"
-							"<input type='radio' name='chosen_altruist_urban' value='");
-						page_content += ip;
-						page_content += "'";
-						if (urban_count == 0) {
-							page_content += F(" checked");
-						}
-						page_content += F("> <strong>");
-						page_content += hostname;
-						page_content += F("</strong>&nbsp;(");
-						page_content += ip;
-						page_content += F(")</label></div>");
-						urban_count++;
-					}
-				}
-
-				server.sendContent(page_content);
-				page_content = emptyString;
-
-				if (urban_count == 0) {
-					page_content += F("<div style='padding:15px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;margin:10px 0;'>"
-						"<p style='margin:0;color:#856404;'>" INTL_NO_URBANS_FOUND "</p></div>");
-				}
-
-				// Custom IP option
-				page_content += F("<div style='margin:8px 0;padding:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;'>"
-					"<label style='cursor:pointer;display:flex;align-items:center;gap:10px;font-size:15px;'>"
-					"<input type='radio' name='chosen_altruist_urban' value='__custom__'");
-				if (urban_count == 0) {
-					page_content += F(" checked");
-				}
-				page_content += F("> " INTL_USE_CUSTOM_IP "</label>"
-					"<input type='text' name='custom_ip' placeholder='e.g. 192.168.1.100' "
-					"style='margin-top:8px;padding:8px 12px;width:90%;max-width:220px;border:1px solid #ccc;border-radius:4px;font-size:14px;'/>"
-					"</div>");
-
-				// Skip option
-				page_content += F("<div style='margin:8px 0;padding:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;'>"
-					"<label style='cursor:pointer;display:flex;align-items:center;gap:10px;font-size:15px;'>"
-					"<input type='radio' name='chosen_altruist_urban' value='__skip__'>"
-					" " INTL_SKIP_URBAN_SELECTION "</label></div>");
-
-				page_content += F(
-					"<button type='submit' class='submit-btn' style='margin-top:20px;width:100%;padding:14px;'>"
+					"<p style='color:#444;font-size:15px;line-height:1.45;margin-bottom:18px;'>"
+					INTL_SETUP_INSIGHT_MODE_HINT
+					"</p>"
+					"<form method='POST' action='/select_urban'>"
+					"<label style='display:flex;align-items:flex-start;gap:12px;padding:14px 16px;"
+					"border:1px solid #ddd;border-radius:8px;background:#fafafa;cursor:pointer;font-size:15px;line-height:1.35;'>"
+					"<input type='checkbox' name='pair_with_urban' value='1' style='margin-top:3px;flex-shrink:0;'>"
+					"<span>" INTL_SETUP_PAIR_WITH_URBAN "</span>"
+					"</label>"
+					"<button type='submit' class='submit-btn' style='margin-top:22px;width:100%;padding:14px;font-size:16px;'>"
 					);
-				page_content += FPSTR(INTL_SAVE_AND_RESTART);
+				page_content += F(INTL_SETUP_CONTINUE);
 				page_content += F("</button></form></div>");
-
 				server.sendContent(page_content);
-				// Return without restarting — wait for /select_urban POST
 				return;
 #else
 				// Urban flow: we already showed IP + hint above.
@@ -413,6 +354,77 @@ void SensorWebServer::_webserver_scan_urbans() {
 	server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), json);
 }
 
+void SensorWebServer::_send_urban_pairing_form_html() {
+	MDNS.begin(cfg::local_hostname);
+	MDNS.addService("altruist", "tcp", 80);
+	MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
+	delay(1000);
+
+	int nrOfServices = MDNS.queryService("altruist", "tcp");
+	debug_outln_info(F("mDNS scan found services: "), String(nrOfServices));
+
+	RESERVE_STRING(page_content, XLARGE_STR);
+	start_html_page(page_content, FPSTR(INTL_CONFIGURATION));
+
+	page_content += F(
+		"<div style='margin:20px auto;max-width:480px;padding:20px;'>"
+		"<h3 style='margin-bottom:15px;text-align:center;'>" INTL_SELECT_URBAN_TITLE "</h3>"
+		"<p style='color:#666;font-size:14px;margin-bottom:15px;text-align:center;'>"
+		INTL_SELECT_URBAN_DESC "</p>"
+		"<form method='POST' action='/select_urban'>");
+
+	int urban_count = 0;
+	for (int i = 0; i < nrOfServices; i++) {
+		String device_type = "";
+		if (MDNS.hasTxt(i, DEVICE_MODEL_MDNS_PROPERTY)) {
+			device_type = MDNS.txt(i, DEVICE_MODEL_MDNS_PROPERTY);
+		}
+		if (device_type == DEVICE_MODEL_URBAN) {
+			String ip = MDNS.address(i).toString();
+			String hostname = MDNS.hostname(i);
+			debug_outln_info(F("Found Urban: "), hostname + " (" + ip + ")");
+
+			page_content += F("<div style='margin:8px 0;padding:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;'>"
+				"<label style='cursor:pointer;display:flex;align-items:center;gap:10px;font-size:15px;'>"
+				"<input type='radio' name='chosen_altruist_urban' value='");
+			page_content += ip;
+			page_content += "'";
+			if (urban_count == 0) {
+				page_content += F(" checked");
+			}
+			page_content += F("> <strong>");
+			page_content += hostname;
+			page_content += F("</strong>&nbsp;(");
+			page_content += ip;
+			page_content += F(")</label></div>");
+			urban_count++;
+		}
+	}
+
+	if (urban_count == 0) {
+		page_content += F("<div style='padding:15px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;margin:10px 0;'>"
+			"<p style='margin:0;color:#856404;'>" INTL_NO_URBANS_FOUND "</p></div>");
+	}
+
+	page_content += F("<div style='margin:8px 0;padding:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;'>"
+		"<label style='cursor:pointer;display:flex;align-items:center;gap:10px;font-size:15px;'>"
+		"<input type='radio' name='chosen_altruist_urban' value='__custom__'");
+	if (urban_count == 0) {
+		page_content += F(" checked");
+	}
+	page_content += F("> " INTL_USE_CUSTOM_IP "</label>"
+		"<input type='text' name='custom_ip' placeholder='e.g. 192.168.1.100' "
+		"style='margin-top:8px;padding:8px 12px;width:90%;max-width:220px;border:1px solid #ccc;border-radius:4px;font-size:14px;'/>"
+		"</div>");
+
+	page_content += F(
+		"<button type='submit' class='submit-btn' style='margin-top:20px;width:100%;padding:14px;'>");
+	page_content += FPSTR(INTL_SAVE_AND_RESTART);
+	page_content += F("</button></form></div>");
+
+	end_html_page(page_content);
+}
+
 void SensorWebServer::_webserver_select_urban() {
 	debug_outln_info(F("ws: select_urban ..."));
 	if (server.method() != HTTP_POST) {
@@ -420,22 +432,69 @@ void SensorWebServer::_webserver_select_urban() {
 		return;
 	}
 
+	// Step 1: checkbox form from guest WiFi success (no chosen_altruist_urban field).
+	if (!server.hasArg(F("chosen_altruist_urban"))) {
+		const bool wantUrban = server.hasArg(F("pair_with_urban")) && server.arg(F("pair_with_urban")) == F("1");
+		if (!wantUrban) {
+			debug_outln_info(F("Insight standalone at setup (checkbox unchecked)"));
+			cfg::standalone = true;
+			cfg::use_custom_urban = false;
+			cfg::chosen_altruist_urban[0] = '\0';
+			cfg::custom_altruist_urban[0] = '\0';
+		} else {
+			_send_urban_pairing_form_html();
+			return;
+		}
+
+		RESERVE_STRING(page_content, LARGE_STR);
+		start_html_page(page_content, F(INTL_SETUP_COMPLETE));
+		String setup_ip = WiFi.localIP().toString();
+		page_content += F("<div style='text-align:center;padding:40px;'>"
+			"<h2 style='color:#4CAF50;'>" INTL_SETTINGS_SAVED "</h2>"
+			"<p>" INTL_GUEST_IP_ADDRESS " <strong><span class='ip-address'>");
+		page_content += setup_ip;
+		page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
+			"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
+			"</div>"
+			"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
+		end_html_page(page_content);
+
+		if (writeConfig()) {
+			set_restart_reason(RESTART_REASON_CONFIG);
+			sensor_restart();
+		}
+		return;
+	}
+
+	// Step 2: Urban IP / custom IP chosen.
 	String chosen = server.arg("chosen_altruist_urban");
 
 	if (chosen == "__skip__") {
 		debug_outln_info(F("Urban selection skipped by user"));
+		cfg::standalone = true;
+		cfg::use_custom_urban = false;
+		cfg::chosen_altruist_urban[0] = '\0';
+		cfg::custom_altruist_urban[0] = '\0';
 	} else if (chosen == "__custom__") {
 		String custom_ip = server.arg("custom_ip");
 		if (custom_ip.length() > 0) {
 			strncpy(cfg::custom_altruist_urban, custom_ip.c_str(), LEN_CHOSEN_ALTRUIS_ADDRESS - 1);
 			cfg::custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS - 1] = '\0';
 			cfg::use_custom_urban = true;
+			cfg::standalone = false;
 			debug_outln_info(F("Custom Urban IP set: "), custom_ip);
+		} else {
+			cfg::standalone = true;
+			cfg::use_custom_urban = false;
+			cfg::chosen_altruist_urban[0] = '\0';
+			cfg::custom_altruist_urban[0] = '\0';
+			debug_outln_info(F("Custom Urban IP empty; standalone mode"));
 		}
 	} else if (chosen.length() > 0) {
 		strncpy(cfg::chosen_altruist_urban, chosen.c_str(), LEN_CHOSEN_ALTRUIS_ADDRESS - 1);
 		cfg::chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS - 1] = '\0';
 		cfg::use_custom_urban = false;
+		cfg::standalone = false;
 		debug_outln_info(F("Chosen Urban IP: "), chosen);
 	}
 
@@ -614,7 +673,22 @@ bool SensorWebServer::webserver_request_auth() {
 }
 
 void SensorWebServer::sendHttpRedirectGuest() {
-	server.sendHeader(F("Location"), F("http://192.168.4.1/guest"));
+	// Never hard-code 192.168.4.1 in STA-only mode: after a home-WiFi drop the device is not that AP,
+	// and browsers following this redirect appear "stuck" / webserver dead while HTTP is still up.
+	const IPAddress ap_ip = WiFi.softAPIP();
+	const IPAddress sta_ip = WiFi.localIP();
+	String loc = F("http://");
+	if (wificonfig_loop && ap_ip[0] != 0) {
+		loc += ap_ip.toString();
+	} else if (sta_ip[0] != 0) {
+		loc += sta_ip.toString();
+	} else {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN),
+		             F("WiFi not ready yet; try again in a few seconds."));
+		return;
+	}
+	loc += F("/guest");
+	server.sendHeader(F("Location"), loc);
 	server.send(302, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), emptyString);
 }
 

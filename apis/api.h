@@ -51,6 +51,10 @@ public:
         return (millis() - last_send_time > timeout);
     }
 
+    bool lastSendWasOk() const {
+        return is_ok;
+    }
+
     void send(JsonDocument &data) {
         _send(data);
         updateSendTime();

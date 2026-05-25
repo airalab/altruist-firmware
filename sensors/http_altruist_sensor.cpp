@@ -4,7 +4,9 @@
 #include "../utils.h"
 #include "../intl.h"
 #include "../config_manager/config_helpers.h"
+#include "../wifi_manager.h"
 #include "sensor_names.h"
+#include <WiFi.h>
 #include <ESPmDNS.h>
 
 #define HTTP_ALTRUIST_SENSOR_MIN_TIMEOUT 300000UL  // 5 minutes
@@ -43,8 +45,9 @@ bool HTTPAltruistSensor::_discoverSensors() {
    
     if (nrOfServices == 0) {
         debug_outln_info(F("No services were found."));
+        chosen_address = "";
         return false;
-    } 
+    }
     debug_outln_verbose(F("Number of services found: "), String(nrOfServices));
 
     bool found_chosen = false;
@@ -70,6 +73,11 @@ bool HTTPAltruistSensor::_discoverSensors() {
                 found_chosen = true;
             }
         }
+    }
+    if (!cfg::use_custom_urban && sensor_addresses.empty()) {
+        debug_outln_info(F("HTTPAltruistSensor: mDNS had no Urban device entries"));
+        chosen_address = "";
+        return false;
     }
     if (cfg::use_custom_urban) {
         chosen_address = String(cfg::custom_altruist_urban);
@@ -105,6 +113,20 @@ bool HTTPAltruistSensor::begin() {
 }
 
 void HTTPAltruistSensor::_fetch(JsonDocument &data) {
+    // After Insight STA drops and returns, keep using stale chosen_address / DHCP IP blocks Urban until we re-bind.
+    static bool http_urban_prev_sta_up = true;
+    const bool sta_up = wifiStaLinkReady();
+    if (!sta_up) {
+        http_urban_prev_sta_up = false;
+        return;
+    }
+    if (!http_urban_prev_sta_up) {
+        debug_outln_info(F("HTTPAltruistSensor: WiFi back -> clear Urban bind, retry mDNS/cfg"));
+        chosen_address = "";
+        consecutive_failures = 0;
+    }
+    http_urban_prev_sta_up = true;
+
     debug_outln_verbose(F("fetch HTTP Altruist"));
     HTTPClient http;
     JsonArray addresses = data["service_data"].createNestedArray("altruist_addresses");
@@ -162,6 +184,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
     debug_outln_verbose(F("fetch HTTP Altruist "), ip_address);
     String sensor_url = SENSOR_URL_PREFIX + ip_address + JSON_DATA_PATH;
     http.begin(sensor_url);
+    http.setTimeout(12000);
     int httpCode = http.GET();
 
     if (httpCode == HTTP_CODE_OK) {
@@ -217,6 +240,8 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         debug_outln_verbose(F("HTTPAltruistSensor: sensordatavalues count "),
                          String(values.size()));
 
+        bool seen_sds_p1 = false;
+        bool seen_sds_p2 = false;
         for (JsonObject v : values) {
             String type  = v["value_type"];
             float  value = v["value"].as<float>();
@@ -225,9 +250,11 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             String units;
             String intl_name;
             if (type == "SDS_P1") {
+                seen_sds_p1 = true;
                 intl_name = "PM10";
                 units = F("µg/m³");
             } else if (type == "SDS_P2") {
+                seen_sds_p2 = true;
                 intl_name = "PM2.5";
                 units = F("µg/m³");
             } else if (type == "BME280_temperature") {
@@ -259,6 +286,12 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             measObj[F("intl_name")] = intl_name;
             measObj[F("units")]     = units;
         }
+        if (!seen_sds_p1) {
+            urbanRoot.remove("SDS_P1");
+        }
+        if (!seen_sds_p2) {
+            urbanRoot.remove("SDS_P2");
+        }
         // Mark JSON as updated so SD card logger (and graph data) see Urban data
         _jsonUpdated = true;
 
@@ -276,6 +309,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             HTTPClient http2;
             String root_url = SENSOR_URL_PREFIX + ip_address + String("/");
             http2.begin(root_url);
+            http2.setTimeout(12000);
             int httpCode2 = http2.GET();
             if (httpCode2 == HTTP_CODE_OK) {
                 String html = http2.getString();
@@ -349,7 +383,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         // Extra robustness: if Urban is "healthy" but its IP changed (DHCP),
         // don't wait a full URBAN_REDISCOVER_INTERVAL_MS before trying to re-bind.
         // Throttle rediscovery attempts to avoid spamming mDNS on unstable networks.
-        const unsigned long FAST_REDISCOVER_THROTTLE_MS = 60UL * 1000UL; // 1 minute
+        const unsigned long FAST_REDISCOVER_THROTTLE_MS = 30UL * 1000UL;
         bool fast_interval_elapsed = (last_discovery_attempt_time == 0) ||
                                      (msSince(last_discovery_attempt_time) >= FAST_REDISCOVER_THROTTLE_MS);
         if (fast_interval_elapsed) {

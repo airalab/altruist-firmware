@@ -199,7 +199,8 @@ static bool checkDataFilesExist() {
     
     // Check common sensor folders for today's file
     const char* sensors[] = {"SCD4x", "BME680", ATRUIST_URBAN_SENSOR};
-    for (int i = 0; i < 3; i++) {
+    const int sensorCount = cfg::standalone ? 2 : 3;
+    for (int i = 0; i < sensorCount; i++) {
         String filePath = "/sensors_data/" + String(sensors[i]) + "/" + String(dateStr) + ".csv";
         String checkMsg = "[Graph] Checking file: " + filePath;
         debug_outln_verbose(checkMsg);
@@ -230,13 +231,13 @@ static bool checkDataFilesExist() {
     }
     
     bool hasData = false;
-    int sensorCount = 0;
+    int sensorDirCount = 0;
     int fileCount = 0;
     
     File entry = root.openNextFile();
     while (entry) {
         if (entry.isDirectory()) {
-            sensorCount++;
+            sensorDirCount++;
             // Check if this sensor folder has any CSV files
             String sensorName = entry.name();
             // entry.name() returns just the folder name, need to build full path
@@ -276,7 +277,7 @@ static bool checkDataFilesExist() {
     }
     root.close();
     
-    String checkResult = "[Graph] Checked " + String(sensorCount) + " sensors, " + String(fileCount) + " files total. Has data: " + (hasData ? "yes" : "no");
+    String checkResult = "[Graph] Checked " + String(sensorDirCount) + " sensors, " + String(fileCount) + " files total. Has data: " + (hasData ? "yes" : "no");
     debug_outln_verbose(checkResult);
     return hasData;
 }
@@ -400,7 +401,7 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         return;
     }
 
-    // Account for right sidebar navigation 
+    // Account for right sidebar navigation
     const uint16_t rightSidebarWidth = 29;
     const uint16_t rightMargin = 0;  // No right margin - graph goes right up to sidebar
     uint16_t graphLeft   = marginX;
@@ -706,8 +707,7 @@ static bool hasEnoughData() {
     
     // Try to read a small sample of data to check if we have at least 1 hour
     LineData testData = {};
-    String urban_key = ATRUIST_URBAN_SENSOR;
-    
+
     // Try reading from a common sensor 
     readSensorDataFromCSV(testData, "BME680", "temperature", 12);
     
@@ -760,7 +760,14 @@ bool areGraphsAvailable() {
 void drawGraphScreen() {
     // Clear screen first to prevent glitching
     Paint_Clear(WHITE);
-    
+
+    if (cfg::standalone) {
+        const uint8_t v = (uint8_t)current_graph_value;
+        if (v >= (uint8_t)GraphValue::URBAN_AIR) {
+            current_graph_value = GraphValue::INSIGHT_TEMP;
+        }
+    }
+
     String screenMsg = "Set graph screen " + String(current_graph_screen);
     debug_outln_info(screenMsg);
 
@@ -824,8 +831,7 @@ void drawGraphScreen() {
     Paint_DrawLine(0, header_bottom_border_y, DISPLAY_WIDTH, header_bottom_border_y,
                    BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
-    // Reserve space for the bottom navigation bar (always needed)
-    const uint16_t navBarHeight = 60;               
+    const uint16_t navBarHeight = 60;
     const uint16_t navTop       = DISPLAY_HEIGHT - navBarHeight;
 
 #if defined(USE_SD_CARD)
@@ -919,10 +925,9 @@ void drawGraphScreen() {
     Paint_DrawLine(x, navTop, x, DISPLAY_HEIGHT - 1, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     x += 2;
 
-    // Insight vs Urban: 4:5 ratio (Urban slightly wider for longer labels)
+    // Insight vs Urban: full width for Insight when Urban HTTP sensor is disabled.
     uint16_t availableWidth = DISPLAY_WIDTH - x - paddingX;
-    uint16_t insightWidth   = (availableWidth * 4) / 9;
-    uint16_t urbanWidth     = availableWidth - insightWidth;
+    uint16_t insightWidth   = cfg::standalone ? availableWidth : (availableWidth * 4) / 9;
 
     uint16_t sectionHeaderH = Font12.Height + 6;
     uint16_t headerTop      = navTop + 1;
@@ -938,95 +943,161 @@ void drawGraphScreen() {
     Paint_DrawString_Display_OnBlack(insightX + 2, insightHeaderY + 3, INTL_DISP_INSIGHT_HEADER, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 
     uint16_t insightTextY = insightHeaderY + sectionHeaderH + 4;
-    uint16_t textX        = insightX + 4;
 
-    // Temperature
-    const char* tempLabel = INTL_DISP_TEMPERATURE;
-    uint16_t    tempWidth = Paint_GetStringWidth_Display(tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-    bool        tempActive = (current_graph_value == GraphValue::INSIGHT_TEMP);
-    if (tempActive) {
-        Paint_DrawString_Display(textX,     insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t tempCenterX = textX + tempWidth / 2;
-        uint16_t tempArrowTopY  = insightTextY + Font12.Height + 1;
-        if (tempArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            tempArrowTopY = DISPLAY_HEIGHT - 1 - 4;
+    if (cfg::standalone) {
+        // Left-aligned row, measured label widths; wide gaps, reduced only if the strip is narrow.
+        const uint16_t marginInner = 3;
+        const uint16_t innerLeft  = insightX + marginInner;
+        const uint16_t innerRight = (uint16_t)(insightX + insightWidth - 1 - marginInner);
+
+        const char* tempLabel  = INTL_DISP_TEMPERATURE;
+        const char* humLabel   = INTL_DISP_HUMIDITY;
+        const char* co2Label   = INTL_CO2;
+        const char* pressLabel = INTL_DISP_PRESSURE;
+
+        uint16_t wTemp  = Paint_GetStringWidth_Display(tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
+        uint16_t wHum   = Paint_GetStringWidth_Display(humLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
+        uint16_t wCo2   = Paint_GetStringWidth_Display(co2Label, &Font12, &font_12_cyrillic, &font_12_ascii);
+        uint16_t wPress = Paint_GetStringWidth_Display(pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
+
+        // Left-aligned row; prefer a wide gap, shrink only if the strip is too narrow.
+        uint16_t gapPx = 10;
+        int      avail = (int)innerRight - (int)innerLeft + 1;
+        uint32_t packedW =
+            (uint32_t)wTemp + (uint32_t)wHum + (uint32_t)wCo2 + (uint32_t)wPress + 3u * (uint32_t)gapPx;
+        while (packedW > (uint32_t)avail && gapPx > 1) {
+            gapPx--;
+            packedW =
+                (uint32_t)wTemp + (uint32_t)wHum + (uint32_t)wCo2 + (uint32_t)wPress + 3u * (uint32_t)gapPx;
         }
-        uint16_t tempTipY   = tempArrowTopY;
-        uint16_t tempBaseY  = tempArrowTopY + 4;
-        Paint_DrawLine(tempCenterX,     tempTipY,  tempCenterX - 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(tempCenterX,     tempTipY,  tempCenterX + 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(tempCenterX - 3, tempBaseY, tempCenterX + 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+        const uint16_t rowStart = innerLeft;
+        uint16_t       xT       = rowStart;
+        uint16_t       xH       = (uint16_t)(xT + wTemp + gapPx);
+        uint16_t       xC       = (uint16_t)(xH + wHum + gapPx);
+        uint16_t       xP       = (uint16_t)(xC + wCo2 + gapPx);
+
+        auto drawPackedInsight = [&](uint16_t lx, const char* lab, uint16_t lw, GraphValue gv) {
+            if ((uint32_t)lx + (uint32_t)lw > (uint32_t)innerRight) {
+                lx = (uint16_t)((int)innerRight - (int)lw + 1);
+                if (lx < innerLeft) {
+                    lx = innerLeft;
+                }
+            }
+            bool active = (current_graph_value == gv);
+            if (active) {
+                Paint_DrawString_Display(lx, insightTextY, lab, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+                uint16_t cx        = (uint16_t)((uint32_t)lx + (uint32_t)lw / 2u);
+                uint16_t arrowTopY = insightTextY + Font12.Height + 1;
+                if (arrowTopY + 4 > DISPLAY_HEIGHT - 1) {
+                    arrowTopY = DISPLAY_HEIGHT - 1 - 4;
+                }
+                uint16_t tipY  = arrowTopY;
+                uint16_t baseY = arrowTopY + 4;
+                Paint_DrawLine(cx, tipY, cx - 3, baseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+                Paint_DrawLine(cx, tipY, cx + 3, baseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+                Paint_DrawLine(cx - 3, baseY, cx + 3, baseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            } else {
+                Paint_DrawString_Display(lx, insightTextY, lab, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+            }
+        };
+
+        drawPackedInsight(xT, tempLabel, wTemp, GraphValue::INSIGHT_TEMP);
+        drawPackedInsight(xH, humLabel, wHum, GraphValue::INSIGHT_HUM);
+        drawPackedInsight(xC, co2Label, wCo2, GraphValue::INSIGHT_CO2);
+        drawPackedInsight(xP, pressLabel, wPress, GraphValue::INSIGHT_PRESSURE);
     } else {
-        Paint_DrawString_Display(textX, insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t textX = insightX + 4;
+
+        // Temperature
+        const char* tempLabel = INTL_DISP_TEMPERATURE;
+        uint16_t    tempWidth = Paint_GetStringWidth_Display(tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
+        bool        tempActive = (current_graph_value == GraphValue::INSIGHT_TEMP);
+        if (tempActive) {
+            Paint_DrawString_Display(textX, insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+            uint16_t tempCenterX = textX + tempWidth / 2;
+            uint16_t tempArrowTopY = insightTextY + Font12.Height + 1;
+            if (tempArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
+                tempArrowTopY = DISPLAY_HEIGHT - 1 - 4;
+            }
+            uint16_t tempTipY  = tempArrowTopY;
+            uint16_t tempBaseY = tempArrowTopY + 4;
+            Paint_DrawLine(tempCenterX, tempTipY, tempCenterX - 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(tempCenterX, tempTipY, tempCenterX + 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(tempCenterX - 3, tempBaseY, tempCenterX + 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        } else {
+            Paint_DrawString_Display(textX, insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        }
+
+        // Humidity
+        textX += tempWidth + Font12.Width;
+        const char* humLabel = INTL_DISP_HUMIDITY;
+        bool        humActive = (current_graph_value == GraphValue::INSIGHT_HUM);
+        if (humActive) {
+            Paint_DrawString_Display(textX, insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+            uint16_t humWidth   = Paint_GetStringWidth_Display(humLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
+            uint16_t humCenterX = textX + humWidth / 2;
+            uint16_t humArrowTopY = insightTextY + Font12.Height + 1;
+            if (humArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
+                humArrowTopY = DISPLAY_HEIGHT - 1 - 4;
+            }
+            uint16_t humTipY  = humArrowTopY;
+            uint16_t humBaseY = humArrowTopY + 4;
+            Paint_DrawLine(humCenterX, humTipY, humCenterX - 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(humCenterX, humTipY, humCenterX + 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(humCenterX - 3, humBaseY, humCenterX + 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        } else {
+            Paint_DrawString_Display(textX, insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        }
+
+        // CO2
+        uint16_t insightTextY2 = insightTextY + Font12.Height + 8;
+        const char* co2Label = INTL_CO2;
+        uint16_t    co2X = insightX + 4;
+        bool        co2Active = (current_graph_value == GraphValue::INSIGHT_CO2);
+        if (co2Active) {
+            Paint_DrawString_Display(co2X, insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+            uint16_t co2Width   = Paint_GetStringWidth_Display(co2Label, &Font12, &font_12_cyrillic, &font_12_ascii);
+            uint16_t co2CenterX = co2X + co2Width / 2;
+            uint16_t co2ArrowTopY = insightTextY2 + Font12.Height + 1;
+            if (co2ArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
+                co2ArrowTopY = DISPLAY_HEIGHT - 1 - 4;
+            }
+            uint16_t co2TipY  = co2ArrowTopY;
+            uint16_t co2BaseY = co2ArrowTopY + 4;
+            Paint_DrawLine(co2CenterX, co2TipY, co2CenterX - 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(co2CenterX, co2TipY, co2CenterX + 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(co2CenterX - 3, co2BaseY, co2CenterX + 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        } else {
+            Paint_DrawString_Display(co2X, insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        }
+
+        // Pressure
+        const char* pressLabel = INTL_DISP_PRESSURE;
+        uint16_t    co2LabelWidth = Paint_GetStringWidth_Display(co2Label, &Font12, &font_12_cyrillic, &font_12_ascii);
+        const uint16_t co2PressGap = 2 * Font12.Width;
+        uint16_t    pressX = co2X + co2LabelWidth + co2PressGap;
+        bool        pressActive = (current_graph_value == GraphValue::INSIGHT_PRESSURE);
+        if (pressActive) {
+            Paint_DrawString_Display(pressX, insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+            uint16_t pressWidth   = Paint_GetStringWidth_Display(pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
+            uint16_t pressCenterX = pressX + pressWidth / 2;
+            uint16_t pressArrowTopY = insightTextY2 + Font12.Height + 1;
+            if (pressArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
+                pressArrowTopY = DISPLAY_HEIGHT - 1 - 4;
+            }
+            uint16_t pressTipY  = pressArrowTopY;
+            uint16_t pressBaseY = pressArrowTopY + 4;
+            Paint_DrawLine(pressCenterX, pressTipY, pressCenterX - 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(pressCenterX, pressTipY, pressCenterX + 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(pressCenterX - 3, pressBaseY, pressCenterX + 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        } else {
+            Paint_DrawString_Display(pressX, insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        }
     }
 
-    // Humidity
-    textX += tempWidth + Font12.Width; // gap between words
-    const char* humLabel = INTL_DISP_HUMIDITY;
-    bool        humActive = (current_graph_value == GraphValue::INSIGHT_HUM);
-    if (humActive) {
-        Paint_DrawString_Display(textX,     insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t humWidth   = Paint_GetStringWidth_Display(humLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-        uint16_t humCenterX = textX + humWidth / 2;
-        uint16_t humArrowTopY  = insightTextY + Font12.Height + 1;
-        if (humArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            humArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t humTipY   = humArrowTopY;
-        uint16_t humBaseY  = humArrowTopY + 4;
-        Paint_DrawLine(humCenterX,     humTipY,  humCenterX - 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(humCenterX,     humTipY,  humCenterX + 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(humCenterX - 3, humBaseY, humCenterX + 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(textX, insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-
-    // CO2 
-    uint16_t insightTextY2 = insightTextY + Font12.Height + 8;
-    const char* co2Label = INTL_CO2;
-    uint16_t co2X = insightX + 4;
-    bool     co2Active = (current_graph_value == GraphValue::INSIGHT_CO2);
-    if (co2Active) {
-        Paint_DrawString_Display(co2X,     insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t co2Width   = Paint_GetStringWidth_Display(co2Label, &Font12, &font_12_cyrillic, &font_12_ascii);
-        uint16_t co2CenterX = co2X + co2Width / 2;
-        uint16_t co2ArrowTopY  = insightTextY2 + Font12.Height + 1;
-        if (co2ArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            co2ArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t co2TipY   = co2ArrowTopY;
-        uint16_t co2BaseY  = co2ArrowTopY + 4;
-        Paint_DrawLine(co2CenterX,     co2TipY,  co2CenterX - 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(co2CenterX,     co2TipY,  co2CenterX + 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(co2CenterX - 3, co2BaseY, co2CenterX + 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(co2X, insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-
-    // Pressure
-    const char* pressLabel = INTL_DISP_PRESSURE;
-    // Add extra spacing so "CO2" and "Pressure" don't visually stick together.
-    uint16_t    co2LabelWidth = Paint_GetStringWidth_Display(co2Label, &Font12, &font_12_cyrillic, &font_12_ascii);
-    const uint16_t co2PressGap = 2 * Font12.Width;
-    uint16_t    pressX     = co2X + co2LabelWidth + co2PressGap;
-    bool        pressActive = (current_graph_value == GraphValue::INSIGHT_PRESSURE);
-    if (pressActive) {
-        Paint_DrawString_Display(pressX,     insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t pressWidth   = Paint_GetStringWidth_Display(pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-        uint16_t pressCenterX = pressX + pressWidth / 2;
-        uint16_t pressArrowTopY  = insightTextY2 + Font12.Height + 1;
-        if (pressArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            pressArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t pressTipY   = pressArrowTopY;
-        uint16_t pressBaseY  = pressArrowTopY + 4;
-        Paint_DrawLine(pressCenterX,     pressTipY,  pressCenterX - 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(pressCenterX,     pressTipY,  pressCenterX + 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(pressCenterX - 3, pressBaseY, pressCenterX + 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(pressX, insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-
+    if (!cfg::standalone) {
+    const uint16_t urbanWidth = availableWidth - insightWidth;
     // --- Urban section ---
     uint16_t urbanX        = insightX + insightWidth;
     uint16_t urbanHeaderY  = navTop + 1;
@@ -1149,6 +1220,7 @@ void drawGraphScreen() {
     } else {
         Paint_DrawString_Display(urbanPressX, urbanTextY2, urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
+    }
     } 
 }
 
@@ -1169,6 +1241,27 @@ void setPrevGraphScreen() {
 }
 
 bool setNextGraphValue() {
+    if (cfg::standalone) {
+        if (current_graph_value == GraphValue::INSIGHT_PRESSURE) {
+            return true;
+        }
+        switch (current_graph_value) {
+            case GraphValue::INSIGHT_TEMP:
+                current_graph_value = GraphValue::INSIGHT_HUM;
+                break;
+            case GraphValue::INSIGHT_HUM:
+                current_graph_value = GraphValue::INSIGHT_CO2;
+                break;
+            case GraphValue::INSIGHT_CO2:
+                current_graph_value = GraphValue::INSIGHT_PRESSURE;
+                break;
+            default:
+                current_graph_value = GraphValue::INSIGHT_TEMP;
+                break;
+        }
+        return false;
+    }
+
     // Check if we're at the last graph (URBAN_PRESSURE)
     if (current_graph_value == GraphValue::URBAN_PRESSURE) {
         // At last graph - return true to indicate we should switch screens
@@ -1208,6 +1301,27 @@ bool setNextGraphValue() {
 }
 
 bool setPrevGraphValue() {
+    if (cfg::standalone) {
+        if (current_graph_value == GraphValue::INSIGHT_TEMP) {
+            return true;
+        }
+        switch (current_graph_value) {
+            case GraphValue::INSIGHT_HUM:
+                current_graph_value = GraphValue::INSIGHT_TEMP;
+                break;
+            case GraphValue::INSIGHT_CO2:
+                current_graph_value = GraphValue::INSIGHT_HUM;
+                break;
+            case GraphValue::INSIGHT_PRESSURE:
+                current_graph_value = GraphValue::INSIGHT_CO2;
+                break;
+            default:
+                current_graph_value = GraphValue::INSIGHT_TEMP;
+                break;
+        }
+        return false;
+    }
+
     // Check if we're at the first graph 
     if (current_graph_value == GraphValue::INSIGHT_TEMP) {
         // At first graph - return true to indicate we should switch screens

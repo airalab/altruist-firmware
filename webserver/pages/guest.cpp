@@ -74,6 +74,7 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 	page_content += F("<div style='margin-top:14px;margin-bottom:14px;font-size:14px;color:#555;'>");
 	page_content += F(INTL_DATA_SHARING_ADDITIONAL);
 	page_content += F("</div>");
+	page_content += form_checkbox(Config_share_co, FPSTR(INTL_SHARE_CO), false);
 	page_content += form_checkbox(Config_share_radiation, FPSTR(INTL_SHARE_RADIATION), false);
 	page_content += form_checkbox(Config_share_o3, FPSTR(INTL_SHARE_O3), false);
 	page_content += form_checkbox(Config_share_no2, FPSTR(INTL_SHARE_NO2), false);

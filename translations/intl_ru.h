@@ -44,13 +44,17 @@ const char INTL_TEMP_CORRECTION[] PROGMEM = "Коррекция температ
 const char INTL_MIC_CORRECTION[] PROGMEM = "Коррекция микрофона в dB";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Пользовательский адрес Altruist Urban";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать пользовательский адрес Altruist Urban";
+const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без связи с Urban)";
 
 // Выбор Urban (настройка и страница конфигурации)
 #define INTL_SCANNING_URBANS "Поиск устройств Altruist Urban..."
 #define INTL_SELECT_URBAN_TITLE "Выберите устройство Altruist Urban"
 #define INTL_SELECT_URBAN_DESC "Выберите устройство Urban, с которого этот Insight будет получать данные уличных датчиков."
-#define INTL_NO_URBANS_FOUND "Устройства Altruist Urban не найдены в этой сети. Убедитесь, что Urban включён и подключён к той же сети WiFi. Вы можете ввести IP-адрес вручную или пропустить этот шаг и настроить позже."
+#define INTL_NO_URBANS_FOUND "Устройства Altruist Urban не найдены в этой сети. Убедитесь, что Urban включён и подключён к той же сети WiFi. Укажите IP вручную ниже и сохраните; Urban можно настроить позже в Настройках."
 #define INTL_USE_CUSTOM_IP "Указать IP-адрес вручную:"
+#define INTL_SETUP_INSIGHT_MODE_HINT "Если у вас есть Altruist Urban (уличный блок), отметьте галочку и нажмите «Дальше», чтобы найти его в сети и выбрать. Если Urban нет — оставьте галочку снятой: устройство перезагрузится сразу в режиме только Insight."
+#define INTL_SETUP_PAIR_WITH_URBAN "Настроить связь с Altruist Urban сейчас"
+#define INTL_SETUP_CONTINUE "Дальше"
 #define INTL_SKIP_URBAN_SELECTION "Пропустить &mdash; настроить позже в Настройках"
 #define INTL_SETUP_COMPLETE "Настройка завершена"
 #define INTL_SETTINGS_SAVED "Настройки сохранены!"
@@ -101,6 +105,7 @@ const char INTL_SHARE_PRESSURE[] PROGMEM = "Давление";
 const char INTL_SHARE_CO2[] PROGMEM = "CO2";
 const char INTL_SHARE_PM[] PROGMEM = "Пыль (PM2.5/PM10)";
 const char INTL_SHARE_NOISE[] PROGMEM = "Уровень шума";
+const char INTL_SHARE_CO[] PROGMEM = "Угарный газ (CO)";
 const char INTL_SHARE_RADIATION[] PROGMEM = "Радиация";
 const char INTL_SHARE_O3[] PROGMEM = "Озон (O3)";
 const char INTL_SHARE_NO2[] PROGMEM = "Диоксид азота (NO2)";
@@ -320,6 +325,10 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_LEVEL_LOW "ниже нормы"
 #define INTL_DISP_IS_TOO ""
 #define INTL_DISP_CHECK_MAP_FULL_DATA "Смотрите полные данные и аналитику на карте датчиков."
+#define INTL_STANDALONE_SHOP_PROMPT "Больше измерений для вашего дома"
+/** Insight standalone: второй ряд футера — текст у QR (Font8, перенос). */
+#define INTL_STANDALONE_INSIGHT_FOOTER_PROMPT \
+    "Добавьте шум, пыль, воздух и уличные замеры к Insight —  cyberpunks.shop."
 #define INTL_DISP_DEW_POINT_U_PREFIX "Точка росы (U): "
 #define INTL_DISP_DEW_POINT_IS "Точка росы: "
 #define INTL_DISP_TEMP_SHORT "Темп."
