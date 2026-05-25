@@ -12,6 +12,8 @@ Password		fs_pwd
 Bool		www_basicauth_enabled
 String		rws_owner
 String      robonomics_public_node
+String      robonomics_connectivity_host
+String      robonomics_connectivity_hosts
 String		private_key
 String		coords_gps
 Bool		send2robonomics
@@ -44,6 +46,7 @@ Bool		ssl_influx
 String      donated_by
 String      current_reg
 String      temp_correction
+String      mic_correction
 String      local_hostname
 String      chosen_altruist_urban
 String      timezone
@@ -61,6 +64,11 @@ Bool		share_pressure
 Bool		share_co2
 Bool		share_pm
 Bool		share_noise
+Bool        share_radiation
+Bool        share_o3
+Bool        share_no2
+Bool        share_fast_aqi
+Bool        share_epa_aqi
 """
 
 with open("airrohr-cfg.h", "w") as h:

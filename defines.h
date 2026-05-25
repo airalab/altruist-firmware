@@ -55,6 +55,7 @@
 #define LEN_GPS_COORDS 21
 #define LEN_DNMS_CORRECTION 8
 #define LEN_TEMP_CORRECTION 8
+#define LEN_MIC_CORRECTION 8
 #define LEN_LOCAL_HOSTNAME 100
 #define LEN_CHOSEN_ALTRUIS_ADDRESS 20
 #define LEN_TIMEZONE 10
@@ -160,10 +161,17 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // i2s pins
 #ifdef ALTRUIST_URBAN
+#ifdef ESP32C6_SUPERMINI
+#define I2S_PIN_BCLK     14
+#define I2S_PIN_WS       22
+#define I2S_PIN_DIN      23
+#define I2S_PIN_DOUT     -1
+#else
 #define I2S_PIN_BCLK     10
 #define I2S_PIN_WS       1
 #define I2S_PIN_DIN      11
 #define I2S_PIN_DOUT     -1
+#endif
 #endif
 #ifdef ALTRUIST_INSIDE
 #define I2S_PIN_BCLK     -1
@@ -197,8 +205,13 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 #define PM_SERIAL_TX -1
 #endif
 #ifdef ALTRUIST_URBAN
+#ifdef ESP32C6_SUPERMINI
+#define PM_SERIAL_RX 20
+#define PM_SERIAL_TX 21
+#else
 #define PM_SERIAL_RX 5
 #define PM_SERIAL_TX 4
+#endif
 #endif
 
 
@@ -262,7 +275,11 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 // Can be overridden via build flags (e.g. disable on rare legacy boards):
 //   -DURBAN_RESET_BTN_PIN=-1
 #ifndef URBAN_RESET_BTN_PIN
+#ifdef ESP32C6_SUPERMINI
+#define URBAN_RESET_BTN_PIN -1
+#else
 #define URBAN_RESET_BTN_PIN 7
+#endif
 #endif
 #endif
 
@@ -273,7 +290,11 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 #define LED_PIN 11
 #endif
 #ifdef ALTRUIST_URBAN
+#ifdef ESP32C6_SUPERMINI
+#define LED_PIN 8
+#else
 #define LED_PIN 0
+#endif
 #endif
 
 #else
@@ -386,6 +407,9 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // Temp compensation
 #define TEMP_CORRECTION "0.0"
+
+// Microphone compensation
+#define MIC_CORRECTION "1.5"
 
 // MHZ19 CO2 sensor
 #define MHZ19_READ 0

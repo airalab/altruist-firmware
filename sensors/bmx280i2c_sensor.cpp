@@ -88,7 +88,13 @@ BMX280Sensor::BMX280Sensor(unsigned long sending_timeout)
 
 bool BMX280Sensor::begin() {
     bool res;
-    i2c_master_init();
+    esp_err_t i2c_err = i2c_master_init();
+    if (i2c_err != ESP_OK) {
+        debug_outln_error(F("BMx280 i2c_master_init failed"));
+        debug_outln_info(F("BMx280 i2c error: "), String(esp_err_to_name(i2c_err)));
+        last_fetch_time = millis() - timeout;
+        return false;
+    }
     if (!begin(0x76, I2C_MASTER_NUM) && !begin(0x77, I2C_MASTER_NUM)) {
         debug_outln_error(F("Check BMx280 wiring"));
         res = false;
@@ -103,9 +109,15 @@ bool BMX280Sensor::begin() {
 }
 
 void BMX280Sensor::_fetch(JsonDocument &data) {
-    i2c_master_init();
+    esp_err_t i2c_err = i2c_master_init();
+    if (i2c_err != ESP_OK) {
+        debug_outln_error(F("BMx280 i2c_master_init failed"));
+        debug_outln_info(F("BMx280 i2c error: "), String(esp_err_to_name(i2c_err)));
+        return;
+    }
     if (!begin(0x76, I2C_MASTER_NUM) && !begin(0x77, I2C_MASTER_NUM)) {
         debug_outln_error(F("Check BMx280 wiring"));
+        deinit_i2c();
         return;
     }
 	delay(100);

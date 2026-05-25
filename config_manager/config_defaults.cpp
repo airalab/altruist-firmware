@@ -65,6 +65,7 @@ namespace cfg {
 	char donated_by[LEN_DONATED_BY];
 
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
+	char mic_correction[LEN_MIC_CORRECTION] = MIC_CORRECTION;
 	char local_hostname[LEN_LOCAL_HOSTNAME] = LOCAL_HOSTNAME;
 	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	char timezone[LEN_TIMEZONE] = "<+00>0";

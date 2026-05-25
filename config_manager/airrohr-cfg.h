@@ -74,6 +74,7 @@ enum ConfigShapeId {
 	Config_donated_by,
 	Config_current_reg,
 	Config_temp_correction,
+	Config_mic_correction,
 	Config_local_hostname,
 	Config_chosen_altruist_urban,
 	Config_timezone,
@@ -142,6 +143,7 @@ static constexpr char CFG_KEY_SSL_INFLUX[] PROGMEM = "ssl_influx";
 static constexpr char CFG_KEY_DONATED_BY[] PROGMEM = "donated_by";
 static constexpr char CFG_KEY_CURRENT_REG[] PROGMEM = "current_reg";
 static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
+static constexpr char CFG_KEY_MIC_CORRECTION[] PROGMEM = "mic_correction";
 static constexpr char CFG_KEY_LOCAL_HOSTNAME[] PROGMEM = "local_hostname";
 static constexpr char CFG_KEY_CHOSEN_ALTRUIST_URBAN[] PROGMEM = "chosen_altruist_urban";
 static constexpr char CFG_KEY_TIMEZONE[] PROGMEM = "timezone";
@@ -210,6 +212,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::donated_by)-1, CFG_KEY_DONATED_BY, cfg::donated_by },
 	{ Config_Type_String, sizeof(cfg::current_reg)-1, CFG_KEY_CURRENT_REG, cfg::current_reg },
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
+	{ Config_Type_String, sizeof(cfg::mic_correction)-1, CFG_KEY_MIC_CORRECTION, cfg::mic_correction },
 	{ Config_Type_String, sizeof(cfg::local_hostname)-1, CFG_KEY_LOCAL_HOSTNAME, cfg::local_hostname },
 	{ Config_Type_String, sizeof(cfg::chosen_altruist_urban)-1, CFG_KEY_CHOSEN_ALTRUIST_URBAN, cfg::chosen_altruist_urban },
 	{ Config_Type_String, sizeof(cfg::timezone)-1, CFG_KEY_TIMEZONE, cfg::timezone },
