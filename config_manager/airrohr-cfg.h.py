@@ -64,6 +64,7 @@ Bool		share_pressure
 Bool		share_co2
 Bool		share_pm
 Bool		share_noise
+Bool		share_co
 Bool        share_radiation
 Bool        share_o3
 Bool        share_no2
