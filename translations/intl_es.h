@@ -115,3 +115,4 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Calidad de Señal";
 #define INTL_SENSOR "Sensor"
 #define INTL_PARAMETER "Parámetro"
 #define INTL_VALUE "Valor"
+
