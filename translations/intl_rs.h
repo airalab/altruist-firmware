@@ -36,6 +36,7 @@ const char INTL_COORD_LON[] PROGMEM = "Longtitude";
 const char INTL_DNMS[] PROGMEM = "DNMS ({l_a})";
 const char INTL_DNMS_CORRECTION[] PROGMEM = "Korekcija u dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Korekcija u °C";
+const char INTL_MIC_CORRECTION[] PROGMEM = "Microphone correction in dB";
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_BASICAUTH[] PROGMEM = "Autorizacija";
 #define INTL_REPORT_ISSUE "Пријавите проблем"

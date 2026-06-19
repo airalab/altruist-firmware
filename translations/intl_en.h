@@ -41,6 +41,7 @@ const char INTL_CCS811_3F[] PROGMEM = "CCS811 (I2C: 0x5B)";
 const char INTL_DNMS[] PROGMEM = "DNMS ({l_a})";
 const char INTL_DNMS_CORRECTION[] PROGMEM = "correction in dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Temperature correction in °C";
+const char INTL_MIC_CORRECTION[] PROGMEM = "Microphone correction in dB";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Custom Altruist Urban Address";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address";
 const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";

@@ -76,6 +76,7 @@
 #define LEN_GPS_COORDS 21
 #define LEN_DNMS_CORRECTION 8
 #define LEN_TEMP_CORRECTION 8
+#define LEN_MIC_CORRECTION 8
 #define LEN_LOCAL_HOSTNAME 100
 #define LEN_CHOSEN_ALTRUIS_ADDRESS 20
 #define LEN_TIMEZONE 10
@@ -444,6 +445,9 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // Temp compensation
 #define TEMP_CORRECTION "0.0"
+
+// Microphone compensation
+#define MIC_CORRECTION "1.5"
 
 // MHZ19 CO2 sensor
 #define MHZ19_READ 0

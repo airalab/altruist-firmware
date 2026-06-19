@@ -12,6 +12,8 @@ Password		fs_pwd
 Bool		www_basicauth_enabled
 String		rws_owner
 String      robonomics_public_node
+String      robonomics_connectivity_host
+String      robonomics_connectivity_hosts
 String		private_key
 String		coords_gps
 Bool		send2robonomics
@@ -44,6 +46,7 @@ Bool		ssl_influx
 String      donated_by
 String      current_reg
 String      temp_correction
+String      mic_correction
 String      local_hostname
 String      chosen_altruist_urban
 String      timezone

@@ -37,6 +37,7 @@ const char INTL_CCS811_3F[] PROGMEM = "CCS811 (I2C: 0x3F)";
 const char INTL_DNMS[] PROGMEM = "DNMS ({l_a})";
 const char INTL_DNMS_CORRECTION[] PROGMEM = "";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "";
+const char INTL_MIC_CORRECTION[] PROGMEM = "";
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_BASICAUTH[] PROGMEM = "";
 #define INTL_REPORT_ISSUE ""

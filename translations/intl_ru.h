@@ -41,6 +41,7 @@ const char INTL_CCS811_3F[] PROGMEM = "CCS811 (I2C: 0x5B)";
 const char INTL_DNMS[] PROGMEM = "DNMS ({l_a})";
 const char INTL_DNMS_CORRECTION[] PROGMEM = "поправка в dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Коррекция температуры в °C";
+const char INTL_MIC_CORRECTION[] PROGMEM = "Коррекция микрофона в dB";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Пользовательский адрес Altruist Urban";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать пользовательский адрес Altruist Urban";
 const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без связи с Urban)";

@@ -406,6 +406,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_GPS "</h3>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+	add_form_input(page_content, Config_mic_correction, FPSTR(INTL_MIC_CORRECTION), LEN_MIC_CORRECTION-1);
 #ifdef ALTRUIST_URBAN
 	add_form_input(page_content, Config_sds_meas_interval_ms, FPSTR(INTL_SDS_MEAS_INTERVAL), 5);
 #endif

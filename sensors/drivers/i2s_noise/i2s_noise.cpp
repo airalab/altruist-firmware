@@ -43,14 +43,14 @@ static bool sound = false;
 
 static SoundSensor soundSensor;
 
-bool initI2sSound() {
+bool initI2sSound(float mic_correction_db) {
   bool res = soundSensor.begin();
-  soundSensor.offset( MIC_OFFSET );
+  soundSensor.offset(mic_correction_db);
   return res;
 }
 
-void fetchSensorI2sSound(uint8_t *max_noise, float *mean_noise) {
-  if (!initI2sSound()) {
+void fetchSensorI2sSound(uint8_t *max_noise, float *mean_noise, float mic_correction_db) {
+  if (!initI2sSound(mic_correction_db)) {
     return;
   }
   if( !soundSensor.running())

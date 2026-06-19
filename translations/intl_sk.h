@@ -33,6 +33,7 @@ const char INTL_DS18B20[] PROGMEM = "DS18B20 ({t})";
 const char INTL_DNMS[] PROGMEM = "DNMS ({l_a})";
 const char INTL_DNMS_CORRECTION[] PROGMEM ="korekcia v dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "korekcia v °C";
+const char INTL_MIC_CORRECTION[] PROGMEM = "Microphone correction in dB";
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_COORD_LAT[] PROGMEM = "Latitude";
 const char INTL_COORD_LON[] PROGMEM = "Longtitude";

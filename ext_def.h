@@ -73,6 +73,10 @@
 
 // Temp compensation
 #define TEMP_CORRECTION "0.0"
+
+// Microphone compensation
+#define MIC_CORRECTION "1.5"
+
 // GPS, preferred Neo-6M
 #define GPS_READ 1
 #define GPS_API_PIN 9
