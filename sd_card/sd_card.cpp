@@ -5,6 +5,8 @@
 #include "../utils.h"
 #include <algorithm>
 
+bool sdCardLockWithYield(uint32_t total_timeout_ms);
+
 namespace {
 SemaphoreHandle_t g_sd_mutex = nullptr;
 volatile uint32_t g_sd_csv_write_ok = 0;
@@ -19,9 +21,12 @@ static void ensureSDMutex() {
 
 class SDLockGuard {
 public:
-    explicit SDLockGuard(uint32_t timeout_ms = 5000) : locked(false) {
+    explicit SDLockGuard(uint32_t timeout_ms = 5000, bool yield_while_waiting = false) : locked(false) {
         ensureSDMutex();
-        if (g_sd_mutex) {
+        if (!g_sd_mutex) return;
+        if (yield_while_waiting) {
+            locked = ::sdCardLockWithYield(timeout_ms);
+        } else {
             locked = (xSemaphoreTakeRecursive(g_sd_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE);
         }
     }
@@ -40,6 +45,27 @@ bool sdCardLock(uint32_t timeout_ms) {
     ensureSDMutex();
     if (!g_sd_mutex) return false;
     return xSemaphoreTakeRecursive(g_sd_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+}
+
+bool sdCardLockWithYield(uint32_t total_timeout_ms) {
+    ensureSDMutex();
+    if (!g_sd_mutex) return false;
+    const uint32_t start_ms = millis();
+    constexpr uint32_t kSliceMs = 50;
+    while (msSince(start_ms) < total_timeout_ms) {
+        const uint32_t elapsed = millis() - start_ms;
+        const uint32_t remain = total_timeout_ms - elapsed;
+        const uint32_t wait_ms = (remain < kSliceMs) ? remain : kSliceMs;
+        if (xSemaphoreTakeRecursive(g_sd_mutex, pdMS_TO_TICKS(wait_ms)) == pdTRUE) {
+            return true;
+        }
+#if defined(ALTRUIST_INSIGHT)
+        firmwareBlockingYieldHook();
+#else
+        yield();
+#endif
+    }
+    return false;
 }
 
 void sdCardUnlock() {
@@ -303,14 +329,19 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
 }
 
 
-void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back) {
-    SDLockGuard lock;
+bool readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back, uint32_t lock_timeout_ms) {
+    SDLockGuard lock(lock_timeout_ms, true);
     if (!lock.ok()) {
         g_sd_lock_busy++;
+        static unsigned long last_lock_timeout_log_ms = 0;
+        if (msSince(last_lock_timeout_log_ms) > 3000UL) {
+            last_lock_timeout_log_ms = millis();
+            debug_outln_info(F("[SD] CSV read lock timeout ms"), String(lock_timeout_ms));
+        }
         result.count = 0;
         result.values = nullptr;
         result.timestamps = nullptr;
-        return;
+        return false;
     }
 
     time_t now = time(nullptr);
@@ -336,6 +367,8 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
         if (!file) {
             return false; // File doesn't exist, that's OK
         }
+
+        const size_t file_size = file.size();
         
         // Читаем заголовок (только если еще не нашли field_index)
         if (!field_index_found) {
@@ -368,9 +401,37 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
             file.readStringUntil('\n');
         }
 
+        // Append-only daily logs: for short windows seek near EOF instead of scanning from midnight.
+        if (hours_back <= 24 && file_size > 8192) {
+            // ~30s sampling, ~48 bytes/line; cover full window + margin.
+            const size_t rows_needed = (size_t)hours_back * 120u + 256u;
+            size_t tail_bytes = rows_needed * 48u;
+            if (tail_bytes < 65536u) {
+                tail_bytes = 65536u;
+            }
+            if (tail_bytes > file_size) {
+                tail_bytes = file_size;
+            }
+            const size_t seek_pos = file_size - tail_bytes;
+            if (seek_pos > 0) {
+                file.seek(seek_pos);
+                file.readStringUntil('\n'); // discard partial line
+            }
+        }
+
         // Чтение данных построчно
+        uint32_t line_idx = 0;
         while (file.available()) {
+            if ((line_idx & 63u) == 0) {
+#if defined(ALTRUIST_INSIGHT)
+                firmwareBlockingYieldHook();
+#else
+                yield();
+#endif
+            }
+            line_idx++;
             String line = file.readStringUntil('\n');
+            if (line.length() == 0) continue;
             std::vector<String> parts;
             int pos = 0;
             while (pos < line.length()) {
@@ -380,10 +441,12 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
                 pos = comma + 1;
             }
 
-            if (parts.size() <= field_index) continue;
+            if (parts.size() <= (size_t)field_index) continue;
 
             uint32_t timestamp = parts[0].toInt();
-            if (timestamp < time_limit) continue;
+            if (timestamp < time_limit) {
+                continue;
+            }
             
             float value;
             if (strstr(field_name, "pressure") != nullptr) {
@@ -415,7 +478,7 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
         result.count = 0;
         result.values = nullptr;
         result.timestamps = nullptr;
-        return;
+        return true;
     }
     
     // Sort by timestamp (in case we read from two files)
@@ -436,6 +499,7 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
     }
     
     debug_outln_verbose(String(F("[SDCard] Read total of ")) + String(result.count) + F(" data points from CSV"));
+    return true;
 }
 
 bool SDCard::checkInserted() {

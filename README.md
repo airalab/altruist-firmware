@@ -1,6 +1,7 @@
 # Altruist Firmware
 
-Firmware for the Altruist environmental sensor station, built on ESP32-C6.
+Firmware for the Altruist environmental sensor station, built on ESP32-C6 and
+legacy ESP32-C3 Urban hardware.
 
 ## Architecture Overview
 
@@ -67,7 +68,71 @@ Flash:
 pio run -e esp32c6_urban_en --target upload
 ```
 
-Available environments: `esp32c6_urban_en`, `esp32c6_urban_ru`, `esp32c6_inside_en`, `esp32c6_inside_ru` (plus `_dev` variants with debug output).
+### Build Model
+
+The PlatformIO environment and Git branch control different things:
+
+- **Environment** selects hardware, language, and build profile.
+- **Branch** selects the firmware publication channel.
+
+| Selection | Result |
+| --------- | ------ |
+| Environment without `_debug` | Release profile with normal project logs |
+| Environment with `_debug` | Local Debug profile with verbose project and framework logs |
+| Branch `esp32` | Stable channel |
+| Branch `esp32-dev` or a feature branch | Testing channel |
+| Detached/no-Git local build | Stable channel unless explicitly overridden |
+
+Only release builds are published to webflasher. Debug builds are intended for
+local diagnostics and do not create publishable artifacts. The Debug profile
+does not change the firmware channel: a Debug build on `esp32-dev` is still
+Testing firmware, just compiled with verbose diagnostics.
+
+### Environments
+
+Release environments:
+
+- `esp32c3_urban_en`, `esp32c3_urban_ru`
+- `esp32c6_urban_en`, `esp32c6_urban_ru`
+- `esp32c6_inside_en`, `esp32c6_inside_ru`
+
+Debug environments use the same names with the `_debug` suffix. ESP32-C3 Debug
+builds keep the C3-lite feature set to stay within the old hardware limits. The
+legacy `inside` environment name builds Insight firmware.
+
+### Common Scenarios
+
+- On `esp32-dev`, build `esp32c6_urban_en` to test the same Testing release
+  profile that CI publishes to webflasher.
+- On `esp32`, build `esp32c6_urban_en` to reproduce a Stable release.
+- Use `esp32c6_urban_en_debug` only when verbose diagnostics or JTAG are needed.
+- Use `esp32c3_urban_en_debug` to debug old ESP32-C3 Urban hardware with the
+  same reduced feature set as the C3 release build.
+
+Local builds infer the channel from the branch, enable health telemetry, and
+read the source commit from Git. Detached or no-Git local builds fall back to
+Stable unless `ALTRUIST_CHANNEL_TESTING=1` is set explicitly. The build output
+prints the resolved branch, channel, profile, telemetry state, and commit before
+compilation.
+
+CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
+`ALTRUIST_BUILD_COMMIT` explicitly, so published builds do not depend on local
+Git state. These variables can also override the automatic local defaults.
+
+Stable artifacts use names such as `latest32c6urb_en.bin`; Testing artifacts use
+`latest32c6urb_en_testing.bin`. Legacy `_dev.bin` aliases are also produced for
+external compatibility and point to the same Testing firmware.
+
+Stable firmware keeps the base version, for example `R-URB_2026-06.1`. Testing
+firmware includes its source revision, for example
+`R-URB_2026-06.1-testing+7445b03`. UART startup logs and the status page expose
+the channel, commit, model, target, language, and profile.
+
+Insight builds use the `ALTRUIST_INSIGHT` compile-time flag. The previous
+`ALTRUIST_INSIDE` name remains available as a compatibility alias; new code
+should use `ALTRUIST_INSIGHT`.
+
+OTA updates are pinned to Stable artifacts for now: every firmware build requests the normal language artifact without the `_testing` suffix. Testing firmware is installed explicitly through webflasher or local flashing, and automatic OTA is disabled in Testing builds so devices do not immediately return to Stable. Manual `/ota` remains available as an explicit Stable rollback path. Changing the build profile, runtime log level, or legacy `use_beta` configuration cannot switch OTA away from Stable.
 
 ## Configuration
 
@@ -116,7 +181,8 @@ LED indication can be disabled in the web configuration.
 
 ## Contributing
 
-All development changes should be submitted as pull requests against the **beta** branch. The **master** branch reflects the current release firmware.
+Submit development changes against the **esp32-dev** branch first. After they
+are validated, promote them to **esp32**, which is the Stable release branch.
 
 To add a Connectivity Robonomics Server, fork this repository and edit `robonomics_servers.h`. Add your server:
 

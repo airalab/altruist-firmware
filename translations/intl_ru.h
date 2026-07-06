@@ -51,22 +51,29 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 #define INTL_SELECT_URBAN_DESC "Выберите устройство Urban, с которого этот Insight будет получать данные уличных датчиков."
 #define INTL_NO_URBANS_FOUND "Устройства Altruist Urban не найдены в этой сети. Убедитесь, что Urban включён и подключён к той же сети WiFi. Укажите IP вручную ниже и сохраните; Urban можно настроить позже в Настройках."
 #define INTL_USE_CUSTOM_IP "Указать IP-адрес вручную:"
-#define INTL_SETUP_INSIGHT_MODE_HINT "Если у вас есть Altruist Urban (уличный блок), отметьте галочку и нажмите «Дальше», чтобы найти его в сети и выбрать. Если Urban нет — оставьте галочку снятой: устройство перезагрузится сразу в режиме только Insight."
+#define INTL_SETUP_INSIGHT_MODE_HINT "Есть Altruist Urban (уличный блок)? Отметьте галочку ниже, чтобы найти его в сети и связать. Без галочки — автономный режим только Insight."
 #define INTL_SETUP_PAIR_WITH_URBAN "Настроить связь с Altruist Urban сейчас"
 #define INTL_SETUP_CONTINUE "Дальше"
 #define INTL_SKIP_URBAN_SELECTION "Пропустить &mdash; настроить позже в Настройках"
 #define INTL_SETUP_COMPLETE "Настройка завершена"
-#define INTL_SETTINGS_SAVED "Настройки сохранены!"
+#define INTL_SETTINGS_SAVED "Настройки сохранены"
 #define INTL_DEVICE_RESTARTING "Перезапуск устройства..."
-#define INTL_GUEST_CONNECTED "Подключено!"
+#define INTL_GUEST_CONNECTED "Подключено"
+#define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi подключён"
+#define INTL_GUEST_SETUP_STEP_1_LABEL "Шаг 1 из 2"
+#define INTL_GUEST_SETUP_STEP_2_LABEL "Шаг 2 из 2"
+#define INTL_GUEST_SETUP_STEP_1_TITLE "Подключение к Wi-Fi"
+#define INTL_GUEST_INSIGHT_FINISH_HINT "Нажмите «Дальше», чтобы завершить настройку и перезагрузить устройство."
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_HINT "Если закрыть эту страницу, настройка завершится автоматически через"
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "с (автономный режим)."
 #define INTL_GUEST_IP_ADDRESS "IP адрес:"
 #define INTL_GUEST_OPEN_IP_HINT "Скопируйте IP-адрес и откройте его в браузере."
 #define INTL_GUEST_RESTART_PAUSE_HINT "Устройство перезапустится через несколько секунд — скопируйте IP сейчас."
-#define INTL_GUEST_KEEP_OPEN_HINT "Не закрывайте страницу и выберите устройство Urban ниже."
-#define INTL_DISP_MAP_PROMO_TITLE "Больше аналитики прямо в смартфоне!"
+#define INTL_GUEST_KEEP_OPEN_HINT "Не закрывайте эту страницу, пока не нажмёте «Дальше»."
+#define INTL_DISP_MAP_PROMO_TITLE "Больше аналитики прямо в смартфоне"
 #define INTL_DISP_MAP_PROMO_LINE1 "Заходите на нашу веб-карту: AQI, история данных,"
 #define INTL_DISP_MAP_PROMO_LINE2 "цветные графики, удобный шэринг и"
-#define INTL_DISP_MAP_PROMO_LINE3 "много других фич уже скоро!"
+#define INTL_DISP_MAP_PROMO_LINE3 "много других фич уже скоро"
 #define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
 #define INTL_SCAN_BTN "Поиск"
 #define INTL_SCAN_SCANNING "Поиск..."
@@ -77,6 +84,49 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подписки";
+const char INTL_GROUP_MENU[] PROGMEM = "Группа устройств (RWS)";
+const char INTL_GROUP_INTRO[] PROGMEM = "Выберите режим участия в Robonomics Web Services (owner и on-chain список устройств).";
+const char INTL_GROUP_MODE_TITLE[] PROGMEM = "Режим работы";
+const char INTL_GROUP_MODE_STANDALONE[] PROGMEM = "Standalone — устройство само себе master (setDevices только с собой)";
+const char INTL_GROUP_MODE_MASTER[] PROGMEM = "Создать группу — это устройство master группы";
+const char INTL_GROUP_MODE_FOLLOWER[] PROGMEM = "Войти в группу — указать адрес master ниже";
+const char INTL_GROUP_MODE_MANUAL[] PROGMEM = "Manual owner — legacy: только owner, без автоматического setDevices";
+const char INTL_GROUP_SELF_ADDRESS[] PROGMEM = "Robonomics-адрес этого устройства (скопируйте на master при входе в группу)";
+const char INTL_GROUP_MASTER_PANEL[] PROGMEM = "Master группы";
+const char INTL_GROUP_FOLLOWER_PANEL[] PROGMEM = "Вход в группу";
+const char INTL_GROUP_MANUAL_PANEL[] PROGMEM = "Manual owner";
+const char INTL_GROUP_ID_LABEL[] PROGMEM = "ID группы";
+const char INTL_GROUP_MASTER_ADDRESS[] PROGMEM = "Robonomics-адрес master";
+const char INTL_GROUP_MASTER_INCLUDED[] PROGMEM = "Master (добавляется в setDevices автоматически)";
+const char INTL_GROUP_KNOWN_DEVICES[] PROGMEM = "Дополнительные устройства — followers (SS58, по одному в строке)";
+const char INTL_GROUP_KNOWN_DEVICES_HINT[] PROGMEM = "Адрес этого устройства выше всегда включён как master. Добавьте SS58 follower-ов сюда и нажмите Save.";
+const char INTL_GROUP_FOLLOWER_HINT[] PROGMEM = "Скопируйте свой адрес выше в список на master, введите адрес master здесь и нажмите Save.";
+const char INTL_GROUP_MANUAL_HINT[] PROGMEM = "Datalog использует этот owner. setDevices не вызывается автоматически.";
+const char INTL_GROUP_STATUS_GROUP_CREATING[] PROGMEM = "Группа создана — синхронизация on-chain";
+const char INTL_GROUP_STATUS_LIST_UPDATED[] PROGMEM = "Список устройств обновлён — синхронизация on-chain";
+const char INTL_GROUP_STATUS_LIST_SYNCED[] PROGMEM = "Список устройств синхронизирован on-chain";
+const char INTL_GROUP_STATUS_LABEL[] PROGMEM = "Статус";
+const char INTL_GROUP_STATUS_CREATED[] PROGMEM = "Группа создана, устройства синхронизированы";
+const char INTL_GROUP_CURRENT_DEVICES[] PROGMEM = "Текущий список устройств";
+const char INTL_GROUP_STATUS_PENDING[] PROGMEM = "Ожидание синхронизации";
+const char INTL_GROUP_STATUS_DEVICES_SYNCED[] PROGMEM = "Устройства синхронизированы on-chain";
+const char INTL_GROUP_STATUS_JOINED[] PROGMEM = "Группа подключена";
+const char INTL_GROUP_STATUS_MANUAL[] PROGMEM = "Manual owner настроен";
+const char INTL_GROUP_SAVE_OK[] PROGMEM = "Настройки группы сохранены.";
+const char INTL_GROUP_SAVE_FAILED[] PROGMEM = "Не удалось сохранить настройки группы.";
+const char INTL_GROUP_SAVE_CONFIG_FAILED[] PROGMEM = "Не удалось записать конфигурацию в память устройства.";
+const char INTL_GROUP_ERROR_INVALID_MASTER[] PROGMEM = "Укажите корректный Robonomics-адрес master.";
+const char INTL_GROUP_ERROR_INVALID_MANUAL_OWNER[] PROGMEM = "Укажите корректный Robonomics-адрес owner.";
+const char INTL_SCREEN_MENU[] PROGMEM = "Режим экрана";
+const char INTL_SCREEN_INTRO[] PROGMEM = "Выберите способ обновления e-paper дисплея. Разные партии панелей по-разному реагируют на partial refresh.";
+const char INTL_SCREEN_MODE_SAFE[] PROGMEM = "Safe (безопасный)";
+const char INTL_SCREEN_MODE_SAFE_HINT[] PROGMEM = "Только полное обновление экрана. Рекомендуется для всех устройств. Предотвращает артефакты на дисплее.";
+const char INTL_SCREEN_MODE_EXPERIMENTAL[] PROGMEM = "Experimental partial refresh";
+const char INTL_SCREEN_MODE_EXPERIMENTAL_HINT[] PROGMEM = "Быстрые частичные обновления. Меньше мерцания, но возможны ghosting и битая картинка на некоторых панелях.";
+const char INTL_SCREEN_SAVE_OK[] PROGMEM = "Режим экрана сохранён.";
+const char INTL_SCREEN_SAVE_FAILED[] PROGMEM = "Не удалось сохранить режим экрана.";
+const char INTL_SCREEN_SAVE_INVALID_MODE[] PROGMEM = "Выбран недопустимый режим экрана.";
+const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Не удалось записать конфигурацию в память устройства.";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Адрес публичной ноды Робономики";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Хост Robonomics Map (connectivity)";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Пул хостов Robonomics Map (по одному в строке)";
@@ -142,7 +192,7 @@ const char INTL_PATH[] PROGMEM = "Путь";
 const char INTL_PORT[] PROGMEM = "Порт";
 const char INTL_USER[] PROGMEM = "Пользователь";
 const char INTL_PASSWORD[] PROGMEM = "Пароль";
-const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Локальный домен (Измените его, если у вас больше одного альтруиста в одной сети!)";
+const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Локальный домен (Измените его, если у вас больше одного альтруиста в одной сети)";
 const char INTL_MEASUREMENT[] PROGMEM = "Measurement";
 const char INTL_SEND_TO[] PROGMEM = "Отправлять в {v}";
 const char INTL_READ_FROM[] PROGMEM = "Считывать с {v}";
@@ -161,10 +211,10 @@ const char INTL_CURRENT_DATA[] PROGMEM = "Текущие значения";
 const char INTL_DEVICE_STATUS[] PROGMEM = "Состояние устройства";
 #define INTL_ACTIVE_SENSORS_MAP "Карта активных датчиков (внешняя ссылка)"
 #define INTL_CONFIGURATION_DELETE "Удалить конфигурацию"
-#define INTL_CONFIGURATION_REALLY_DELETE "Подтвердите удаление конфигурации!"
+#define INTL_CONFIGURATION_REALLY_DELETE "Подтвердите удаление конфигурации"
 #define INTL_DELETE "Удалить"
 #define INTL_CANCEL "Отменить"
-#define INTL_REALLY_RESTART_SENSOR "Подтвердите перезапуск устройства!"
+#define INTL_REALLY_RESTART_SENSOR "Подтвердите перезапуск устройства"
 #define INTL_RESTART "Перезапустить"
 const char INTL_SAVE_AND_RESTART[] PROGMEM = "Сохранить и перезапустить";
 #define INTL_FIRMWARE "Прошивка:"
@@ -264,7 +314,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Не отключайте питание"
 #define INTL_DISP_OTA_FAILED "Ошибка обновления"
 #define INTL_DISP_OTA_WILL_RETRY "Повтор позже"
-#define INTL_DISP_OTA_SUCCESS "Прошивка обновлена!"
+#define INTL_DISP_OTA_SUCCESS "Прошивка обновлена"
 #define INTL_DISP_OTA_RESTARTING "Перезагрузка..."
 #define INTL_DISP_WAITING_URBAN_ID "Ожидание Urban ID..."
 #define INTL_DISP_URBAN_IP "IP Urban:"
@@ -305,6 +355,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_NO_DATA_AVAILABLE "Нет данных"
 #define INTL_DISP_NOT_ENOUGH_DATA_YET "Пока недостаточно данных"
 #define INTL_DISP_COLLECTING_DATA "Сбор данных..."
+#define INTL_DISP_LOADING "Загрузка..."
 #define INTL_DISP_ANALYTICS_C_LEGEND "C=Консервативная"
 #define INTL_DISP_ANALYTICS_B_LEGEND "B=Биохакинг"
 #define INTL_DISP_ANALYTICS_GRADE "Оценка"

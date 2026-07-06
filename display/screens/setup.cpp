@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include <qrcode.h>
 #include "../../config_manager/config_helpers.h"

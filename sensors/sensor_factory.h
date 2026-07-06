@@ -13,7 +13,7 @@
 #include "zmod4510_sensor.h"
 #include "ags3871_sensor.h"
 #endif
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 #include "http_altruist_sensor.h"
 #include "bmx680i2c_sensor.h"
 #endif
@@ -30,7 +30,7 @@ String supported_sensor_names[] = {
 #endif
   SCD4X_SENSOR_NAME,
   RADSENS_SENSOR_NAME,
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
   HTTP_ALTRUIST_SENSOR_NAME,
   BME680_SENSOR_NAME,
 #endif
@@ -55,7 +55,7 @@ Sensor* createSensor(const String &sensorType, unsigned long sending_timeout) {
   } else if (sensorType == AGS3871_SENSOR_NAME) {
     return new AGS3871Sensor(sending_timeout);
 #endif
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
   } else if (sensorType == HTTP_ALTRUIST_SENSOR_NAME) {
     return new HTTPAltruistSensor(sending_timeout);
   } else if (sensorType == BME680_SENSOR_NAME) {

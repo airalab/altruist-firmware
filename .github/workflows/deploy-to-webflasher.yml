@@ -1,0 +1,115 @@
+name: Deploy Altruist firmware to Webflasher
+
+on:
+  push:
+    branches:
+      - esp32
+      - esp32-dev
+  workflow_dispatch: {}
+
+concurrency:
+  group: altruist-webflasher-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref_name == 'esp32' || github.ref_name == 'esp32-dev'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout altruist-firmware
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Read firmware versions
+        run: |
+          set -euo pipefail
+          urban_version=$(sed -n 's/^#define SOFTWARE_VERSION_BASE "\(R-URB_[^"]*\)"/\1/p' defines.h)
+          insight_version=$(sed -n 's/^#define SOFTWARE_VERSION_BASE "\(R-INS_[^"]*\)"/\1/p' defines.h)
+          test -n "$urban_version"
+          test -n "$insight_version"
+          echo "URBAN_VERSION=$urban_version" >> "$GITHUB_ENV"
+          echo "INSIGHT_VERSION=$insight_version" >> "$GITHUB_ENV"
+
+      - name: Build Stable release firmware
+        if: github.ref_name == 'esp32'
+        env:
+          ALTRUIST_CHANNEL_TESTING: '0'
+          ALTRUIST_HEALTH_TELEMETRY: '1'
+          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          pio run -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru -e esp32c3_urban_en -e esp32c3_urban_ru
+
+      - name: Build Testing release firmware
+        if: github.ref_name == 'esp32-dev'
+        env:
+          ALTRUIST_CHANNEL_TESTING: '1'
+          ALTRUIST_HEALTH_TELEMETRY: '1'
+          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          pio run -e esp32c3_urban_en -e esp32c3_urban_ru -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru
+
+      - name: Checkout webflasher repo
+        uses: actions/checkout@v4
+        with:
+          repository: airalab/webflasher
+          token: ${{ secrets.GH_PAT }}
+          path: webflasher
+
+      - name: Update webflasher firmware
+        env:
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          cd webflasher
+
+          git config user.name "Altruist Actions"
+          git config user.email "ci-automation@example.com"
+
+          if [[ "$BRANCH" == "esp32-dev" ]]; then
+            channel="testing"
+            label="Testing"
+            artifacts=(
+              latest32c3_en_testing
+              latest32c3_ru_testing
+              latest32c6urb_en_testing
+              latest32c6urb_ru_testing
+              latest32c6ins_en_testing
+              latest32c6ins_ru_testing
+            )
+          else
+            channel="stable"
+            label="Stable"
+            artifacts=(
+              latest32c3_en
+              latest32c3_ru
+              latest32c6urb_en
+              latest32c6urb_ru
+              latest32c6ins_en
+              latest32c6ins_ru
+            )
+          fi
+
+          for artifact in "${artifacts[@]}"; do
+            cp "../builds/${artifact}.bin" firmware/Altruist/
+            cp "../builds/${artifact}.bin.md5" firmware/Altruist/
+          done
+
+          python scripts/update_altruist_manifests.py \
+            --channel "$channel" \
+            --urban-version "$URBAN_VERSION" \
+            --insight-version "$INSIGHT_VERSION" \
+            --commit "$SHA"
+
+          git add firmware/Altruist manifest
+          git commit -m "Update Altruist ${label} firmware from ${SHA:0:8}" || exit 0
+          git push origin HEAD:main

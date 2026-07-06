@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef _LOGO_SCREEN_H
 #define _LOGO_SCREEN_H

@@ -27,7 +27,7 @@
 # THE SOFTWARE.
 #
 ******************************************************************************/
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef _DEV_CONFIG_H_
 #define _DEV_CONFIG_H_

@@ -120,9 +120,12 @@ private:
 
 };
 
-void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back);
+/** Returns false when the SD mutex could not be acquired (result cleared). */
+bool readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back, uint32_t lock_timeout_ms = 5000);
 // Global SD lock helpers for modules that still use direct SD.* access.
 bool sdCardLock(uint32_t timeout_ms = 5000);
+/** Acquire SD lock in short slices; yields to HTTP/display while waiting (Insight). */
+bool sdCardLockWithYield(uint32_t total_timeout_ms);
 void sdCardUnlock();
 // DEV diagnostics counters for SD activity.
 void sdGetDevCounters(uint32_t &csv_ok, uint32_t &csv_fail, uint32_t &lock_busy);

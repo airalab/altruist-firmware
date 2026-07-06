@@ -76,7 +76,7 @@
 *
 ******************************************************************************/
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef __GUI_PAINT_H
 #define __GUI_PAINT_H

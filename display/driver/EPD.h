@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef __EPD_H_ 
 #define __EPD_H_ 

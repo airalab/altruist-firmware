@@ -124,7 +124,7 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
             sds_bad_window_streak = 0;
             debug_outln_verbose(F("PM10: "), String(last_value_SDS_P1));
             debug_outln_verbose(F("PM2.5: "), String(last_value_SDS_P2));
-            #ifdef DEV
+            #if defined(ALTRUIST_BUILD_DEBUG)
             serializeJson(data, Serial);
             Serial.println();
             Serial.println();

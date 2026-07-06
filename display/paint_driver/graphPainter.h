@@ -1,5 +1,5 @@
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef DISPLAY_GRAPH_H
 #define DISPLAY_GRAPH_H

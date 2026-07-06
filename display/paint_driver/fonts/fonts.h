@@ -35,7 +35,7 @@
   ******************************************************************************
   */
 
- #ifdef ALTRUIST_INSIDE
+ #ifdef ALTRUIST_INSIGHT
 
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __FONTS_H

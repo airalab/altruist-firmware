@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "display_manager.h"
 #include "screens/screens.h"
@@ -78,6 +78,9 @@ void DisplayManager::setup() {
             }
         }
     }
+    if (cached_urban_address.length() > 0) {
+        refresh_now = true;
+    }
     // Initialize display and show loading screen immediately
     // initAndClearScreen();
     // Paint_SelectImage(BlackImage);
@@ -96,6 +99,12 @@ void DisplayManager::clearUrbanCache() {
     refresh_now = true;
 }
 
+void DisplayManager::requestEpdFullRefresh() {
+    force_full_refresh = true;
+    refresh_now = true;
+    epdResetPeriodPosition();
+}
+
 void DisplayManager::setScreen(ScreenPage pageID) {
     // If we are leaving analytics 4-circle overview, force a full refresh on the next screen
     // to clean residual ghosting from dense black arc rendering.
@@ -109,6 +118,12 @@ void DisplayManager::setScreen(ScreenPage pageID) {
     if (pageID == ScreenPage::ANALYTICS && currentScreenID != ScreenPage::ANALYTICS) {
         analytics_refresh_cycle_pos = 0;
     }
+#if defined(USE_SD_CARD)
+    if (pageID == ScreenPage::GRAPHS && currentScreenID != ScreenPage::GRAPHS) {
+        // Entering graphs from another screen: always paint immediately (no SD-busy defer).
+        graphClearDeferOnScreenEntry();
+    }
+#endif
     currentScreenID = pageID;
     refresh_now = true;
 }
@@ -218,42 +233,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                     }
                 } else if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
-                        analytics_view_t prev_view = analyticsGetView();
-                        // Same behavior as graph page: at first item, switch screen instead of looping.
-                        if (analyticsPrevViewAtEdge()) {
-                            ScreenPage target = getPrevScreen(currentScreenID);
-                            epdIncrementScreenCounter(target);
-                            setScreen(target);
-                            return;
-                        }
-                        analytics_view_t new_view = analyticsGetView();
-                        // Leaving 4-circle page to detail page: use full refresh once to clear arc ghosting.
-                        if (prev_view == analytics_view_t::OVERVIEW_24H && new_view != prev_view) {
-                            force_full_refresh = true;
-                            analytics_refresh_cycle_pos = 0;
-                        }
-                        // Internal analytics view switch: count it for partial/full cadence.
-                        epdIncrementScreenCounter(currentScreenID);
-                        refresh_now = true;
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
-                        analytics_view_t prev_view = analyticsGetView();
-                        // Same behavior as graph page: at last item, switch screen instead of looping.
-                        if (analyticsNextViewAtEdge()) {
-                            ScreenPage target = getNextScreen(currentScreenID);
-                            epdIncrementScreenCounter(target);
-                            setScreen(target);
-                            return;
-                        }
-                        analytics_view_t new_view = analyticsGetView();
-                        // Leaving 4-circle page to detail page: use full refresh once to clear arc ghosting.
-                        if (prev_view == analytics_view_t::OVERVIEW_24H && new_view != prev_view) {
-                            force_full_refresh = true;
-                            analytics_refresh_cycle_pos = 0;
-                        }
-                        // Internal analytics view switch: count it for partial/full cadence.
-                        epdIncrementScreenCounter(currentScreenID);
-                        refresh_now = true;
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     }
                 }
@@ -308,6 +295,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                                 setScreen(target);
                                 return;
                             }
+                            graphMarkValueSwitch();
+                            epdIncrementScreenCounter(ScreenPage::GRAPHS);
                             refresh_now = true;
                             return;
                         } else if (btn_press.button_num == ButtonNum::SET) {
@@ -318,6 +307,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                                 setScreen(target);
                                 return;
                             }
+                            graphMarkValueSwitch();
+                            epdIncrementScreenCounter(ScreenPage::GRAPHS);
                             refresh_now = true;
                             return;
                         }
@@ -424,31 +415,38 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     // Update cached Urban address every cycle; if it changes and we're on SENSOR_MAP, trigger redraw
     // Acquire mutex to safely read sensors_data (it may be modified by sensor task)
     bool need_spiffs_save = false;
+    bool need_spiffs_remove = false;
     if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
         if (sensors_data.containsKey("service_data")) {
             auto service = sensors_data["service_data"].as<JsonObject>();
             if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
                 String urban_addr = service["urban_robonomics_address"].as<String>();
-                if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
-                    cached_urban_address = urban_addr;
-                    need_spiffs_save = true;
+                if (urban_addr.length() > 0) {
+                    if (cached_urban_address != urban_addr) {
+                        cached_urban_address = urban_addr;
+                        need_spiffs_save = true;
+                        refresh_now = true;
+                    }
+                } else if (cached_urban_address.length() > 0) {
+                    // Pairing explicitly cleared in telemetry — drop cached SS58.
+                    cached_urban_address = "";
+                    need_spiffs_remove = true;
                     refresh_now = true;
                 }
-            } else if (cached_urban_address.length() > 0) {
-                cached_urban_address = "";
-                if (SPIFFS.begin(true)) {
-                    SPIFFS.remove("/urban_ss58.cache");
-                }
-                refresh_now = true;
             }
+            // Missing urban_robonomics_address while Urban is still connecting: keep SPIFFS/RAM cache.
         }
         xSemaphoreGive(mutex);
     }
     // Persist to SPIFFS outside mutex - SPIFFS writes are slow
-    if (need_spiffs_save) {
+    if (need_spiffs_save || need_spiffs_remove) {
         if (SPIFFS.begin(true)) {
-            File f = SPIFFS.open("/urban_ss58.cache", "w");
-            if (f) { f.print(cached_urban_address); f.close(); }
+            if (need_spiffs_remove || cached_urban_address.length() == 0) {
+                SPIFFS.remove("/urban_ss58.cache");
+            } else {
+                File f = SPIFFS.open("/urban_ss58.cache", "w");
+                if (f) { f.print(cached_urban_address); f.close(); }
+            }
         }
     }
 
@@ -491,7 +489,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     bool should_refresh = (last_refresh_time == (unsigned long)-DISPLAY_REFRESH_INTERVAL) || 
                           time_based_refresh || 
                           refresh_now || 
-                          currentScreenID == ScreenPage::CONNECTING;
+                          currentScreenID == ScreenPage::CONNECTING ||
+                          (currentScreenID == ScreenPage::GRAPHS && graphScreenSdRetryDue());
     
     if (should_refresh) {
         debug_outln_verbose(F("[Display] Starting refresh cycle for screen "), String((int)currentScreenID));
@@ -533,15 +532,10 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 extractAnalyticsScreenValues(sensors_data, cached_analytics_values);
                 xSemaphoreGive(mutex);
             }
-            populateAnalyticsPeriodStats(cached_analytics_values);
-            String analytics_map_addr = cfg::standalone
-                ? robonomics_address
-                : (cached_urban_address.length() > 0 ? cached_urban_address : robonomics_address);
-            showAnalyticsPage(BlackImage, cached_analytics_values, analytics_map_addr);
+            showAnalyticsPage(BlackImage, cached_analytics_values);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
-            // Always draw graph screen - it will show appropriate message if no data/card
             drawGraphScreen();
-            goto draw_complete;  // Skip the rest of the screen drawing logic
+            goto draw_complete;
         }
         
         // If we changed screens (no graphs available), continue to draw the new screen
@@ -662,10 +656,10 @@ draw_complete:
         
         last_refresh_time = millis();
 
-
         if (deviceStatus.ota_in_progress || deviceStatus.ota_failed || deviceStatus.ota_success) {
             ota_display_refresh_count++;
-            bool ota_do_full = (ota_display_refresh_count % OTA_FULL_REFRESH_EVERY_N == 0);
+            const bool ota_do_full = !epdPartialRefreshEnabled() ||
+                (ota_display_refresh_count % OTA_FULL_REFRESH_EVERY_N == 0);
             epdDisplay(ota_do_full ? DisplayMode::FULL : DisplayMode::PARTIAL, BlackImage);
         } else {
             ota_display_refresh_count = 0;  // reset for next OTA session
@@ -699,25 +693,29 @@ draw_complete:
             epdDisplay(DisplayMode::FULL, BlackImage);
         } else if (currentScreenID == ScreenPage::ANALYTICS &&
                    !deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
-            // Analytics-only cadence: 10 partial updates, then 1 full refresh.
-            analytics_refresh_cycle_pos++;
-            if (analytics_refresh_cycle_pos >= 11) {
-                debug_outln_verbose(F("[EPD] Analytics cadence: FULL (after 10 partials)"));
+            if (!epdPartialRefreshEnabled()) {
+                debug_outln_verbose(F("[EPD] Analytics: FULL (safe screen mode)"));
                 epdResetPeriodPosition();
                 epdDisplay(DisplayMode::FULL, BlackImage);
                 analytics_refresh_cycle_pos = 0;
             } else {
-                debug_outln_verbose(F("[EPD] Analytics cadence: PARTIAL"));
-                epdDisplay(DisplayMode::PARTIAL, BlackImage);
+                // Analytics-only cadence: 10 partial updates, then 1 full refresh.
+                analytics_refresh_cycle_pos++;
+                if (analytics_refresh_cycle_pos >= 11) {
+                    debug_outln_verbose(F("[EPD] Analytics cadence: FULL (after 10 partials)"));
+                    epdResetPeriodPosition();
+                    epdDisplay(DisplayMode::FULL, BlackImage);
+                    analytics_refresh_cycle_pos = 0;
+                } else {
+                    debug_outln_verbose(F("[EPD] Analytics cadence: PARTIAL"));
+                    epdDisplay(DisplayMode::PARTIAL, BlackImage);
+                }
             }
         } else if (!deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
-            // Pass current screen to showImageFast for adaptive update logic:
-            // MAIN screen: 10 partial + 1 full
-            // Other pages: 5 partial + 1 full
             debug_outln_verbose(F("[EPD] FAST/partial refresh pushed for screen "), String((int)currentScreenID));
             showImageFast(BlackImage, currentScreenID);
         }
     }
 }
 
-#endif // ALTRUIST_INSIDE
+#endif // ALTRUIST_INSIGHT

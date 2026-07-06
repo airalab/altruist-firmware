@@ -53,7 +53,7 @@ void SCD4xSensor::_fetch(JsonDocument &data) {
         addValueToJSON(data, F("co2"), last_co2_value, INTL_CO2, F("ppm"));
         addValueToJSON(data, F("temperature"), last_temerature_value, INTL_TEMPERATURE, F("°C"));
         addValueToJSON(data, F("humidity"), last_humidity_value, INTL_HUMIDITY, F("%"));
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
         serializeJson(data, Serial);
 #endif
     }

@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef __HTTP_ALTRUIST_H__
 #define __HTTP_ALTRUIST_H__

@@ -141,7 +141,7 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
     debug_outln_verbose(F("BME temperature: "), String(temperature));
     debug_outln_verbose(F("BME humidity: "), String(humidity));
     debug_outln_verbose(F("BME pressure: "), String(pressure));
-    #ifdef DEV
+    #if defined(ALTRUIST_BUILD_DEBUG)
     serializeJson(data, Serial);
     Serial.println();
     Serial.println();

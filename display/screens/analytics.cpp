@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "analytics.h"
 #include "../driver/EPD.h"
@@ -11,7 +11,7 @@
 #include "../../intl.h"
 #include "../../config_manager/config_helpers.h"
 #include <qrcode.h>
-#if defined(USE_SD_CARD) && defined(DEV)
+#if defined(USE_SD_CARD) && defined(ALTRUIST_BUILD_DEBUG)
 #include "../../sd_card/sd_card.h"
 extern SDCard sdCardLogger;
 #endif
@@ -61,12 +61,12 @@ uint32_t g_hist_first_save_ts = 0;
 uint32_t g_hist_last_save_ts = 0;
 uint32_t g_hist_save_count = 0;
 bool g_hist_last_save_forced = false;
-#if defined(USE_SD_CARD) && defined(DEV)
+#if defined(USE_SD_CARD) && defined(ALTRUIST_BUILD_DEBUG)
 uint32_t g_dev_sd_last_dump_hour_key = 0;
 uint32_t g_dev_last_ingest_hour_key = 0;
 static void dumpAnalyticsToSdDev(uint32_t now_ts, bool forced_save);
 #endif
-#if defined(DEV)
+#if defined(ALTRUIST_BUILD_DEBUG)
 uint32_t g_dev_last_status_log_ms = 0;
 #endif
 static uint32_t currentLocalHourKey(time_t now);
@@ -134,14 +134,14 @@ static void saveRollingHistoryIfNeeded(bool force) {
     }
 
     if (!persisted) return;
-#if defined(USE_SD_CARD) && defined(DEV)
+#if defined(USE_SD_CARD) && defined(ALTRUIST_BUILD_DEBUG)
     dumpAnalyticsToSdDev(now_ts, force);
 #endif
     g_hist_dirty = false;
     g_hist_last_save_ms = now_ms;
     g_hist_save_count++;
     g_hist_last_save_forced = force;
-#if defined(DEV)
+#if defined(ALTRUIST_BUILD_DEBUG)
     const uint32_t saved_hour_key = currentLocalHourKey((time_t)now_ts);
     char saved_hour_buf[24];
     formatHourKey(saved_hour_buf, sizeof(saved_hour_buf), saved_hour_key);
@@ -289,7 +289,7 @@ static void formatHourKey(char *out, size_t out_sz, uint32_t hour_key) {
     snprintf(out, out_sz, "%04d-%02u-%02u %02u:00", y, m, d, hour);
 }
 
-#if defined(USE_SD_CARD) && defined(DEV)
+#if defined(USE_SD_CARD) && defined(ALTRUIST_BUILD_DEBUG)
 static bool ensureAnalyticsDevSdDir() {
     if (!sdCardLock(1500)) return false;
     bool ok = true;
@@ -557,6 +557,14 @@ static int metricScoreRangeBest(float value, float best_low, float best_high, fl
 
 } // namespace
 
+static String g_analytics_qr_url;
+static unsigned char *g_analytics_qr_bmp = nullptr;
+static int g_analytics_qr_w = 0;
+static int g_analytics_qr_h = 0;
+
+static constexpr char ANALYTICS_SLEEP_BLOG_URL[] =
+    "https://sensors.social/blog/insight-sleeping-analytics";
+
 bool analyticsHistoryPersistenceEnabled() {
     return true;
 }
@@ -780,7 +788,7 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
             g_hist_last_day_key = day_key;
             const bool hour_persist_due = shouldPersistForCurrentHour(now, hour_key);
             saveRollingHistoryIfNeeded(day_changed || hour_persist_due);
-#if defined(DEV)
+#if defined(ALTRUIST_BUILD_DEBUG)
             if (g_dev_last_ingest_hour_key != hour_key) {
                 char ingest_hour_buf[24];
                 formatHourKey(ingest_hour_buf, sizeof(ingest_hour_buf), hour_key);
@@ -797,8 +805,17 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
     }
 }
 
+void analyticsClearUrbanNightHistory() {
+    loadRollingHistoryIfNeeded();
+    memset(&g_pm25_hour_hist, 0, sizeof(g_pm25_hour_hist));
+    memset(&g_noise_hour_hist, 0, sizeof(g_noise_hour_hist));
+    g_hist_dirty = true;
+    saveRollingHistoryIfNeeded(true);
+    debug_outln_info(F("[ANALYTICS] Cleared Urban PM/noise night history"));
+}
+
 void analyticsDevLogStatus15m() {
-#if defined(DEV)
+#if defined(ALTRUIST_BUILD_DEBUG)
     const uint32_t now_ms = millis();
     if ((now_ms - g_dev_last_status_log_ms) < (15UL * 60UL * 1000UL)) return;
     g_dev_last_status_log_ms = now_ms;
@@ -1231,17 +1248,19 @@ static void drawTiltedBarTrack(int cx, int cy,
     }
 }
 
-static void drawSensorMapQrSmall(int x, int y, const String &sensor_addr) {
-    QRCode qr;
-    char qr_data[128];
-    if (sensor_addr.length() > 0) {
-        snprintf(qr_data, sizeof(qr_data), "sensors.social/?sensor=%s", sensor_addr.c_str());
-    } else {
-        snprintf(qr_data, sizeof(qr_data), "https://sensors.social/");
+static void drawAnalyticsBlogQrSmall(int x, int y) {
+    const char *qr_url = ANALYTICS_SLEEP_BLOG_URL;
+
+    if (g_analytics_qr_bmp != nullptr && g_analytics_qr_url == qr_url &&
+        g_analytics_qr_w > 0 && g_analytics_qr_h > 0) {
+        Paint_DrawImage(g_analytics_qr_bmp, x, y, g_analytics_qr_w, g_analytics_qr_h);
+        return;
     }
+
+    QRCode qr;
     const uint8_t qr_version = 8;
     uint8_t qrcodeData[qrcode_getBufferSize(qr_version)];
-    qrcode_initText(&qr, qrcodeData, qr_version, ECC_LOW, qr_data);
+    qrcode_initText(&qr, qrcodeData, qr_version, ECC_LOW, qr_url);
 
     const int scale = 1;
     const int quiet = 2;
@@ -1268,13 +1287,19 @@ static void drawSensorMapQrSmall(int x, int y, const String &sensor_addr) {
             }
         }
     }
-    Paint_DrawImage(bmp, x, y, total_w, total_h);
-    free(bmp);
+
+    if (g_analytics_qr_bmp != nullptr) {
+        free(g_analytics_qr_bmp);
+    }
+    g_analytics_qr_bmp = bmp;
+    g_analytics_qr_url = qr_url;
+    g_analytics_qr_w = total_w;
+    g_analytics_qr_h = total_h;
+    Paint_DrawImage(g_analytics_qr_bmp, x, y, g_analytics_qr_w, g_analytics_qr_h);
 }
 
 static void drawNightSinglePage(int content_left, int content_top, int content_width,
-                                const analytics_screen_values_t &values, const String &sensor_map_address) {
-    (void)values;
+                                const analytics_screen_values_t &values) {
     float co2 = 0.0f, pm25 = 0.0f, noise = 0.0f, temp = 0.0f, hum = 0.0f;
     bool has_co2 = false, has_pm25 = false, has_noise = false, has_temp = false, has_hum = false;
 
@@ -1338,7 +1363,8 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         const bool c_has = use_prev ? co2_has_prev[h] : co2_has_day[h];
         const bool p_has =
             sleep_include_pm25 && (use_prev ? pm25_has_prev[h] : pm25_has_day[h]);
-        const bool n_has = use_prev ? noise_has_prev[h] : noise_has_day[h];
+        const bool n_has =
+            sleep_use_urban_pm_noise && (use_prev ? noise_has_prev[h] : noise_has_day[h]);
         const bool t_has = use_prev ? temp_has_prev[h] : temp_has_day[h];
         const bool hum_has = use_prev ? hum_has_prev[h] : hum_has_day[h];
         if (c_has || p_has || n_has || t_has || hum_has) hours_with_any_data++;
@@ -1359,6 +1385,19 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     if (has_noise) noise = noise_sum / (float)noise_count;
     if (has_temp) temp = temp_sum / (float)temp_count;
     if (has_hum) hum = hum_sum / (float)hum_count;
+
+    // Until enough Urban night buckets exist, show live outdoor PM/noise when enabled.
+    if (sleep_use_urban_pm_noise) {
+        if (!has_pm25 && values.pm25.has_current) {
+            has_pm25 = true;
+            pm25 = values.pm25.current;
+        }
+        if (!has_noise && values.noise_avg.has_current) {
+            has_noise = true;
+            noise = values.noise_avg.current;
+        }
+    }
+
     const uint16_t min_hours_for_score = (n_hours >= 3) ? (uint16_t)((n_hours * 2U + 2U) / 3U) : n_hours;
     const bool enough_night_data = (hours_with_any_data >= min_hours_for_score);
     if (!enough_night_data) {
@@ -1418,8 +1457,8 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     const int bio_score = clampScore((int)lroundf(100.0f + total_bio_impact * 2.0f));
     const int circle_score = cons_score;
 
-    // QR shortcut in the left column.
-    drawSensorMapQrSmall(left_panel_x + 4, content_top + 4, sensor_map_address);
+    // QR → Sleep Analytics guide on sensors.social
+    drawAnalyticsBlogQrSmall(left_panel_x + 4, content_top + 4);
 
     // Draw main score ring with solid black fill (faster redraw).
     // ================= MAIN SCORE RING =================
@@ -1692,7 +1731,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
 }
 
-void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values, const String &sensor_map_address) {
+void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values) {
     (void)BlackImage;
     Paint_Clear(WHITE);
 
@@ -1734,7 +1773,7 @@ void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &value
     const int content_width = content_right - content_left;
     const int content_top = header_bottom_border_y + 12;
 
-    drawNightSinglePage(content_left, content_top, content_width, values, sensor_map_address);
+    drawNightSinglePage(content_left, content_top, content_width, values);
     return;
 
 }

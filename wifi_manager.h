@@ -35,11 +35,26 @@ void wifiCaptivePortalRestartAfterSuccess(void);
 /** Leave captive portal loop after successful POST (before restart). */
 void wifiRequestPortalExit(void);
 
+#if defined(ALTRUIST_INSIGHT)
+/** Insight guest WiFi OK but setup step 2 (Continue) not done yet — server-side auto-finish deadline. */
+void insightGuestMarkFinishPending(void);
+void insightGuestClearFinishPending(void);
+/** Call from captive portal loop; applies standalone + restart when deadline elapses. */
+void insightGuestProcessPendingFinish(void);
+#endif
+
 /**
  * Save config, turn off setup AP, restart immediately (must be called from captive portal POST).
  * Does not return on success.
  */
 bool wifiFinishCaptivePortalSaveAndRestart(void);
+
+/**
+ * Apply Wi-Fi credentials received via Improv Serial.
+ * Copies SSID/password to config, saves to SPIFFS, and attempts connection.
+ * Returns true if STA successfully connected with the new credentials.
+ */
+bool wifiApplyImprovCredentials(const String& ssid, const String& password);
 
 #if defined(ESP32)
 /** Register WiFi event hooks (STA disconnect → fast reconnect kick). Call once after WiFi.persistent(). */

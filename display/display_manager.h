@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef DISPLAY_MANAGER_H
 #define DISPLAY_MANAGER_H
@@ -39,6 +39,8 @@ public:
     void process(button_pressed_t &btn_press);
     void setScreen(ScreenPage pageID);
     void setRobonomicsAddress(const char *address) { robonomics_address = String(address);};
+    /** Request a full e-paper refresh on the next display cycle. */
+    void requestEpdFullRefresh();
     /** Forget SPIFFS + RAM Urban SS58 used for MAIN/SENSOR_MAP QR. */
     void clearUrbanCache();
 private:

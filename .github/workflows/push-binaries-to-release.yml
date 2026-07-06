@@ -1,36 +1,47 @@
-# Airrohr Firmware CI workflow
-
 name: Upload Binaries to Release
+
 on:
   release:
     types: [created]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
       - name: Install PlatformIO
         run: pip install platformio
 
-      - name: Build firmware
+      - name: Build Stable release firmware
+        env:
+          ALTRUIST_CHANNEL_TESTING: '0'
+          ALTRUIST_HEALTH_TELEMETRY: '1'
+          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # Build only release binaries (no *_dev)
           pio run -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru -e esp32c3_urban_en -e esp32c3_urban_ru
 
-      - name: Upload binaries from build folder
-        uses: softprops/action-gh-release@v1
+      - name: Upload Stable binaries to release
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: builds/*
+          fail_on_unmatched_files: true
+          files: |
+            builds/latest32c3_en.bin*
+            builds/latest32c3_ru.bin*
+            builds/latest32c6urb_en.bin*
+            builds/latest32c6urb_ru.bin*
+            builds/latest32c6ins_en.bin*
+            builds/latest32c6ins_ru.bin*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

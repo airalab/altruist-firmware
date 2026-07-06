@@ -1,5 +1,6 @@
 #include "wifi_manager.h"
 #include "config_manager/config_helpers.h"
+#include "improv/improv_serial.h"
 #include "utils.h"
 #include <WiFi.h>
 #if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
@@ -10,7 +11,7 @@
 #include "utils.h"
 #include "config_manager/config_helpers.h"
 #include "wifi_info.h"
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #include "display/display_manager.h"
 #include "buttons/button_manager.h"
 extern DisplayManager displayManager;
@@ -349,7 +350,7 @@ void wifiConfig(SensorWebServer &webserver) {
 
 	webserver.setup();
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	// Full e-ink refresh is slow; defer until AP + DNS + webserver are ready so phones can associate sooner (closer to Urban).
 	displayManager.setScreen(ScreenPage::SETUP);
 	displayManager.process(btn_press);
@@ -361,7 +362,9 @@ void wifiConfig(SensorWebServer &webserver) {
 	while (true) {
 		dnsServer.processNextRequest();
 		webserver.handleClient();
-#ifdef ALTRUIST_INSIDE
+		improv_serial_loop();
+#ifdef ALTRUIST_INSIGHT
+		insightGuestProcessPendingFinish();
 		// Process display manager to handle button presses (e.g., sleep mode) even during WiFi config
 		displayManager.process(btn_press);
 #endif
@@ -412,6 +415,7 @@ void wifiConfig(SensorWebServer &webserver) {
 static void waitForWifiToConnect(unsigned maxDelays, unsigned long interval_ms) {
 	unsigned delays_done = 0;
 	for (;;) {
+		improv_serial_loop();
 		if (wifiStaLinkReady()) {
 			return;
 		}
@@ -492,7 +496,7 @@ bool connectWifi(SensorWebServer &webserver, bool station_join_already_started) 
 
 	// Bounded wait on boot; if STA fails and credentials are saved, setup() skips AP and relies on runtime reconnect.
 	// 200 ms * N ≈ previous 500 ms * (N/2.5); first loop iteration checks immediately in waitForWifiToConnect.
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 	// Insight: ~10 s cap (50 * 200 ms), same order of magnitude as old 20 * 500 ms; worker reconnect handles slow DHCP.
 	waitForWifiToConnect(50, 200);
 #else
@@ -513,5 +517,39 @@ bool connectWifi(SensorWebServer &webserver, bool station_join_already_started) 
 	}
 #endif
 	return true;
+}
+
+bool wifiApplyImprovCredentials(const String& ssid, const String& password) {
+	if (ssid.length() == 0 || ssid.length() >= LEN_WLANSSID) {
+		return false;
+	}
+	if (password.length() >= LEN_CFG_PASSWORD) {
+		return false;
+	}
+	ssid.toCharArray(cfg::wlanssid, LEN_WLANSSID);
+	password.toCharArray(cfg::wlanpwd, LEN_CFG_PASSWORD);
+	cfg::wlannopwd = (password.length() == 0);
+	writeConfig();
+
+	debug_outln_info(F("[IMPROV] Connecting to SSID: "), ssid);
+
+	WiFi.disconnect(true, false);
+	delay(150);
+	WiFi.mode(WIFI_STA);
+	WiFi.setSleep(false);
+	if (cfg::wlannopwd) {
+		WiFi.begin(cfg::wlanssid);
+	} else {
+		WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+	}
+
+	waitForWifiToConnect(75, 200);
+	bool connected = wifiStaLinkReady();
+	if (connected) {
+		debug_outln_info(F("[IMPROV] Connected, IP: "), WiFi.localIP().toString());
+	} else {
+		debug_outln_error(F("[IMPROV] Failed to connect"));
+	}
+	return connected;
 }
 

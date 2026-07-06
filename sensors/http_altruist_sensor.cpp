@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "http_altruist_sensor.h"
 #include "../utils.h"
@@ -10,6 +10,7 @@
 #include <ESPmDNS.h>
 
 #define HTTP_ALTRUIST_SENSOR_MIN_TIMEOUT 300000UL  // 5 minutes
+static const unsigned long HTTP_ALTRUIST_FAST_POLL_MS = 60000UL; // 1 minute until first OK fetch
 // Maximum discovery attempts when Urban is not initially present.
 // We will try to find Urban up to this many times, spaced 5 minutes apart.
 static const uint8_t URBAN_MAX_DISCOVERY_ATTEMPTS = 3;
@@ -53,9 +54,9 @@ static bool httpUrbanApplyConfiguredAddress(String &chosen_address) {
 HTTPAltruistSensor::HTTPAltruistSensor(unsigned long sending_timeout)
     : Sensor(sending_timeout) {
     if (sending_timeout > HTTP_ALTRUIST_SENSOR_MIN_TIMEOUT) {
-    timeout = sending_timeout;
+        timeout = sending_timeout;
     } else {
-    timeout = HTTP_ALTRUIST_SENSOR_MIN_TIMEOUT;
+        timeout = HTTP_ALTRUIST_FAST_POLL_MS;
     }
     sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
 }
@@ -255,7 +256,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             urbanRoot = data.createNestedObject(ATRUIST_URBAN_SENSOR);
             if (urbanRoot.isNull()) {
                 debug_outln_info(F("HTTPAltruistSensor: FAILED to create altruist_urban (JSON memory issue)"));
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
                 serializeJson(data, Serial);
 #endif
                 http.end();
@@ -381,13 +382,16 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             }
             http2.end();
         }
-        #ifdef DEV
+        #if defined(ALTRUIST_BUILD_DEBUG)
         serializeJson(data, Serial);
         #endif
 
         // Mark successful communication with Urban
         last_success_time    = millis();
         consecutive_failures = 0;
+        if (timeout < HTTP_ALTRUIST_SENSOR_MIN_TIMEOUT) {
+            timeout = HTTP_ALTRUIST_SENSOR_MIN_TIMEOUT;
+        }
         
         // IMPORTANT: Close the HTTP connection to free resources
         http.end();

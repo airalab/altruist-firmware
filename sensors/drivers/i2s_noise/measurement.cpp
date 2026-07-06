@@ -78,7 +78,7 @@ float Measurement::decibel(float v) {
 }
 
 void Measurement::print() {
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
   Serial.printf("count=%d min=%.1f max=%.1f avg=%.1f  =>", n, min, max, avg);
   for (int i = 0; i < OCTAVES; i++)
     Serial.printf(" %.1f", spectrum[i]);

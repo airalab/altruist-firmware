@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include <qrcode.h>
 #include <string.h>
@@ -97,28 +97,9 @@ static void bitmapSetBit(unsigned char* buf, int width, int x, int y) {
 
 void showSensorsMapPage(const String& robonomics_address) {
     uint8_t qrcodeData[qrcode_getBufferSize(12)];
-    char qr_data[300];
-    char lat[32] = "0.0";
-    char lon[32] = "0.0";
-
-    if (robonomics_address.length() == 0) {
-        snprintf(qr_data, sizeof(qr_data), "https://sensors.social/");
-    } else {
-        bool coords_ok = false;
-        if (cfg::coords_gps != nullptr && strlen(cfg::coords_gps) > 0) {
-            sscanf(cfg::coords_gps, "%31[^,],%31s", lat, lon);
-            coords_ok = true;
-        }
-        int zoom = coords_ok ? 18 : 3;
-        char date[11] = "1970-01-01";
-        struct tm timeinfo;
-        if (getLocalTime(&timeinfo)) {
-            strftime(date, sizeof(date), "%Y-%m-%d", &timeinfo);
-        }
-        snprintf(qr_data, sizeof(qr_data), "https://sensors.social/?type=noisemax&date=%s&provider=remote&lat=%s&lng=%s&zoom=%d&sensor=%s",
-                 date, lat, lon, zoom, robonomics_address.c_str());
-    }
-    qrcode_initText(&QRSensorMap, qrcodeData, 12, ECC_LOW, qr_data);
+    const char* sensor_ss58 = (robonomics_address.length() > 0) ? robonomics_address.c_str() : nullptr;
+    const String map_url = buildSensorsSocialMapUrl(sensor_ss58);
+    qrcode_initText(&QRSensorMap, qrcodeData, 12, ECC_LOW, map_url.c_str());
 
     int scale_factor = 1;
     const int quiet_zone = 3;

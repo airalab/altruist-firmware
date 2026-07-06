@@ -29,7 +29,7 @@
 #
 ******************************************************************************/
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef DISPLAY_4IN2
 
 #ifndef _EPD_4IN2_V2_H_

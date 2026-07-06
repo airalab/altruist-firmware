@@ -53,7 +53,7 @@ void I2SNoiseSensor::_fetch(JsonDocument &data) {
         debug_outln_verbose(F("I2S noise: "), String(db_mean));
         debug_outln_verbose(F("I2S noiseMax: "), String(last_value_DBMETER_max));
         debug_outln_verbose(F("I2S noiseAvg: "), String(last_value_DBMETER_mean));
-        #ifdef DEV
+        #if defined(ALTRUIST_BUILD_DEBUG)
         serializeJson(data, Serial);
         Serial.println();
         Serial.println();

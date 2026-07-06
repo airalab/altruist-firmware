@@ -18,7 +18,7 @@
   ******************************************************************************
   */
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "fonts.h"
 

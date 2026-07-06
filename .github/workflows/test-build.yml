@@ -1,33 +1,120 @@
-# Airrohr Firmware CI workflow
+name: Altruist Firmware Build
 
-name: Altruist Firmware Test Build
 on:
   push:
     branches:
-        - '**'
+      - esp32
+      - esp32-dev
+  workflow_dispatch: {}
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  stable-release:
+    if: github.ref_name == 'esp32'
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Install PlatformIO
         run: pip install platformio
 
-      - name: Build firmware
-        run: pio run
+      - name: Build Stable release firmware
+        env:
+          ALTRUIST_CHANNEL_TESTING: '0'
+          ALTRUIST_HEALTH_TELEMETRY: '1'
+          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          pio run \
+            -e esp32c3_urban_en \
+            -e esp32c3_urban_ru \
+            -e esp32c6_urban_en \
+            -e esp32c6_urban_ru \
+            -e esp32c6_inside_en \
+            -e esp32c6_inside_ru
 
-      - name: Upload firmware artifacts
+      - name: Upload Stable firmware artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: altruist-firmware
-          path: builds/latest*.bin*
+          name: altruist-firmware-stable
+          if-no-files-found: error
+          path: |
+            builds/latest32c3_en.bin*
+            builds/latest32c3_ru.bin*
+            builds/latest32c6urb_en.bin*
+            builds/latest32c6urb_ru.bin*
+            builds/latest32c6ins_en.bin*
+            builds/latest32c6ins_ru.bin*
 
+  testing-release:
+    if: github.ref_name == 'esp32-dev'
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build Testing release firmware
+        env:
+          ALTRUIST_CHANNEL_TESTING: '1'
+          ALTRUIST_HEALTH_TELEMETRY: '1'
+          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          pio run \
+            -e esp32c3_urban_en \
+            -e esp32c3_urban_ru \
+            -e esp32c6_urban_en \
+            -e esp32c6_urban_ru \
+            -e esp32c6_inside_en \
+            -e esp32c6_inside_ru
+
+      - name: Upload Testing firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: altruist-firmware-testing
+          if-no-files-found: error
+          path: builds/*_testing.bin*
+
+  debug-compile:
+    if: github.ref_name == 'esp32-dev'
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Compile technical Debug firmware
+        env:
+          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          pio run \
+            -e esp32c3_urban_en_debug \
+            -e esp32c3_urban_ru_debug \
+            -e esp32c6_urban_en_debug \
+            -e esp32c6_urban_ru_debug \
+            -e esp32c6_inside_en_debug \
+            -e esp32c6_inside_ru_debug

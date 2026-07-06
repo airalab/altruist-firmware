@@ -51,22 +51,29 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_SELECT_URBAN_DESC "Choose which Urban device this Insight should read outdoor sensor data from."
 #define INTL_NO_URBANS_FOUND "No Altruist Urban devices found on this network. Make sure your Urban device is powered on and connected to the same WiFi network. You can enter a custom IP address below, then save. You can add or change Urban later in Settings."
 #define INTL_USE_CUSTOM_IP "Use custom IP address:"
-#define INTL_SETUP_INSIGHT_MODE_HINT "If you have an Altruist Urban (outdoor unit), check the box and press Continue to search the network and pick it. Leave the box unchecked to use this Insight on its own — the device will restart right away."
+#define INTL_SETUP_INSIGHT_MODE_HINT "Have an Altruist Urban (outdoor unit)? Check the box below to search the network and link it. Leave unchecked for standalone mode."
 #define INTL_SETUP_PAIR_WITH_URBAN "Set up link to an Altruist Urban now"
 #define INTL_SETUP_CONTINUE "Continue"
 #define INTL_SKIP_URBAN_SELECTION "Skip &mdash; configure later from Settings page"
 #define INTL_SETUP_COMPLETE "Setup Complete"
-#define INTL_SETTINGS_SAVED "Settings Saved!"
+#define INTL_SETTINGS_SAVED "Settings saved"
 #define INTL_DEVICE_RESTARTING "Restarting device..."
-#define INTL_GUEST_CONNECTED "Connected!"
+#define INTL_GUEST_CONNECTED "Connected"
+#define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi connected"
+#define INTL_GUEST_SETUP_STEP_1_LABEL "Step 1 of 2"
+#define INTL_GUEST_SETUP_STEP_2_LABEL "Step 2 of 2"
+#define INTL_GUEST_SETUP_STEP_1_TITLE "Connect to Wi-Fi"
+#define INTL_GUEST_INSIGHT_FINISH_HINT "Press Continue to finish setup and restart the device."
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_HINT "If you close this page, setup will finish automatically in"
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "seconds (standalone mode)."
 #define INTL_GUEST_IP_ADDRESS "IP Address:"
 #define INTL_GUEST_OPEN_IP_HINT "Copy the IP address and open it in your browser."
 #define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart in a few seconds — copy the IP now."
-#define INTL_GUEST_KEEP_OPEN_HINT "Keep this page open and select your Urban device below."
-#define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone!"
+#define INTL_GUEST_KEEP_OPEN_HINT "Do not close this page until you press Continue."
+#define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone"
 #define INTL_DISP_MAP_PROMO_LINE1 "Just go to our web map: AQI, data history,"
 #define INTL_DISP_MAP_PROMO_LINE2 "color-coded charts, easy sharing, and"
-#define INTL_DISP_MAP_PROMO_LINE3 "more features coming soon!"
+#define INTL_DISP_MAP_PROMO_LINE3 "more features coming soon"
 #define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
 #define INTL_SCAN_BTN "Scan"
 #define INTL_SCAN_SCANNING "Scanning..."
@@ -77,6 +84,49 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
+const char INTL_GROUP_MENU[] PROGMEM = "Device group (RWS)";
+const char INTL_GROUP_INTRO[] PROGMEM = "Choose how this device participates in Robonomics Web Services (owner and on-chain device list).";
+const char INTL_GROUP_MODE_TITLE[] PROGMEM = "Operating mode";
+const char INTL_GROUP_MODE_STANDALONE[] PROGMEM = "Standalone — this device is its own master (setDevices with itself only)";
+const char INTL_GROUP_MODE_MASTER[] PROGMEM = "Create group — this device is the group master";
+const char INTL_GROUP_MODE_FOLLOWER[] PROGMEM = "Join group — follow a master device (enter master address below)";
+const char INTL_GROUP_MODE_MANUAL[] PROGMEM = "Manual owner — legacy: set owner only, no automatic setDevices";
+const char INTL_GROUP_SELF_ADDRESS[] PROGMEM = "This device Robonomics address (copy to master when joining)";
+const char INTL_GROUP_MASTER_PANEL[] PROGMEM = "Group master";
+const char INTL_GROUP_FOLLOWER_PANEL[] PROGMEM = "Join group";
+const char INTL_GROUP_MANUAL_PANEL[] PROGMEM = "Manual owner";
+const char INTL_GROUP_ID_LABEL[] PROGMEM = "Group ID";
+const char INTL_GROUP_MASTER_ADDRESS[] PROGMEM = "Master Robonomics address";
+const char INTL_GROUP_MASTER_INCLUDED[] PROGMEM = "Master device (added to setDevices automatically)";
+const char INTL_GROUP_KNOWN_DEVICES[] PROGMEM = "Additional devices — followers (SS58, one per line)";
+const char INTL_GROUP_KNOWN_DEVICES_HINT[] PROGMEM = "Your device address above is always included as master. Add follower SS58 addresses here, then Save.";
+const char INTL_GROUP_FOLLOWER_HINT[] PROGMEM = "Copy your address above to the master device list, enter the master address here, then Save.";
+const char INTL_GROUP_MANUAL_HINT[] PROGMEM = "Datalog uses this owner. setDevices is not called automatically.";
+const char INTL_GROUP_STATUS_GROUP_CREATING[] PROGMEM = "Group created — syncing on-chain";
+const char INTL_GROUP_STATUS_LIST_UPDATED[] PROGMEM = "Device list updated — syncing on-chain";
+const char INTL_GROUP_STATUS_LIST_SYNCED[] PROGMEM = "Device list synced on-chain";
+const char INTL_GROUP_STATUS_LABEL[] PROGMEM = "Status";
+const char INTL_GROUP_STATUS_CREATED[] PROGMEM = "Group created, devices synced";
+const char INTL_GROUP_CURRENT_DEVICES[] PROGMEM = "Current devices list";
+const char INTL_GROUP_STATUS_PENDING[] PROGMEM = "Pending sync";
+const char INTL_GROUP_STATUS_DEVICES_SYNCED[] PROGMEM = "Devices synced on-chain";
+const char INTL_GROUP_STATUS_JOINED[] PROGMEM = "Joined group";
+const char INTL_GROUP_STATUS_MANUAL[] PROGMEM = "Manual owner configured";
+const char INTL_GROUP_SAVE_OK[] PROGMEM = "Group settings saved.";
+const char INTL_GROUP_SAVE_FAILED[] PROGMEM = "Could not save group settings.";
+const char INTL_GROUP_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configuration to storage.";
+const char INTL_GROUP_ERROR_INVALID_MASTER[] PROGMEM = "Enter a valid master Robonomics address.";
+const char INTL_GROUP_ERROR_INVALID_MANUAL_OWNER[] PROGMEM = "Enter a valid owner Robonomics address.";
+const char INTL_SCREEN_MENU[] PROGMEM = "Screen mode";
+const char INTL_SCREEN_INTRO[] PROGMEM = "Choose how the e-paper display is refreshed. Different display batches behave differently with partial updates.";
+const char INTL_SCREEN_MODE_SAFE[] PROGMEM = "Safe";
+const char INTL_SCREEN_MODE_SAFE_HINT[] PROGMEM = "Uses full-screen clean refreshes only. Recommended for all devices. Prevents display artifacts.";
+const char INTL_SCREEN_MODE_EXPERIMENTAL[] PROGMEM = "Experimental partial refresh";
+const char INTL_SCREEN_MODE_EXPERIMENTAL_HINT[] PROGMEM = "Uses faster partial screen updates. May reduce flicker, but can cause ghosting or broken image artifacts on some panels.";
+const char INTL_SCREEN_SAVE_OK[] PROGMEM = "Screen mode saved.";
+const char INTL_SCREEN_SAVE_FAILED[] PROGMEM = "Could not save screen mode.";
+const char INTL_SCREEN_SAVE_INVALID_MODE[] PROGMEM = "Invalid screen mode selected.";
+const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configuration to storage.";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Robonomics Map Host (connectivity)";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Robonomics Map Hosts pool (one per line)";
@@ -142,7 +192,7 @@ const char INTL_PATH[] PROGMEM = "Path";
 const char INTL_PORT[] PROGMEM = "Port";
 const char INTL_USER[] PROGMEM = "User";
 const char INTL_PASSWORD[] PROGMEM = "Password";
-const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Local Hostname (Change it if you have more then one Altruist in the same network!)";
+const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Local Hostname (Change it if you have more then one Altruist in the same network)";
 const char INTL_MEASUREMENT[] PROGMEM = "Measurement";
 const char INTL_SEND_TO[] PROGMEM = "Send to {v}";
 const char INTL_READ_FROM[] PROGMEM = "Read from {v}";
@@ -264,7 +314,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Do not disconnect power"
 #define INTL_DISP_OTA_FAILED "Update failed"
 #define INTL_DISP_OTA_WILL_RETRY "Will retry later"
-#define INTL_DISP_OTA_SUCCESS "Firmware updated!"
+#define INTL_DISP_OTA_SUCCESS "Firmware updated"
 #define INTL_DISP_OTA_RESTARTING "Restarting..."
 #define INTL_DISP_WAITING_URBAN_ID "Waiting for Urban ID..."
 #define INTL_DISP_URBAN_IP "Urban IP:"
@@ -305,6 +355,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_NO_DATA_AVAILABLE "No data available"
 #define INTL_DISP_NOT_ENOUGH_DATA_YET "Not enough data yet"
 #define INTL_DISP_COLLECTING_DATA "Collecting data..."
+#define INTL_DISP_LOADING "Loading..."
 #define INTL_DISP_ANALYTICS_C_LEGEND "C=Conservative"
 #define INTL_DISP_ANALYTICS_B_LEGEND "B=Biohacking"
 #define INTL_DISP_ANALYTICS_GRADE "Grade"
@@ -326,7 +377,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_IS_TOO "is too"
 #define INTL_DISP_CHECK_MAP_FULL_DATA "Check out our sensor map for full data and analytics."
 /** Legacy short shop line (unused in two-row footer; kept for intl parity). */
-#define INTL_STANDALONE_SHOP_PROMPT "Add more measurements to your home!"
+#define INTL_STANDALONE_SHOP_PROMPT "Add more measurements to your home"
 /** Insight standalone: second footer row beside shop QR (Font8, wraps). */
 #define INTL_STANDALONE_INSIGHT_FOOTER_PROMPT \
     "Add noise, air dust and outdoor atmospheric measurements to your Insight."

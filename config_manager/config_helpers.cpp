@@ -1,10 +1,29 @@
 #include "config_helpers.h"
 #include "utils.h"
+#include "../apis/rws_group.h"
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
+#include <strings.h>
+#include <time.h>
 
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 #include "../sensors/sensor_names.h"
+#include "../display/screens/analytics.h"
+
+void cfgApplyStandaloneModeEnabled() {
+	if (cfg::analytics_sleep_add_urban) {
+		cfg::analytics_sleep_add_urban = false;
+		debug_outln_info(F("Standalone: disabled Urban night analytics"));
+	}
+	analyticsClearUrbanNightHistory();
+}
+
+void cfgOnStandaloneModeDisabled() {
+	if (!cfg::analytics_sleep_add_urban) {
+		cfg::analytics_sleep_add_urban = true;
+		debug_outln_info(F("Paired mode: enabled Urban night analytics"));
+	}
+}
 
 void clearUrbanPairingTelemetry(JsonDocument &data) {
 	if (SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
@@ -131,6 +150,11 @@ bool config_set_string_by_key(const char* key, const char* value) {
  *****************************************************************/
 
 bool writeConfig() {
+#if defined(ALTRUIST_INSIGHT)
+	if (cfg::standalone) {
+		cfg::analytics_sleep_add_urban = false;
+	}
+#endif
 	DynamicJsonDocument json(JSON_BUFFER_SIZE);
 	debug_outln_info(F("Saving config..."));
 	json["SOFTWARE_VERSION"] = SOFTWARE_VERSION_STR;
@@ -192,6 +216,58 @@ static bool boolFromJSON(const DynamicJsonDocument& json, const __FlashStringHel
 	return json[key].as<bool>();
 }
 
+/** OTA-safe: rewrite auto-generated legacy fs_ssid values; keep user-chosen names. */
+static bool cfgMigrateLegacyFsSsid() {
+	const String chip_id = get_chipid();
+	if (chip_id.length() == 0) {
+		return false;
+	}
+
+	char target[LEN_FS_SSID];
+	snprintf(target, sizeof(target), "Altruist-%s-%s", DEVICE_MODEL, chip_id.c_str());
+	if (strcmp(cfg::fs_ssid, target) == 0) {
+		return false;
+	}
+
+	auto is_hex12 = [](const char* s) -> bool {
+		if (strlen(s) != 12) {
+			return false;
+		}
+		for (size_t i = 0; s[i] != '\0'; i++) {
+			const char c = s[i];
+			if (!((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'))) {
+				return false;
+			}
+		}
+		return true;
+	};
+
+	bool migrate = false;
+	if (cfg::fs_ssid[0] == '\0') {
+		migrate = true;
+	} else if (strncasecmp(cfg::fs_ssid, "esp32-", 6) == 0 ||
+	           strncasecmp(cfg::fs_ssid, "esp8266-", 8) == 0 ||
+	           strncasecmp(cfg::fs_ssid, "robonomics-", 11) == 0) {
+		migrate = true;
+	} else if (strncmp(cfg::fs_ssid, "Altruist-", 9) == 0) {
+		const char* suffix = cfg::fs_ssid + 9;
+		// Legacy auto name: Altruist-<12 hex MAC>, not Altruist-insight/urban-...
+		if (is_hex12(suffix)) {
+			migrate = true;
+		}
+	}
+
+	if (!migrate) {
+		return false;
+	}
+
+	debug_outln_info(F("[Config] Migrating fs_ssid from: "), String(cfg::fs_ssid));
+	strncpy(cfg::fs_ssid, target, LEN_FS_SSID - 1);
+	cfg::fs_ssid[LEN_FS_SSID - 1] = '\0';
+	debug_outln_info(F("[Config] Migrated fs_ssid to: "), String(cfg::fs_ssid));
+	return true;
+}
+
 void readConfig(bool oldconfig) {
 	bool rewriteConfig = false;
 
@@ -216,7 +292,7 @@ void readConfig(bool oldconfig) {
 	DynamicJsonDocument json(JSON_BUFFER_SIZE);
 	DeserializationError err = deserializeJson(json, configFile.readString());
 	configFile.close();
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
 	{
 		String saved_private_key;
 		if (json.containsKey("private_key")) {
@@ -271,6 +347,18 @@ void readConfig(bool oldconfig) {
 			cfg::send2influx = false;
 			rewriteConfig = true;
 		}
+		if (rwsMigrateLegacyOwnerAtConfigLoad(!json["rws_group_mode"].isNull())) {
+			rewriteConfig = true;
+		}
+		if (cfgMigrateLegacyFsSsid()) {
+			rewriteConfig = true;
+		}
+#if defined(ALTRUIST_INSIGHT)
+		if (cfg::standalone && cfg::analytics_sleep_add_urban) {
+			cfgApplyStandaloneModeEnabled();
+			rewriteConfig = true;
+		}
+#endif
 	} else {
 		debug_outln_error(F("failed to load json config"));
 
@@ -304,4 +392,42 @@ void init_config() {
 		return;
 	}
 	readConfig();
+}
+
+String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type) {
+	if (!map_type || map_type[0] == '\0') {
+		map_type = "pm10";
+	}
+	if (!sensor_ss58 || sensor_ss58[0] == '\0' || strcasecmp(sensor_ss58, "Not Set") == 0) {
+		return String(F("https://sensors.social/"));
+	}
+
+	char lat[32] = "0.0";
+	char lon[32] = "0.0";
+	bool coords_ok = false;
+	if (strlen(cfg::coords_gps) > 0) {
+		if (sscanf(cfg::coords_gps, "%31[^,],%31s", lat, lon) == 2) {
+			const double la = atof(lat);
+			const double lo = atof(lon);
+			coords_ok = !(la == 0.0 && lo == 0.0);
+		}
+	}
+	const int zoom = coords_ok ? 18 : 3;
+
+	char date[11] = "1970-01-01";
+	struct tm timeinfo;
+	if (getLocalTime(&timeinfo)) {
+		strftime(date, sizeof(date), "%Y-%m-%d", &timeinfo);
+	}
+
+	const char* owner = sensor_ss58;
+	if (cfg::rws_owner[0] != '\0' && strcasecmp(cfg::rws_owner, "Not Set") != 0) {
+		owner = cfg::rws_owner;
+	}
+
+	char buf[512];
+	snprintf(buf, sizeof(buf),
+		"https://sensors.social/?type=%s&date=%s&provider=remote&lat=%s&lng=%s&zoom=%d&owner=%s&sensor=%s",
+		map_type, date, lat, lon, zoom, owner, sensor_ss58);
+	return String(buf);
 }

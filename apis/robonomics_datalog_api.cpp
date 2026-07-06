@@ -20,6 +20,11 @@ void RobonomicsDatalogAPI::setup() {
 }
 
 void RobonomicsDatalogAPI::_send(JsonDocument &data) {
+    rws_owner = String(cfg::rws_owner);
+    rws_owner.trim();
+    if (rws_owner.length() == 0 || rws_owner.equalsIgnoreCase(F("not set"))) {
+        rws_owner = String(robonomics->getSs58Address());
+    }
     String datalog_data;
     formatRobonomicsString(data, datalog_data);
     if (datalog_data.length() == 0) {

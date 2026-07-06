@@ -12,6 +12,13 @@ Password		fs_pwd
 Bool		www_basicauth_enabled
 String		rws_owner
 String      robonomics_public_node
+String		robonomics_connectivity_host
+String		robonomics_connectivity_hosts
+Bool		rws_auto_register
+UInt		rws_group_mode
+String		rws_group_id
+String		rws_devices_extra
+String		rws_devices_registered_hash
 String		private_key
 String		coords_gps
 Bool		send2robonomics
@@ -56,6 +63,7 @@ UInt        analytics_night_end_hour
 String      custom_altruist_urban
 Bool		use_custom_urban
 Bool		standalone
+UInt		epd_refresh_mode
 Bool		analytics_sleep_add_urban
 Bool		share_temperature
 Bool		share_humidity

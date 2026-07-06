@@ -43,7 +43,7 @@ bool SCD4x::begin(bool measBegin, bool autoCalibrate, bool skipStopPeriodicMeasu
     char serialNumber[13];
     success &= getSerialNumber(serialNumber);
 
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.print(F("Begin SCD4x serial number: "));
     Serial.println(serialNumber);
 #endif

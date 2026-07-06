@@ -160,7 +160,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     addValueToJSON(data, F("pressure"),    last_pressure_value,    INTL_PRESSURE,    F("Pa"));
     addValueToJSON(data, F("humidity"),    last_humidity_value,    INTL_HUMIDITY,    F("%"));
 
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
     serializeJson(data, Serial);
 #endif
 

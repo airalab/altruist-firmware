@@ -14,6 +14,13 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 	debug_outln_info(F("begin webserver_config_body_get ..."));
 	page_content += F("<form class='guest-form' method='POST' action='/guest' style='width:100%;'>\n");
 
+#ifdef ALTRUIST_INSIGHT
+	page_content += F("<div class='guest__setup-header'>"
+		"<span class='guest__step-label'>" INTL_GUEST_SETUP_STEP_1_LABEL "</span>"
+		"<h2 class='guest__step-title'>" INTL_GUEST_SETUP_STEP_1_TITLE "</h2>"
+		"</div>");
+#endif
+
 	if (wificonfig_loop) {  // scan for wlan ssids
 		page_content += F("<div id='wifilist'>" INTL_WIFI_NETWORKS "</div><br/>");
 	}
@@ -65,7 +72,7 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 	page_content += form_checkbox(Config_share_temperature, FPSTR(INTL_SHARE_TEMPERATURE), false);
 	page_content += form_checkbox(Config_share_humidity, FPSTR(INTL_SHARE_HUMIDITY), false);
 	page_content += form_checkbox(Config_share_pressure, FPSTR(INTL_SHARE_PRESSURE), false);
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	page_content += form_checkbox(Config_share_co2, FPSTR(INTL_SHARE_CO2), false);
 #endif
 #ifdef ALTRUIST_URBAN

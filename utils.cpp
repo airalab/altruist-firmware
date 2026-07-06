@@ -98,7 +98,7 @@ const char* get_reset_reason_text() {
         case ESP_RST_EXT:       cached = "External reset"; break;
         case ESP_RST_SW:        cached = "Software reset"; break;
         case ESP_RST_PANIC:
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
             cached = "Panic (unhandled exception)";
 #else
             cached = "Unexpected restart (recovered)";
@@ -228,7 +228,11 @@ String LoggingSerial::popLines()
 	return r;
 }
 
-#define debug_level_check(level) { if (level > cfg::debug) return; }
+unsigned int effectiveRuntimeLogLevel() {
+	return max(static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL), cfg::debug);
+}
+
+#define debug_level_check(level) { if (level > effectiveRuntimeLogLevel()) return; }
 
 void debug_out(const String& text, unsigned int level) {
 	debug_level_check(level); Debug.print(text); Serial.print(text);
@@ -455,99 +459,41 @@ void incrementTXCounter() {
 	system_metrics.last_telemetry_timestamp = time(nullptr);
 }
 
-// Log metrics to UART in the specified format
+// Log a stable, machine-readable health snapshot to UART.
 void logMetrics() {
-#ifdef DEV
+#if defined(ALTRUIST_HEALTH_TELEMETRY)
 	updateMetrics();
-	
-	const char* status = system_metrics.has_error ? "ERROR" : "ALIVE";
-	const char* status_symbol = system_metrics.has_error ? "✗" : "✓";
-	
-	const char* wifi_state = "DISCONNECTED";
-	const char* wifi_symbol = "✗";
-	int rssi = 0;
-	if (WiFi.status() == WL_CONNECTED) {
-		wifi_state = "OK";
-		wifi_symbol = "✓";
-		rssi = WiFi.RSSI();
-	}
-	
-	unsigned long hours = system_metrics.uptime_sec / 3600;
-	unsigned long minutes = (system_metrics.uptime_sec % 3600) / 60;
-	unsigned long seconds = system_metrics.uptime_sec % 60;
-	
-	#if defined(ALTRUIST_INSIDE)
-	Serial.print(F("\r\n=== [INSIGHT] METRICS ===\r\n"));
-	#elif defined(ALTRUIST_URBAN)
-	Serial.print(F("\r\n=== [URBAN] METRICS ===\r\n"));
-	#endif
-	
-	Serial.print(F("Status: "));
-	Serial.print(status_symbol);
-	Serial.print(F(" "));
-	Serial.print(status);
-	if (system_metrics.has_error) {
-		Serial.print(F(" ("));
-		if (system_metrics.err_wifi_reconnects > 0) Serial.print(F("WiFi "));
-		if (system_metrics.err_sensor > 0) Serial.print(F("Sensor "));
-		if (system_metrics.err_sd_write > 0) Serial.print(F("SD "));
-		Serial.print(F(")"));
-	}
-	Serial.print(F("\r\n"));
-	
-	Serial.print(F("Uptime: "));
-	if (hours > 0) {
-		Serial.print(hours);
-		Serial.print(F("h "));
-	}
-	if (minutes > 0 || hours > 0) {
-		Serial.print(minutes);
-		Serial.print(F("m "));
-	}
-	Serial.print(seconds);
-	Serial.print(F("s ("));
+	const bool wifi_connected = WiFi.status() == WL_CONNECTED;
+	const int rssi = wifi_connected ? WiFi.RSSI() : 0;
+	const unsigned long error_count =
+		system_metrics.err_wifi_reconnects +
+		system_metrics.err_sensor +
+		system_metrics.err_sd_write;
+#if defined(ESP32)
+	const uint32_t free_heap = ESP.getFreeHeap();
+#else
+	const uint32_t free_heap = 0;
+#endif
+
+	Serial.print(F("[HEALTH] uptime="));
 	Serial.print(system_metrics.uptime_sec);
-	Serial.print(F("s total)\r\n"));
-	
-	Serial.print(F("Boot: "));
+	Serial.print(F(" boot="));
 	Serial.print(system_metrics.boot_counter);
-	Serial.print(F("\r\n"));
-	
-	Serial.print(F("WiFi: "));
-	Serial.print(wifi_symbol);
-	Serial.print(F(" "));
-	Serial.print(wifi_state);
-	if (rssi != 0) {
-		Serial.print(F(" (RSSI: "));
-		Serial.print(rssi);
-		Serial.print(F(" dBm)"));
-	}
-	Serial.print(F("\r\n"));
-	
-	Serial.print(F("TX: "));
+	Serial.print(F(" heap="));
+	Serial.print(free_heap);
+	Serial.print(F(" rssi="));
+	Serial.print(rssi);
+	Serial.print(F(" tx="));
 	Serial.print(system_metrics.tx_counter);
-	if (system_metrics.last_telemetry_timestamp > 0) {
-		time_t now = time(nullptr);
-		unsigned long sec_since_tx = (now > system_metrics.last_telemetry_timestamp) ? 
-		                            (now - system_metrics.last_telemetry_timestamp) : 0;
-		Serial.print(F(" (last: "));
-		Serial.print(sec_since_tx);
-		Serial.print(F("s ago)"));
-	}
-	Serial.print(F("\r\n"));
-	
-	Serial.print(F("Errors: WiFi="));
+	Serial.print(F(" errors="));
+	Serial.print(error_count);
+	Serial.print(F(" wifi="));
+	Serial.print(wifi_connected ? 1 : 0);
+	Serial.print(F(" wifi_errors="));
 	Serial.print(system_metrics.err_wifi_reconnects);
-	Serial.print(F(" Sensor="));
+	Serial.print(F(" sensor_errors="));
 	Serial.print(system_metrics.err_sensor);
-	Serial.print(F(" SD="));
-	Serial.print(system_metrics.err_sd_write);
-	Serial.print(F("\r\n"));
-	
-	Serial.print(F("ESP Temp: "));
-	Serial.print(system_metrics.esp_temperature, 1);
-	Serial.print(F("°C\r\n"));
-	
-	Serial.print(F("==========================\r\n"));
+	Serial.print(F(" sd_errors="));
+	Serial.println(system_metrics.err_sd_write);
 #endif
 }

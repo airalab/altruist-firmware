@@ -76,7 +76,7 @@
 *
 ******************************************************************************/
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "GUI_Paint.h"
 #include "../driver/DEV_Config.h"

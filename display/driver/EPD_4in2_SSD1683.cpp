@@ -28,10 +28,11 @@
 # THE SOFTWARE.
 #
 ******************************************************************************/
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef DISPLAY_4IN2
 
 #include "EPD_4in2_SSD1683.h"
+#include "../../defines.h"
 
 const unsigned char LUT_ALL[233]= {  
 // БЛОК 0 — VS0    
@@ -144,7 +145,7 @@ returns  :  true if display is ready, false if timed out
 ******************************************************************************/
 bool EPD_4IN2_V2_ReadBusy(void)
 {
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.println(F("[EPD] busy..."));
     Serial.flush();
 #endif
@@ -163,7 +164,7 @@ bool EPD_4IN2_V2_ReadBusy(void)
             return false; // Timed out - display stuck
         }
         
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
         // Log progress every 5 seconds so we know it's still waiting
         if (now - last_log > 5000) {
             Serial.print(F("[EPD] still busy... "));
@@ -174,11 +175,11 @@ bool EPD_4IN2_V2_ReadBusy(void)
         }
 #endif
         
-        yield(); // Let FreeRTOS run other tasks (WiFi, buttons, LEDs)
+        firmwareBlockingYieldHook(); // HTTP + other tasks while panel is busy
         DEV_Delay_ms(10);
     }
     
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.println(F("[EPD] busy release"));
     Serial.flush();
 #endif
@@ -428,14 +429,13 @@ bool EPD_4IN2_V2_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-bool EPD_4IN2_V2_Display(UBYTE *Image)
+static void EPD_4IN2_V2_SendFramebuffer(UBYTE *Image, UWORD Width, UWORD Height)
 {
-    UWORD Width, Height;
-    Width = (EPD_4IN2_V2_WIDTH % 8 == 0)? (EPD_4IN2_V2_WIDTH / 8 ): (EPD_4IN2_V2_WIDTH / 8 + 1);
-    Height = EPD_4IN2_V2_HEIGHT;
-
     EPD_4IN2_V2_SendCommand(0x24);
     for (UWORD j = 0; j < Height; j++) {
+        if ((j & 31) == 0) {
+            firmwareBlockingYieldHook();
+        }
         for (UWORD i = 0; i < Width; i++) {
             EPD_4IN2_V2_SendData(Image[i + j * Width]);
         }
@@ -443,10 +443,22 @@ bool EPD_4IN2_V2_Display(UBYTE *Image)
 
     EPD_4IN2_V2_SendCommand(0x26);
     for (UWORD j = 0; j < Height; j++) {
+        if ((j & 31) == 0) {
+            firmwareBlockingYieldHook();
+        }
         for (UWORD i = 0; i < Width; i++) {
             EPD_4IN2_V2_SendData(Image[i + j * Width]);
         }
     }
+}
+
+bool EPD_4IN2_V2_Display(UBYTE *Image)
+{
+    UWORD Width, Height;
+    Width = (EPD_4IN2_V2_WIDTH % 8 == 0)? (EPD_4IN2_V2_WIDTH / 8 ): (EPD_4IN2_V2_WIDTH / 8 + 1);
+    Height = EPD_4IN2_V2_HEIGHT;
+
+    EPD_4IN2_V2_SendFramebuffer(Image, Width, Height);
     return EPD_4IN2_V2_TurnOnDisplay();
 }
 
@@ -460,19 +472,7 @@ bool EPD_4IN2_V2_Display_Fast(UBYTE *Image)
     Width = (EPD_4IN2_V2_WIDTH % 8 == 0)? (EPD_4IN2_V2_WIDTH / 8 ): (EPD_4IN2_V2_WIDTH / 8 + 1);
     Height = EPD_4IN2_V2_HEIGHT;
 
-    EPD_4IN2_V2_SendCommand(0x24);
-    for (UWORD j = 0; j < Height; j++) {
-        for (UWORD i = 0; i < Width; i++) {
-            EPD_4IN2_V2_SendData(Image[i + j * Width]);
-        }
-    }
-
-    EPD_4IN2_V2_SendCommand(0x26);
-    for (UWORD j = 0; j < Height; j++) {
-        for (UWORD i = 0; i < Width; i++) {
-            EPD_4IN2_V2_SendData(Image[i + j * Width]);
-        }
-    }
+    EPD_4IN2_V2_SendFramebuffer(Image, Width, Height);
     return EPD_4IN2_V2_TurnOnDisplay_Fast();
 }
 
@@ -631,7 +631,10 @@ bool EPD_4IN2_V2_PartialDisplay(UBYTE *Image, UWORD Xstart, UWORD Ystart, UWORD 
 	
     EPD_4IN2_V2_SendCommand(0x24);
     for (UWORD j = 0; j < IMAGE_COUNTER; j++) {
-            EPD_4IN2_V2_SendData(Image[j]);
+        if ((j & 1023) == 0) {
+            firmwareBlockingYieldHook();
+        }
+        EPD_4IN2_V2_SendData(Image[j]);
     }
 	
 	return EPD_4IN2_V2_TurnOnDisplay_Partial();

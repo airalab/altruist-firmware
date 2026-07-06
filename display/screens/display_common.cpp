@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "display_common.h"
 #include "../paint_driver/GUI_Paint.h"
@@ -8,6 +8,7 @@
 #include "../icons/icons/icons_15x15.h"
 #include "../display_modes.h"
 #include "../../defines.h"
+#include "../../config_manager/config_defaults.h"
 
 static bool epd_initialized = false;
 static DisplayMode epd_current_mode = DisplayMode::FULL; // Track current mode to avoid unnecessary re-init
@@ -18,6 +19,10 @@ static ScreenPage last_screen = ScreenPage::MAIN; // Track last screen to detect
 static unsigned int period_position_per_screen[9] = {0}; // Max 9 screens, all initialized to 0
 // Global counter for non-MAIN screen switches (shared across all non-MAIN screens)
 static unsigned int non_main_screen_switch_counter = 0;
+
+bool epdPartialRefreshEnabled() {
+	return cfg::epd_refresh_mode == EPD_REFRESH_EXPERIMENTAL_PARTIAL;
+}
 
 // Helper: Get safe screen index
 static unsigned int getScreenIndex(ScreenPage screen) {
@@ -164,8 +169,11 @@ void showImageFast(UBYTE *&BlackImage, ScreenPage currentScreen) {
     if (do_full_refresh) {
         epdDisplay(DisplayMode::FULL, BlackImage);
         resetCounterAfterFullRefresh(currentScreen);
-    } else {
+    } else if (epdPartialRefreshEnabled()) {
         epdDisplay(DisplayMode::PARTIAL, BlackImage);
+    } else {
+        epdDisplay(DisplayMode::FULL, BlackImage);
+        resetCounterAfterFullRefresh(currentScreen);
     }
 #endif
 }
@@ -244,7 +252,7 @@ void epdSleep() {
 // a proper mode-specific initialization before any display operation.
 void epdRecoverFromStuck() {
 #ifdef DISPLAY_4IN2
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.println(F("[EPD] Attempting display recovery (hardware reset)..."));
 #endif
     
@@ -258,7 +266,7 @@ void epdRecoverFromStuck() {
         period_position_per_screen[i] = 0;
     }
     
-#ifdef DEV
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.println(F("[EPD] Hardware reset complete, awaiting re-init"));
 #endif
 #endif

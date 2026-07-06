@@ -148,6 +148,7 @@ private:
 
 extern class LoggingSerial Debug;
 
+extern unsigned int effectiveRuntimeLogLevel();
 extern void debug_out(const String& text, unsigned int level);
 extern void debug_out(const __FlashStringHelper* text, unsigned int level);
 extern void debug_outln(const String& text, unsigned int level);

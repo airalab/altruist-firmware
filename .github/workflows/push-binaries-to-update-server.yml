@@ -4,24 +4,27 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Install PlatformIO
         run: pip install platformio
 
-      - name: Build firmware
+      - name: Build Stable release firmware
+        env:
+          ALTRUIST_CHANNEL_TESTING: '0'
+          ALTRUIST_HEALTH_TELEMETRY: '1'
+          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # Upload only release binaries to the update server (no *_dev)
           pio run -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru -e esp32c3_urban_en -e esp32c3_urban_ru
 
       - name: Upload to FTP

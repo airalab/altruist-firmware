@@ -2,6 +2,42 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [R_2026-06.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-06.01) — 2026-06-22
+
+### Features
+
+- **Local Robonomics groups (`/group`)** — New **Device group (RWS)** page in the web menu with four onboarding modes: **Standalone** (`owner = self`, `set_devices([self])`); **Create group** (device is master: generates local `group_id`, sets `owner = self`, stores follower SS58s in `rws_devices_extra`, calls full `set_devices` on Save and whenever the list changes); **Join group** (follower: `owner = master`, no `set_devices` — master adds the follower address manually); **Manual owner** (owner only, no automatic `set_devices`). Config: `rws_group_mode`, `rws_group_id`. Master UI shows group ID, master Robonomics address, and current on-chain device list with sync status. Follower UI shows this device’s address (to copy to the master) and the configured master address. Legacy configs with an external `rws_owner` migrate to Manual instead of being overwritten by Standalone. Urban and Insight builds; Insight can create a group and act as master.
+- **Insight e-paper screen mode (`/screen`)** — New **Screen mode** page (Insight only) to choose how the 4.2″ display is refreshed. **Safe** (default): full-screen clean/fast updates only — no partial refresh (recommended for all panels, OTA-safe). **Experimental partial refresh**: previous partial cadence (MAIN, Analytics, OTA) for panels that tolerate it. Config: `epd_refresh_mode`. Changing mode triggers a full refresh on the next display update.
+
+### Improvements
+
+- **Insight graphs screen (e-paper)** — SD readiness probe is cached (card presence still rechecked). CSV reads for charts use the file tail for the 12 h window and cooperative SD locking (short lock timeout, yield to HTTP). While SD is busy: **Loading…** on screen, exponential backoff between auto-retries (stops after several attempts instead of hammering the card every ~2 s). Graph content area is cleared before redraw to avoid text overlap.
+- **Standalone Insight** — Switching to standalone (guest setup, `/group`, or config load) automatically disables **Urban night analytics** (`analytics_sleep_add_urban`) and clears stored Urban PM₂.₅/noise night history. Leaving standalone re-enables Urban night analytics by default; the **Add Urban data to sleep analytics** checkbox stays visible (disabled in standalone).
+- **Insight paired mode: sleep analytics (PM₂.₅ & noise)** — Urban PM/noise ingestion runs every sensor loop (not only when local sensors update). Night analytics screen shows live Urban PM/noise when night history is not ready yet.
+- **Insight sleep analytics (e-paper)** — QR on the night report screen links to the [Sleep Analytics guide](https://sensors.social/blog/insight-sleeping-analytics) on sensors.social (replacing the per-sensor map link).
+- **Insight Urban QR (main screen)** — SPIFFS SS58 cache is no longer cleared while Urban is still connecting; faster HTTP polling (1 min) until the first successful Urban fetch, then 5 min.
+- **Active sensors map link** — Web UI and Insight sensor-map QR use the updated sensors.social URL (`type`, `date`, `provider`, `lat`/`lng`, `zoom`, `owner`, `sensor`).
+- **Default WiFi device name** — new devices use `Altruist-insight-<MAC>` or `Altruist-urban-<MAC>` (`fs_ssid` / router hostname) instead of `Altruist-<MAC>`. After OTA, legacy auto names (`esp32-*`, `Altruist-<MAC>`, empty `fs_ssid`) migrate on config load; user-chosen names are kept.
+
+- **`/group` save feedback** — Success and error messages shown in the web UI after Save (invalid master/owner address, config write failure).
+
+- **Insight Wi‑Fi captive portal: clearer setup flow** — after home Wi‑Fi connects, the success screen is **step 2 of 2** (step **1 of 2** on the initial credential form) with the step label and title on separate lines. Users are prompted to press **Continue** to finish setup and restart; if they leave the page, setup auto-completes in standalone mode after ~45 s (browser auto-submit plus server-side fallback in the portal loop). Removed trailing **!** from related UI strings (e.g. “Connected”, “Settings saved”).
+- **Build flags separated by responsibility** — Compile-time configuration now distinguishes the debug profile (`ALTRUIST_BUILD_DEBUG`), testing channel (`ALTRUIST_CHANNEL_TESTING`), UART health telemetry (`ALTRUIST_HEALTH_TELEMETRY`), and initial runtime log level (`ALTRUIST_DEFAULT_LOG_LEVEL`).
+- **Stable UART health telemetry** — Testing firmware now emits a compact `[HEALTH]` snapshot every 60 seconds with uptime, boot counter, free heap, RSSI, successful transmissions, accumulated errors, Wi-Fi state, and per-subsystem error counters.
+- **Dedicated debug environments** — Technical ESP32-C6 Urban and Insight debug builds now use explicit `*_debug` environments with JTAG, debug symbols, and elevated runtime logging, without Testing-channel flags or publishable webflasher artifacts.
+- **Build profile inheritance** — PlatformIO environments now inherit shared platform, hardware, model, language, and debug settings; `NDEBUG` is applied only to release builds and is absent from technical debug builds.
+- **Explicit CI channel selection** — CI now injects the Testing channel, UART health telemetry, and source commit into normal release environments instead of encoding the channel in PlatformIO environment names.
+- **Channel-aware firmware artifacts** — Build outputs now use explicit environment metadata and generate distinct Stable and Testing filenames, with temporary `_dev` compatibility aliases for the existing webflasher manifests.
+- **Traceable firmware identity** — Testing versions now include the short source commit, while UART startup logs and the status page expose channel, commit, model, ESP target, language, and build profile.
+- **Channel-aware OTA updates** — Stable and Testing firmware now request artifacts from their own compile-time channel; the legacy runtime beta setting no longer changes OTA targets.
+- **Branch-aware firmware CI** — The `esp32` branch publishes Stable artifacts, while `esp32-dev` publishes Testing artifacts and runs technical Debug environments as compile-only checks.
+
+### Bug Fixes
+
+- **`/group` failed Save no longer corrupts RAM** — Follower/Manual address validation runs before `cfg::` is modified; a rejected Save leaves the previous group mode and owner unchanged.
+- **Insight graphs: false “Not enough data yet”** — Fixed regression after CSV read optimization; chart data probe tries SCD4x then BME680 and judges span from raw samples, not only hourly buckets.
+- **Insight graphs: freezes and visual glitches** — Removed mid-draw e-paper “Loading shell” (double partial updates caused Loading text to ghost over charts). SD lock waits use a short timeout with backoff instead of a tight retry loop blocking `loop()` for tens of seconds.
+
 ## [R_2026-05.02](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.02) — 2026-06-02
 
 ### Features
@@ -231,7 +267,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Build & Infrastructure
 
-- Build configurations for all ESP32-C6 variants: Urban EN/RU, Insight EN/RU (plus dev builds)
+- Build configurations for all ESP32-C6 variants: Urban EN/RU, Insight EN/RU (plus debug builds)
 - Updated pin mappings for Insight boards
 - DEV postfix added to development firmware filenames
 

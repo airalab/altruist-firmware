@@ -16,6 +16,30 @@ static const char* const FW_HOSTS[] = { FW_DOWNLOAD_HOST, FW_DOWNLOAD_HOST_ALTER
 static constexpr int FW_HOST_COUNT = 2;
 static constexpr unsigned long FW_HOST_TIMEOUT_MS = 30000;  // 30s per host attempt
 
+static String buildFirmwarePath() {
+	String language(cfg::current_lang);
+	language.toUpperCase();
+	if (language != F("EN") && language != F("RU")) {
+		language = CURRENT_LANG;
+	}
+	language.toLowerCase();
+
+#if defined(ALTRUIST_INSIGHT)
+	String path(F("/latest32c6ins_"));
+#elif defined(ALTRUIST_URBAN) && defined(CONFIG_IDF_TARGET_ESP32C3)
+	String path(F("/latest32c3_"));
+#elif defined(ALTRUIST_URBAN) && defined(CONFIG_IDF_TARGET_ESP32C6)
+	String path(F("/latest32c6urb_"));
+#else
+#error "Unsupported Altruist model or ESP target for OTA"
+#endif
+
+	path += language;
+	path += F(ALTRUIST_OTA_CHANNEL_SUFFIX);
+	path += F(".bin");
+	return path;
+}
+
 static String buildUserAgent() {
 	String agent(SOFTWARE_VERSION_STR);
 	agent += ' ';
@@ -220,32 +244,17 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 }
 
 void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
-	if (!manual && !cfg::auto_update) return;
+	if (!manual) {
+		if (!ALTRUIST_AUTOMATIC_OTA_ALLOWED || !cfg::auto_update) return;
+	}
 
 	debug_outln_info(F("twoStageOTAUpdate"));
-	String lang_variant(cfg::current_lang);
-	if (lang_variant.length() != 2) {
-		lang_variant = CURRENT_LANG;
-	}
-	lang_variant.toLowerCase();
-#ifdef ALTRUIST_INSIDE
-	String fetch_name(F("/latest32c6ins_"));
-#endif
-#ifdef ALTRUIST_URBAN
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
-	String fetch_name(F("/latest32c3_"));
-#endif
-#if defined(CONFIG_IDF_TARGET_ESP32C6)
-	String fetch_name(F("/latest32c6urb_"));
-#endif
-#endif
-	if (cfg::use_beta) {
-		fetch_name += F("beta");
-	} else {
-		fetch_name += lang_variant;
-	}
-
-	fetch_name += F(".bin");
+	String fetch_name = buildFirmwarePath();
+	debug_outln_info(
+		F("OTA source: "),
+		String(ALTRUIST_OTA_SOURCE_CHANNEL) + F(", firmware channel: ") +
+			String(ALTRUIST_BUILD_CHANNEL) + F(", artifact: ") + fetch_name
+	);
 
 	WiFiClient client;
 	String fetch_md5_name(fetch_name);

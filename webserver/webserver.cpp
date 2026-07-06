@@ -9,17 +9,58 @@
 #endif
 #include "utils.h"
 #include "../config_manager/config_helpers.h"
+#include "../apis/rws_group.h"
 #include "../defines.h"
 #include "../wifi_manager.h"
+#include <Robonomics.h>
 #include "web-header-logo-select.h"
 #if !defined(ALTRUIST_URBAN_C3_LITE)
 #include "robonomics-logo-common.h"
 #endif
 
-#ifdef ALTRUIST_INSIDE
+extern Robonomics robonomics;
+
+#ifdef ALTRUIST_INSIGHT
 #include <ESPmDNS.h>
 #include "display/display_manager.h"
 extern DisplayManager displayManager;
+
+static unsigned long s_insight_guest_finish_deadline_ms = 0;
+
+static void insightGuestApplyStandaloneAndRestart() {
+	cfg::standalone = true;
+	cfg::use_custom_urban = false;
+	cfg::chosen_altruist_urban[0] = '\0';
+	cfg::custom_altruist_urban[0] = '\0';
+	cfgApplyStandaloneModeEnabled();
+	if (writeConfig()) {
+		set_restart_reason(RESTART_REASON_CONFIG);
+		sensor_restart();
+	}
+}
+
+void insightGuestMarkFinishPending(void) {
+	s_insight_guest_finish_deadline_ms = millis() + INSIGHT_GUEST_AUTO_FINISH_MS;
+}
+
+void insightGuestClearFinishPending(void) {
+	s_insight_guest_finish_deadline_ms = 0;
+}
+
+void insightGuestProcessPendingFinish(void) {
+	if (s_insight_guest_finish_deadline_ms == 0) {
+		return;
+	}
+	if ((long)(millis() - s_insight_guest_finish_deadline_ms) < 0) {
+		return;
+	}
+	if (!wifiGuestPortalStaReady()) {
+		return;
+	}
+	s_insight_guest_finish_deadline_ms = 0;
+	debug_outln_info(F("Insight guest setup: auto-finish (standalone)"));
+	insightGuestApplyStandaloneAndRestart();
+}
 #endif
 
 static SemaphoreHandle_t s_webserver_mutex = nullptr;
@@ -72,7 +113,9 @@ void SensorWebServer::setup() {
 	server.on(F("/favicon.ico"), std::bind(&SensorWebServer::_webserver_favicon, this)); // x
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
-#ifdef ALTRUIST_INSIDE
+	server.on(F("/group"), std::bind(&SensorWebServer::_webserver_group, this));
+#ifdef ALTRUIST_INSIGHT
+	server.on(F("/screen"), std::bind(&SensorWebServer::_webserver_screen, this));
 	server.on(F("/select_urban"), std::bind(&SensorWebServer::_webserver_select_urban, this));
 	server.on(F("/scan_urbans"), std::bind(&SensorWebServer::_webserver_scan_urbans, this));
 #endif
@@ -232,6 +275,54 @@ void SensorWebServer::_webserver_debug_level() {
     end_html_page(page_content);;
 }
 
+void SensorWebServer::_webserver_group() {
+	if (WiFi.status() != WL_CONNECTED) {
+		sendHttpRedirectGuest();
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	RESERVE_STRING(page_content, LARGE_STR);
+	start_html_page(page_content, FPSTR(INTL_GROUP_MENU));
+
+	const String self_ss58 = String(robonomics.getSs58Address());
+	setRobonomicsAddress(self_ss58);
+	rwsSyncGroupModeFromOwner(self_ss58);
+
+	RwsGroupApplyResult save_result = RwsGroupApply_None;
+	if (server.method() == HTTP_POST) {
+		save_result = webserver_group_post(server, self_ss58);
+	}
+
+	webserver_group_page(page_content, self_ss58, &robonomics, save_result);
+	end_html_page(page_content);
+}
+
+#ifdef ALTRUIST_INSIGHT
+void SensorWebServer::_webserver_screen() {
+	if (WiFi.status() != WL_CONNECTED) {
+		sendHttpRedirectGuest();
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	RESERVE_STRING(page_content, LARGE_STR);
+	start_html_page(page_content, FPSTR(INTL_SCREEN_MENU));
+
+	ScreenSaveResult save_result = ScreenSave_None;
+	if (server.method() == HTTP_POST) {
+		save_result = webserver_screen_post(server);
+	}
+
+	webserver_screen_page(page_content, save_result);
+	end_html_page(page_content);
+}
+#endif
+
 void SensorWebServer::_webserver_values() {
     if (WiFi.status() != WL_CONNECTED) {
 		sendHttpRedirectGuest();
@@ -313,39 +404,64 @@ void SensorWebServer::_webserver_guest() {
 				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
 				debug_outln_info(F("STA IP: "), address);
 				page_content = "<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>";
-				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>\n";
-				page_content += "<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
-				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_OPEN_IP_HINT "</p>";
-				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
-				server.sendContent(page_content);
+#ifdef ALTRUIST_INSIGHT
+				const unsigned insightAutoSec = (unsigned)(INSIGHT_GUEST_AUTO_FINISH_MS / 1000UL);
+				page_content += F("<div class='guest__setup-finish' style='margin:16px auto;max-width:480px;'>");
+				page_content += F("<div class='guest__setup-header'>"
+					"<span class='guest__step-label'>" INTL_GUEST_SETUP_STEP_2_LABEL "</span>"
+					"<h2 class='guest__step-title'>" INTL_GUEST_WIFI_STEP_TITLE "</h2>"
+					"</div>");
+				page_content += F("<p style='background:#fff8e6;border:1px solid #f0c040;border-radius:8px;padding:14px 16px;"
+					"font-size:15px;line-height:1.45;margin:0 0 16px;color:#333;'>" INTL_GUEST_INSIGHT_FINISH_HINT "</p>");
+				page_content += F("<p style='margin:0 0 8px;font-size:14px;color:#555;'>" INTL_GUEST_KEEP_OPEN_HINT "</p>");
+				page_content += F("<div class='guest__reboot guest__reboot--ip' style='margin:0 0 12px;'>" INTL_GUEST_IP_ADDRESS
+					" <span class='ip-address'>");
+				page_content += address;
+				page_content += F("</span> <button class='copy-btn' onclick='copyText()'></button></div>");
+				page_content += F("<p id='insight-auto-finish-hint' style='color:#666;font-size:14px;line-height:1.4;margin:0 0 18px;'>"
+					INTL_GUEST_INSIGHT_AUTO_FINISH_HINT " <strong id='insight-auto-sec'>");
+				page_content += String(insightAutoSec);
+				page_content += F("</strong> " INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "</p>");
+				page_content += F("<script>function copyText(){const e=document.querySelector('.ip-address').innerText;"
+					"if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')}))"
+					".catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');"
+					"o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),"
+					"alert('Copied to clipboard (fallback)')}}</script>");
 
-#ifdef ALTRUIST_INSIDE
 				if (!writeConfig()) {
-					page_content = F("<p class='guest__reboot error'>Failed to save configuration.</p>");
+					page_content += F("<p class='guest__reboot error'>Failed to save configuration.</p></div>");
 					server.sendContent(page_content);
 					server.sendContent(emptyString);
 					return;
 				}
+				insightGuestMarkFinishPending();
 
-				page_content = F(
-					"<div style='margin:20px auto;max-width:480px;padding:20px;'>"
-					"<p style='color:#444;font-size:15px;line-height:1.45;margin-bottom:18px;'>"
-					INTL_SETUP_INSIGHT_MODE_HINT
-					"</p>"
-					"<form method='POST' action='/select_urban'>"
+				page_content += F("<p style='color:#444;font-size:14px;line-height:1.45;margin-bottom:14px;'>"
+					INTL_SETUP_INSIGHT_MODE_HINT "</p>");
+				page_content += F("<form id='insight-finish-form' method='POST' action='/select_urban'>"
 					"<label style='display:flex;align-items:flex-start;gap:12px;padding:14px 16px;"
 					"border:1px solid #ddd;border-radius:8px;background:#fafafa;cursor:pointer;font-size:15px;line-height:1.35;'>"
 					"<input type='checkbox' name='pair_with_urban' value='1' style='margin-top:3px;flex-shrink:0;'>"
 					"<span>" INTL_SETUP_PAIR_WITH_URBAN "</span>"
 					"</label>"
-					"<button type='submit' class='submit-btn' style='margin-top:22px;width:100%;padding:14px;font-size:16px;'>"
-					);
+					"<button type='submit' class='submit-btn' style='margin-top:22px;width:100%;padding:14px;font-size:16px;'>");
 				page_content += F(INTL_SETUP_CONTINUE);
 				page_content += F("</button></form></div>");
+				page_content += F("<script>(function(){var s=");
+				page_content += String(insightAutoSec);
+				page_content += F(",el=document.getElementById('insight-auto-sec'),form=document.getElementById('insight-finish-form');"
+					"function tick(){if(s>0){if(el)el.textContent=String(s);s--;}else if(form)form.submit();}"
+					"setInterval(tick,1000);})();</script>");
 				server.sendContent(page_content);
 				server.sendContent(emptyString);
 				return;
 #else
+				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>\n";
+				page_content += "<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
+				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_OPEN_IP_HINT "</p>";
+				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
+				server.sendContent(page_content);
+
 				if (!writeConfig()) {
 					page_content = F("<p class='guest__reboot error'>Failed to save configuration.</p>");
 					server.sendContent(page_content);
@@ -373,13 +489,13 @@ void SensorWebServer::_webserver_guest() {
 								"<p class='guest__reboot'>Failed to connect to: ");
 				page_content += cfg::wlanssid;
 				page_content += F("</p>");
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 				page_content += F("<p class='guest__reboot'>Rebooting to WiFi setup… You can close this page and try again.</p>");
 #else
 				page_content += F("<p class='guest__reboot'>Check SSID and password, then try again.</p>");
 #endif
 				server.sendContent(page_content);
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 				if (writeConfig()) {
 					set_restart_reason(RESTART_REASON_CONFIG);
 					sensor_restart();
@@ -397,7 +513,7 @@ void SensorWebServer::setWifiInfo(struct_wifiInfo* info, uint8_t count) {
     wifiInfoCount = count;
 }
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 void SensorWebServer::_webserver_scan_urbans() {
 	debug_outln_info(F("ws: scan_urbans ..."));
 	String json = "[";
@@ -495,6 +611,9 @@ void SensorWebServer::_webserver_select_urban() {
 		sendHttpRedirectGuest();
 		return;
 	}
+#ifdef ALTRUIST_INSIGHT
+	insightGuestClearFinishPending();
+#endif
 
 	// Step 1: checkbox form from guest WiFi success (no chosen_altruist_urban field).
 	if (!server.hasArg(F("chosen_altruist_urban"))) {
@@ -505,6 +624,7 @@ void SensorWebServer::_webserver_select_urban() {
 			cfg::use_custom_urban = false;
 			cfg::chosen_altruist_urban[0] = '\0';
 			cfg::custom_altruist_urban[0] = '\0';
+			cfgApplyStandaloneModeEnabled();
 		} else {
 			_send_urban_pairing_form_html();
 			return;
@@ -520,7 +640,7 @@ void SensorWebServer::_webserver_select_urban() {
 		page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
 			"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
 			"</div>"
-			"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
+			"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
 		end_html_page(page_content);
 
 		if (writeConfig()) {
@@ -539,6 +659,7 @@ void SensorWebServer::_webserver_select_urban() {
 		cfg::use_custom_urban = false;
 		cfg::chosen_altruist_urban[0] = '\0';
 		cfg::custom_altruist_urban[0] = '\0';
+		cfgApplyStandaloneModeEnabled();
 	} else if (chosen == "__custom__") {
 		String custom_ip = server.arg("custom_ip");
 		if (custom_ip.length() > 0) {
@@ -546,6 +667,7 @@ void SensorWebServer::_webserver_select_urban() {
 			cfg::custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS - 1] = '\0';
 			cfg::use_custom_urban = true;
 			cfg::standalone = false;
+			cfgOnStandaloneModeDisabled();
 			debug_outln_info(F("Custom Urban IP set: "), custom_ip);
 		} else {
 			cfg::standalone = true;
@@ -553,12 +675,14 @@ void SensorWebServer::_webserver_select_urban() {
 			cfg::chosen_altruist_urban[0] = '\0';
 			cfg::custom_altruist_urban[0] = '\0';
 			debug_outln_info(F("Custom Urban IP empty; standalone mode"));
+			cfgApplyStandaloneModeEnabled();
 		}
 	} else if (chosen.length() > 0) {
 		strncpy(cfg::chosen_altruist_urban, chosen.c_str(), LEN_CHOSEN_ALTRUIS_ADDRESS - 1);
 		cfg::chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS - 1] = '\0';
 		cfg::use_custom_urban = false;
 		cfg::standalone = false;
+		cfgOnStandaloneModeDisabled();
 		debug_outln_info(F("Chosen Urban IP: "), chosen);
 	}
 
@@ -572,7 +696,7 @@ void SensorWebServer::_webserver_select_urban() {
 	page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
 		"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
 		"</div>"
-		"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
+		"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
 	end_html_page(page_content);
 
 	if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
@@ -632,6 +756,7 @@ void SensorWebServer::_webserver_ota() {
 
 		page_content += F("<table>");
 		add_table_row_from_value(page_content, FPSTR(INTL_OTA_CURRENT_VERSION), String(SOFTWARE_VERSION_STR));
+		add_table_row_from_value(page_content, "Firmware channel", ALTRUIST_BUILD_CHANNEL);
 		add_table_row_from_value(page_content, FPSTR(INTL_LAST_OTA),
 			delayToString(millis() - deviceStatus.last_update_attempt));
 		page_content += FPSTR(TABLE_TAG_CLOSE_BR);
@@ -699,13 +824,20 @@ void SensorWebServer::_webserver_config() {
 		if (server.method() == HTTP_GET) {
 			webserver_config_send_body_get(server, page_content, wificonfig_loop, sensors_data);
 		} else {
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 			const bool prev_use_custom_urban = cfg::use_custom_urban;
 			const String prev_custom_urban_ip = String(cfg::custom_altruist_urban);
 			const String prev_chosen_urban_ip = String(cfg::chosen_altruist_urban);
+			const bool prev_standalone = cfg::standalone;
 #endif
 			webserver_config_send_body_post(server);
-#ifdef ALTRUIST_INSIDE
+			rwsOnConfigOwnerUpdated(robonomics_address);
+#ifdef ALTRUIST_INSIGHT
+			if (!prev_standalone && cfg::standalone) {
+				cfgApplyStandaloneModeEnabled();
+			} else if (prev_standalone && !cfg::standalone) {
+				cfgOnStandaloneModeDisabled();
+			}
 			if (prev_use_custom_urban != cfg::use_custom_urban ||
 			    prev_custom_urban_ip != String(cfg::custom_altruist_urban) ||
 			    prev_chosen_urban_ip != String(cfg::chosen_altruist_urban)) {

@@ -27,7 +27,7 @@ public:
     uint8_t get_button_state(ButtonNum button_num);
 
 private:
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
     ButtonController up_button;
     ButtonController down_button;
     ButtonController set_button;

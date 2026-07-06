@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef GRAPH_SCREEN_H
 #define GRAPH_SCREEN_H
@@ -39,6 +39,14 @@ bool areGraphsAvailable();
 
 // Cached during drawGraphScreen(); safe to read from button handler (no SD I/O).
 bool graphsNavigationCanCycle();
+/** True when graph draw should run again after SD was temporarily busy. */
+bool graphScreenSdRetryDue();
+/** Call before refresh when user cycles temp/humidity/etc. on the graphs screen. */
+void graphMarkValueSwitch();
+/** Invalidate cached SD probe (card removed or probe stale). */
+void graphInvalidateSdProbeCache();
+/** Entering graphs from another screen — reset SD retry state. */
+void graphClearDeferOnScreenEntry();
 
 #endif
 #endif

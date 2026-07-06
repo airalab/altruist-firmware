@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef _ANALYTICS_SCREEN_H
 #define _ANALYTICS_SCREEN_H
@@ -48,7 +48,9 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
 void analyticsIngestHourSample(const analytics_screen_values_t &values);
 void analyticsDevLogStatus15m();
 void populateAnalyticsPeriodStats(analytics_screen_values_t &values);
-void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values, const String &sensor_map_address);
+void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values);
+/** Clear PM2.5/noise night buckets that came from Urban (when switching to standalone). */
+void analyticsClearUrbanNightHistory();
 
 #endif // _ANALYTICS_SCREEN_H
 

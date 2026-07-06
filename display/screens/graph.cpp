@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "../paint_driver/graphPainter.h"
 #include "graph.h"
@@ -20,7 +20,7 @@
 namespace {
 class SDGraphLockGuard {
 public:
-    SDGraphLockGuard() : locked(sdCardLock(2000)) {}
+    explicit SDGraphLockGuard(uint32_t timeout_ms = 400) : locked(sdCardLockWithYield(timeout_ms)) {}
     ~SDGraphLockGuard() { if (locked) sdCardUnlock(); }
     bool ok() const { return locked; }
 private:
@@ -35,6 +35,92 @@ constexpr uint8_t kGraphValueCount = static_cast<uint8_t>(GraphValue::URBAN_PRES
 static bool g_graph_had_data[kGraphValueCount] = {false};
 static uint8_t g_graph_no_data_streak[kGraphValueCount] = {0};
 static bool g_graphs_navigation_can_cycle = false;
+static bool g_graph_sd_retry_pending = false;
+static uint32_t g_graph_sd_retry_at_ms = 0;
+static uint8_t g_graph_sd_retry_attempts = 0;
+static uint32_t g_graph_sd_backoff_until_ms = 0;
+static bool g_graph_sd_gave_up = false;
+static constexpr uint8_t kGraphSdMaxRetries = 6;
+
+static bool g_graph_sd_probe_cache_valid = false;
+static bool g_graph_sd_files_ok_cached = false;
+static bool g_graph_sd_data_ready_cached = false;
+
+void graphMarkValueSwitch() {
+    g_graph_sd_retry_attempts = 0;
+    g_graph_sd_retry_pending = false;
+    g_graph_sd_backoff_until_ms = 0;
+    g_graph_sd_gave_up = false;
+}
+
+void graphInvalidateSdProbeCache() {
+    g_graph_sd_probe_cache_valid = false;
+    g_graph_sd_files_ok_cached = false;
+    g_graph_sd_data_ready_cached = false;
+    g_graph_sd_retry_attempts = 0;
+    g_graph_sd_retry_pending = false;
+    g_graph_sd_backoff_until_ms = 0;
+    g_graph_sd_gave_up = false;
+}
+
+void graphClearDeferOnScreenEntry() {
+    g_graph_sd_retry_attempts = 0;
+    g_graph_sd_retry_pending = false;
+    g_graph_sd_backoff_until_ms = 0;
+    g_graph_sd_gave_up = false;
+}
+
+static uint32_t graphSdRetryBackoffMs() {
+    switch (g_graph_sd_retry_attempts) {
+        case 0: return 800;
+        case 1: return 1500;
+        case 2: return 3000;
+        default: return 5000;
+    }
+}
+
+static bool graphSdInBackoff() {
+    return g_graph_sd_backoff_until_ms != 0 &&
+           (int32_t)(millis() - g_graph_sd_backoff_until_ms) < 0;
+}
+
+static void graphNoteSdBusy() {
+    if (g_graph_sd_gave_up) {
+        return;
+    }
+    if (g_graph_sd_retry_pending) {
+        return;
+    }
+    if (g_graph_sd_retry_attempts >= kGraphSdMaxRetries) {
+        g_graph_sd_gave_up = true;
+        g_graph_sd_retry_pending = false;
+        debug_outln_info(F("[Graph] SD busy — stop auto-retry until screen/metric change"));
+        return;
+    }
+    g_graph_sd_retry_attempts++;
+    const uint32_t delay_ms = graphSdRetryBackoffMs();
+    g_graph_sd_backoff_until_ms = millis() + delay_ms;
+    g_graph_sd_retry_pending = true;
+    g_graph_sd_retry_at_ms = g_graph_sd_backoff_until_ms;
+}
+
+static void graphNoteSdDrawSuccess() {
+    g_graph_sd_retry_attempts = 0;
+    g_graph_sd_retry_pending = false;
+    g_graph_sd_backoff_until_ms = 0;
+    g_graph_sd_gave_up = false;
+}
+
+bool graphScreenSdRetryDue() {
+    if (!g_graph_sd_retry_pending) {
+        return false;
+    }
+    if ((int32_t)(millis() - g_graph_sd_retry_at_ms) < 0) {
+        return false;
+    }
+    g_graph_sd_retry_pending = false;
+    return true;
+}
 
 static uint8_t graphValueIndex(GraphValue value) {
     return static_cast<uint8_t>(value);
@@ -144,9 +230,27 @@ static void filterToHourlyData(LineData &data) {
 // External reference to SD card logger
 extern SDCard sdCardLogger;
 
-// Track last time we checked for files (refresh every 15 minutes)
-static unsigned long last_file_check_time = 0;
-static const unsigned long FILE_CHECK_INTERVAL_MS = 900000; // 15 minutes
+// Direct exists checks are enough for graphs (no SD cache refresh on this path).
+static constexpr uint32_t kGraphSdReadTimeoutMs = 400;
+static constexpr uint32_t kGraphProbeSdReadTimeoutMs = 400;
+
+static void drawGraphLoadingMessage(uint16_t navTop, uint16_t contentTop) {
+    const char* msg = INTL_DISP_LOADING;
+    uint16_t msg_w = Paint_GetStringWidth_Display(msg, &Font16, &font_16_cyrillic, &font_16_ascii);
+    uint16_t cx = DISPLAY_WIDTH / 2;
+    uint16_t cy = contentTop + (navTop - contentTop) / 2;
+    Paint_DrawString_Display(cx - msg_w / 2, cy - Font16.Height / 2, msg,
+                             &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+}
+
+/** Erase graph content band so a prior Loading label cannot bleed through. */
+static void graphClearContentArea(uint16_t contentTop, uint16_t navTop) {
+    if (navTop <= contentTop + 4) {
+        return;
+    }
+    const uint16_t right = (DISPLAY_WIDTH > 30) ? (DISPLAY_WIDTH - 30) : DISPLAY_WIDTH;
+    Paint_DrawRectangle(0, contentTop, right, navTop - 1, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+}
 
 static bool checkSDCardAvailable() {
     // Use checkInserted which properly detects card removal
@@ -160,11 +264,17 @@ static bool checkSDCardAvailable() {
     return true;
 }
 
-static bool checkDataFilesExist() {
+static bool checkDataFilesExist(bool* sd_busy_out = nullptr) {
 #if defined(USE_SD_CARD)
+    if (sd_busy_out) {
+        *sd_busy_out = false;
+    }
     SDGraphLockGuard sdLock;
     if (!sdLock.ok()) {
         debug_outln_verbose(F("[Graph] Failed to acquire SD lock"));
+        if (sd_busy_out) {
+            *sd_busy_out = true;
+        }
         return false;
     }
 #endif
@@ -173,15 +283,7 @@ static bool checkDataFilesExist() {
         debug_outln_verbose(F("[Graph] SD card removed during file check"));
         return false;
     }
-    
-    // Refresh SD card cache periodically to detect new files
-    unsigned long now = millis();
-    if (now - last_file_check_time > FILE_CHECK_INTERVAL_MS || last_file_check_time == 0) {
-        debug_outln_verbose(F("[Graph] Refreshing SD card cache..."));
-        sdCardLogger.refreshCache();
-        last_file_check_time = now;
-    }
-    
+
     // Check if root folder exists
     if (!SD.exists("/sensors_data")) {
         debug_outln_verbose(F("[Graph] /sensors_data folder does not exist"));
@@ -283,41 +385,6 @@ static bool checkDataFilesExist() {
     return hasData;
 }
 
-static uint16_t drawOneGraph(int left_x, int left_y, const char* sensor_name, const char* meas_name, const char* label) {
-    GraphLineStyle line_style;
-    LineData result = {nullptr, nullptr, 0};
-    readSensorDataFromCSV(result, sensor_name, meas_name, 12);
-    
-    // Clean up memory if no data
-    if (result.count == 0) {
-        if (result.values) {
-            delete[] result.values;
-            result.values = nullptr;
-        }
-        if (result.timestamps) {
-            delete[] result.timestamps;
-            result.timestamps = nullptr;
-        }
-    }
-    
-    GraphPainter graph(left_x, left_y, GRAPH_HEIGHT, GRAPH_WIDTH);
-    graph.setWhiteMode();
-    if (result.count > 0) {
-        graph.addLineValues(result.values, result.timestamps, result.count, label, line_style);
-    }
-    graph.drawGraph();
-    
-    // Clean up after drawing
-    if (result.values) {
-        delete[] result.values;
-    }
-    if (result.timestamps) {
-        delete[] result.timestamps;
-    }
-    
-    return graph.getGraphWidth();
-}
-
 static bool buildGraphUpdateNote(char *out, size_t out_size, GraphValue value, const LineData *lineData, int lineCount) {
     if (!out || out_size == 0) return false;
     out[0] = '\0';
@@ -402,7 +469,13 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         return;
     }
 
-    // Account for right sidebar navigation
+    graphClearContentArea(topMargin, navTop);
+
+    if (graphSdInBackoff() || g_graph_sd_gave_up) {
+        drawGraphLoadingMessage(navTop, topMargin);
+        return;
+    }
+
     const uint16_t rightSidebarWidth = 29;
     const uint16_t rightMargin = 0;  // No right margin - graph goes right up to sidebar
     uint16_t graphLeft   = marginX;
@@ -419,23 +492,19 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
     // We'll determine hours_back after checking data, but for now use 12 as max
     // This will be updated after we calculate the actual time range
     uint8_t hours_to_read = 12;
+    bool sd_read_busy = false;
     
-    auto addLine = [&](const char* sensor_name,
-                       const char* field_name,
-                       const char* label,
-                       GraphLineStyle style) {
-        if (lineCount >= 2) {
+    auto addLine = [&](const char* sensor_name, const char* field_name) {
+        if (lineCount >= 2 || sd_read_busy) {
             return;
         }
         LineData &ld = lineData[lineCount];
-        readSensorDataFromCSV(ld, sensor_name, field_name, hours_to_read);
+        if (!readSensorDataFromCSV(ld, sensor_name, field_name, hours_to_read, kGraphSdReadTimeoutMs)) {
+            sd_read_busy = true;
+            return;
+        }
         if (ld.count > 0 && ld.values && ld.timestamps) {
-            // Filter to hourly intervals (keep only last value in each hour)
-            filterToHourlyData(ld);
-            if (ld.count > 0 && ld.values && ld.timestamps) {
-                graph.addLineValues(ld.values, ld.timestamps, ld.count, label, style);
-                lineCount++;
-            }
+            lineCount++;
         } else {
             if (ld.values) {
                 delete[] ld.values;
@@ -448,17 +517,6 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
             ld.count = 0;
         }
     };
-
-    // Default solid line style
-    GraphLineStyle solid;
-    solid.style         = LINE_STYLE_SOLID;
-    solid.width         = DOT_PIXEL_1X1;
-    solid.use_main_color = true;
-
-    // Dotted style for secondary line in combined graphs
-    GraphLineStyle dotted = solid;
-    dotted.style = LINE_STYLE_DOTTED;
-    // Keep normal thickness - will be adjusted per graph if needed
 
     // Update metrics to get current uptime
     updateMetrics();
@@ -473,62 +531,60 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
             // Single-line Insight graphs: show only "Insight: <value>" in legend
             // Use BME680 for first 5 minutes, then switch to SCD4x
             if (use_bme680_for_temp_hum) {
-                addLine("BME680", "temperature", "Insight", solid);
+                addLine("BME680", "temperature");
             } else {
-                addLine("SCD4x", "temperature", "Insight", solid);
+                addLine("SCD4x", "temperature");
             }
             break;
         case GraphValue::INSIGHT_HUM:
             // Use BME680 for first 5 minutes, then switch to SCD4x
             if (use_bme680_for_temp_hum) {
-                addLine("BME680", "humidity", "Insight", solid);
+                addLine("BME680", "humidity");
             } else {
-                addLine("SCD4x", "humidity", "Insight", solid);
+                addLine("SCD4x", "humidity");
             }
             break;
         case GraphValue::INSIGHT_CO2:
-            addLine("SCD4x", "co2", "Insight", solid);
+            addLine("SCD4x", "co2");
             break;
         case GraphValue::INSIGHT_PRESSURE:
-            addLine("BME680", "pressure", "Insight", solid);
+            addLine("BME680", "pressure");
             break;
         case GraphValue::URBAN_AIR: {
-            // Both same thickness but different styles for distinction
-            GraphLineStyle airSolid = solid;
-            airSolid.width = DOT_PIXEL_1X1;  
-            GraphLineStyle airDotted = solid;  
-            airDotted.style = LINE_STYLE_DOTTED;
-            airDotted.width = DOT_PIXEL_1X1;  
-            addLine(urban_key.c_str(), "SDS_P1", "PM10", airSolid);
-            addLine(urban_key.c_str(), "SDS_P2", "PM2.5", airDotted);
+            addLine(urban_key.c_str(), "SDS_P1");
+            addLine(urban_key.c_str(), "SDS_P2");
             break;
         }
         case GraphValue::URBAN_NOISE:
-            // Combined: Max (solid) + Avg (dotted) - keep distinct labels
-            addLine(urban_key.c_str(), "PCBA_noiseMax", "Max", solid);
-            addLine(urban_key.c_str(), "PCBA_noiseAvg", "Avg", dotted);
+            addLine(urban_key.c_str(), "PCBA_noiseMax");
+            addLine(urban_key.c_str(), "PCBA_noiseAvg");
             break;
         case GraphValue::URBAN_TEMP:
-            // Single-line Urban graphs: show only "Urban: <value>" in legend
-            addLine(urban_key.c_str(), "BME280_temperature", "Urban", solid);
+            addLine(urban_key.c_str(), "BME280_temperature");
             break;
         case GraphValue::URBAN_HUM:
-            addLine(urban_key.c_str(), "BME280_humidity", "Urban", solid);
+            addLine(urban_key.c_str(), "BME280_humidity");
             break;
         case GraphValue::URBAN_PRESSURE:
-            addLine(urban_key.c_str(), "BME280_pressure", "Urban", solid);
+            addLine(urban_key.c_str(), "BME280_pressure");
             break;
     }
 
+    if (sd_read_busy && lineCount == 0) {
+        drawGraphLoadingMessage(navTop, topMargin);
+        graphNoteSdBusy();
+        return;
+    }
+
     if (lineCount > 0) {
-        // Calculate actual time range from data to set dynamic show_hours
         time_t now = time(nullptr);
         uint32_t oldest_timestamp = UINT32_MAX;
         uint32_t newest_timestamp = 0;
+        int raw_point_count = 0;
         
         for (int i = 0; i < lineCount; i++) {
             if (lineData[i].count > 0 && lineData[i].timestamps) {
-                // Find oldest and newest timestamps across all lines
+                raw_point_count += lineData[i].count;
                 for (int j = 0; j < lineData[i].count; j++) {
                     if (lineData[i].timestamps[j] < oldest_timestamp) {
                         oldest_timestamp = lineData[i].timestamps[j];
@@ -542,12 +598,14 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         
         if (oldest_timestamp != UINT32_MAX && newest_timestamp > 0) {
             markGraphDataState(value, true);
-            // Calculate total hours of data available
+            graphNoteSdDrawSuccess();
             uint32_t data_span_seconds = newest_timestamp - oldest_timestamp;
             float total_data_hours_float = (float)data_span_seconds / 3600.0f;
             
-            // Check if we have less than 1 hour of data
-            if (total_data_hours_float < 1.0f) {
+            // Need ~1 h span in raw samples, or enough points for a meaningful curve.
+            const bool enough_data =
+                (total_data_hours_float >= 1.0f) || (raw_point_count >= 30);
+            if (!enough_data) {
                 // Show helpful message instead of graph - centered vertically in available space
                 uint16_t graphCenterX = graphLeft + graphWidth / 2;
                 uint16_t availableHeight = navTop - topMargin;
@@ -595,14 +653,58 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
                 display_hours = total_data_hours;
             } else {
                 display_hours = 12;  // Sliding window: show last 12 hours
-                // When >12 hours, we need to re-read data with only last 12 hours for proper sliding window
-                // But since we already read with 12 hours, the data is already filtered correctly
             }
             
-            // Ensure at least 1 hour
             if (display_hours < 1) display_hours = 1;
             
             graph.setShowHours(display_hours);
+
+            int plotted_lines = 0;
+            for (int i = 0; i < lineCount; i++) {
+                if (lineData[i].count <= 0 || !lineData[i].values || !lineData[i].timestamps) {
+                    continue;
+                }
+                filterToHourlyData(lineData[i]);
+                if (lineData[i].count <= 0) {
+                    continue;
+                }
+                const char* plot_label = "";
+                GraphLineStyle plot_style;
+                plot_style.style = LINE_STYLE_SOLID;
+                plot_style.width = DOT_PIXEL_1X1;
+                plot_style.use_main_color = true;
+                switch (value) {
+                    case GraphValue::INSIGHT_TEMP:
+                    case GraphValue::INSIGHT_HUM:
+                    case GraphValue::INSIGHT_CO2:
+                    case GraphValue::INSIGHT_PRESSURE:
+                    case GraphValue::URBAN_TEMP:
+                    case GraphValue::URBAN_HUM:
+                    case GraphValue::URBAN_PRESSURE:
+                        plot_label = (value == GraphValue::INSIGHT_TEMP || value == GraphValue::INSIGHT_HUM ||
+                                      value == GraphValue::INSIGHT_CO2 || value == GraphValue::INSIGHT_PRESSURE)
+                                         ? "Insight"
+                                         : "Urban";
+                        break;
+                    case GraphValue::URBAN_AIR:
+                        plot_label = (plotted_lines == 0) ? "PM10" : "PM2.5";
+                        if (plotted_lines == 1) {
+                            plot_style.style = LINE_STYLE_DOTTED;
+                        }
+                        break;
+                    case GraphValue::URBAN_NOISE:
+                        plot_label = (plotted_lines == 0) ? "Max" : "Avg";
+                        if (plotted_lines == 1) {
+                            plot_style.style = LINE_STYLE_DOTTED;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                graph.addLineValues(lineData[i].values, lineData[i].timestamps, lineData[i].count,
+                                    plot_label, plot_style);
+                plotted_lines++;
+            }
         } else {
             // No timestamps found - show message
             markGraphDataState(value, false);
@@ -700,49 +802,55 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
 #endif
 
 // Helper function to check if we have at least 1 hour of data
-static bool hasEnoughData() {
+static bool hasEnoughData(bool* sd_busy_out = nullptr) {
 #if defined(USE_SD_CARD)
-    if (!checkSDCardAvailable() || !checkDataFilesExist()) {
+    bool local_busy = false;
+    if (!checkSDCardAvailable() || !checkDataFilesExist(&local_busy)) {
+        if (sd_busy_out && local_busy) {
+            *sd_busy_out = true;
+        }
         return false;
     }
     
     // Try to read a small sample of data to check if we have at least 1 hour
     LineData testData = {};
 
-    // Try reading from a common sensor 
-    readSensorDataFromCSV(testData, "BME680", "temperature", 12);
-    
-    if (testData.count > 0 && testData.timestamps) {
-        // Filter to hourly intervals
-        filterToHourlyData(testData);
-        
-        // Check if we have at least 1 hour of data
-        if (testData.count >= 1) {
-            // Calculate time span
-            uint32_t oldest = UINT32_MAX;
-            uint32_t newest = 0;
-            for (int i = 0; i < testData.count; i++) {
-                if (testData.timestamps[i] < oldest) oldest = testData.timestamps[i];
-                if (testData.timestamps[i] > newest) newest = testData.timestamps[i];
-            }
-            
-            if (oldest != UINT32_MAX && newest > 0) {
-                uint32_t data_span_seconds = newest - oldest;
-                float total_data_hours = (float)data_span_seconds / 3600.0f;
-                
-                // Clean up
-                if (testData.values) { delete[] testData.values; }
-                if (testData.timestamps) { delete[] testData.timestamps; }
-                
-                return total_data_hours >= 1.0f;
-            }
+    // Try reading from sensors that Insight actually logs
+    static const char* kProbeSensors[] = {"SCD4x", "BME680"};
+    bool sd_busy = false;
+    for (const char* sensor : kProbeSensors) {
+        if (!readSensorDataFromCSV(testData, sensor, "temperature", 12, kGraphProbeSdReadTimeoutMs)) {
+            sd_busy = true;
+            continue;
         }
-        
-        // Clean up
+        if (testData.count == 0 || !testData.timestamps) {
+            if (testData.values) { delete[] testData.values; }
+            if (testData.timestamps) { delete[] testData.timestamps; }
+            testData = {};
+            continue;
+        }
+        uint32_t oldest = UINT32_MAX;
+        uint32_t newest = 0;
+        for (int i = 0; i < testData.count; i++) {
+            if (testData.timestamps[i] < oldest) oldest = testData.timestamps[i];
+            if (testData.timestamps[i] > newest) newest = testData.timestamps[i];
+        }
+        const float span_hours =
+            (oldest != UINT32_MAX && newest > oldest)
+                ? (float)(newest - oldest) / 3600.0f
+                : 0.0f;
+        const bool ok = (span_hours >= 1.0f) || (testData.count >= 30);
         if (testData.values) { delete[] testData.values; }
         if (testData.timestamps) { delete[] testData.timestamps; }
+        testData = {};
+        if (ok) {
+            return true;
+        }
     }
     
+    if (sd_busy_out && sd_busy) {
+        *sd_busy_out = true;
+    }
     return false;
 #else
     return false;  // SD card not compiled in
@@ -763,7 +871,61 @@ bool graphsNavigationCanCycle() {
 }
 
 void drawGraphScreen() {
-    g_graphs_navigation_can_cycle = areGraphsAvailable();
+    bool show_nav_bar = false;
+    bool sd_probe_busy = false;
+#if defined(USE_SD_CARD)
+    bool sd_busy = false;
+    bool sd_ok = false;
+    bool files_ok = false;
+    bool data_ready = false;
+
+    if (g_graph_sd_probe_cache_valid) {
+        // Cache only skips the slow directory scan — still verify card is present.
+        sd_ok = checkSDCardAvailable();
+        if (!sd_ok) {
+            graphInvalidateSdProbeCache();
+            files_ok = false;
+            data_ready = false;
+            g_graphs_navigation_can_cycle = false;
+        } else {
+            files_ok = g_graph_sd_files_ok_cached;
+            data_ready = g_graph_sd_data_ready_cached;
+            g_graphs_navigation_can_cycle = files_ok && data_ready;
+        }
+    } else {
+        sd_ok = checkSDCardAvailable();
+        if (sd_ok) {
+            files_ok = checkDataFilesExist(&sd_busy);
+            if (files_ok) {
+                bool data_busy = false;
+                data_ready = hasEnoughData(&data_busy);
+                if (!data_ready && data_busy) {
+                    sd_busy = true;
+                }
+            }
+        }
+        const bool sd_busy_transient = sd_ok && sd_busy && (!files_ok || !data_ready);
+        if (!sd_busy_transient) {
+            g_graph_sd_probe_cache_valid = true;
+            g_graph_sd_files_ok_cached = files_ok;
+            g_graph_sd_data_ready_cached = data_ready;
+            g_graphs_navigation_can_cycle = files_ok && data_ready;
+            if (files_ok) {
+                graphNoteSdDrawSuccess();
+            }
+        } else if (g_graph_sd_retry_attempts < kGraphSdMaxRetries) {
+            sd_probe_busy = true;
+            graphNoteSdBusy();
+        } else {
+            g_graphs_navigation_can_cycle = false;
+        }
+    }
+
+    show_nav_bar = g_graphs_navigation_can_cycle;
+#else
+    g_graphs_navigation_can_cycle = false;
+#endif
+
     // Clear screen first to prevent glitching
     Paint_Clear(WHITE);
 
@@ -842,7 +1004,11 @@ void drawGraphScreen() {
 
 #if defined(USE_SD_CARD)
     // Check if SD card is available
-    if (!checkSDCardAvailable()) {
+    if (sd_probe_busy) {
+        uint16_t contentTop = header_bottom_border_y + 6;
+        graphClearContentArea(contentTop, navTop);
+        drawGraphLoadingMessage(navTop, contentTop);
+    } else if (!sd_ok) {
         // Center text vertically with proper spacing (3 lines total)
         uint16_t line_spacing = 4;
         uint16_t total_height = Font16.Height + Font12.Height * 2 + line_spacing * 2;
@@ -862,7 +1028,7 @@ void drawGraphScreen() {
         // Continue to draw nav bar below
     }
     // Check if any data files exist (only if SD card is available)
-    else if (!checkDataFilesExist()) {
+    else if (!files_ok) {
         uint16_t line_spacing = 4;
         uint16_t total_height = Font16.Height + Font12.Height * 3 + line_spacing * 3;
         uint16_t start_y = (navTop - total_height) / 2;  
@@ -887,7 +1053,6 @@ void drawGraphScreen() {
     else {
     
         String urban_key = ATRUIST_URBAN_SENSOR;
-        // Draw single active graph based on current_graph_value
         uint16_t contentTop = header_bottom_border_y + 6;
         drawActiveGraph(current_graph_value, urban_key, navTop, contentTop);
     }
@@ -912,7 +1077,7 @@ void drawGraphScreen() {
 #endif
 
     // Bottom navigation bar (only drawn if graphs are available)
-    if (areGraphsAvailable()) {
+    if (show_nav_bar) {
         Paint_DrawLine(0, navTop, DISPLAY_WIDTH, navTop, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
     const uint16_t paddingX = 6;

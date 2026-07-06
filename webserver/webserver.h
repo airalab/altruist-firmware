@@ -61,7 +61,10 @@ private:
     void _webserver_not_found();
     void _webserver_ota();
 
-#ifdef ALTRUIST_INSIDE
+    void _webserver_group();
+
+#ifdef ALTRUIST_INSIGHT
+    void _webserver_screen();
     void _webserver_select_urban();
     void _webserver_scan_urbans();
     /** After user opts to pair: mDNS scan + Urban IP form (no reboot). */

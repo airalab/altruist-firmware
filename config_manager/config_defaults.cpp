@@ -2,7 +2,7 @@
 #include "config_defaults.h"
 
 namespace cfg {
-	unsigned debug = DEBUG;
+	unsigned debug = ALTRUIST_DEFAULT_LOG_LEVEL;
 
 	unsigned time_for_wifi_config = 600000;
 	unsigned sending_intervall_ms = 30000;
@@ -30,6 +30,11 @@ namespace cfg {
 	char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE] = ROBONOMICS_PUBLIC_NODE;
 	char robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST] = "";
 	char robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS] = "";
+	bool rws_auto_register = true;
+	unsigned rws_group_mode = RWS_GROUP_STANDALONE;
+	char rws_group_id[LEN_RWS_GROUP_ID] = "";
+	char rws_devices_extra[LEN_RWS_DEVICES_EXTRA] = "";
+	char rws_devices_registered_hash[LEN_RWS_DEVICES_REGISTERED_HASH] = "";
 	char private_key[LEN_PRIVATE_KEY] = "Not Set";
 	char coords_gps[LEN_GPS_COORDS] = GPS_COORDS;
 
@@ -41,7 +46,7 @@ namespace cfg {
 	bool send2csv = SEND2CSV;
 
 	bool auto_update = AUTO_UPDATE;
-	bool use_beta = USE_BETA;
+	bool use_beta = USE_BETA;  // Retained so existing config files remain readable.
 
 	// (in)active displays
 	bool has_display = HAS_DISPLAY;											// OLED with SSD1306 and I2C
@@ -71,6 +76,7 @@ namespace cfg {
 	char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	bool use_custom_urban = false;
 	bool standalone = false;
+	unsigned epd_refresh_mode = EPD_REFRESH_SAFE;
 	bool analytics_sleep_add_urban = false;
 
 	unsigned leds_brightness = 100; // Default 100% = 30% actual brightness (scaled down)
@@ -110,8 +116,7 @@ namespace cfg {
 		strcpy_P(donated_by, DONATED_BY);
 
 		if (!*fs_ssid) {
-			strcpy(fs_ssid, SSID_BASENAME);
-			strcat(fs_ssid, id);
+			snprintf(fs_ssid, sizeof(fs_ssid), "Altruist-%s-%s", DEVICE_MODEL, id);
 		}
 	}
 }

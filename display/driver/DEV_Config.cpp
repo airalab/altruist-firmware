@@ -28,7 +28,7 @@
 #
 ******************************************************************************/
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "DEV_Config.h"
 
