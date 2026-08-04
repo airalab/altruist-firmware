@@ -50,6 +50,7 @@ String		measurement_name_influx
 Bool		ssl_influx
 String      donated_by
 String      current_reg
+Bool		region_manual
 String      temp_correction
 String      local_hostname
 String      chosen_altruist_urban

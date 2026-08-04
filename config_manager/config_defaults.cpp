@@ -13,6 +13,7 @@ namespace cfg {
 
 	char current_lang[3];
 	char current_reg[20];
+	bool region_manual = false;
 
 	// credentials for basic auth of internal web server
 	bool www_basicauth_enabled = WWW_BASICAUTH_ENABLED;

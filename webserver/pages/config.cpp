@@ -57,6 +57,7 @@ void webserver_config_send_body_post(WebServer &server) {
 	String masked_pwd;
 	const char *kRobonomicsNodePolkadot = "polkadot.rpc.robonomics.network";
 	const char *kRobonomicsNodeKusama = "kusama.rpc.robonomics.network";
+	const String prev_reg(cfg::current_reg);
 
 	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
 		ConfigShapeEntry c;
@@ -155,6 +156,18 @@ void webserver_config_send_body_post(WebServer &server) {
 				cfg::robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST - 1] = '\0';
 			}
 		}
+	}
+
+	// Region changed in UI → stop OTA from overwriting it.
+	if (server.hasArg("current_reg") && prev_reg != String(cfg::current_reg)) {
+		cfg::region_manual = true;
+	}
+	if (strcmp(cfg::current_reg, REGION_RU) != 0 && strcmp(cfg::current_reg, REGION_GLOBAL) != 0) {
+		strncpy(cfg::current_reg, REGION_GLOBAL, sizeof(cfg::current_reg) - 1);
+		cfg::current_reg[sizeof(cfg::current_reg) - 1] = '\0';
+	}
+	if (!cfg::region_manual) {
+		cfgApplyAutoRegion();
 	}
 
 	// LED brightness is a percent; reject negatives / out-of-range posts.
@@ -380,13 +393,13 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			"<select id='robonomics_connectivity_preset' name='robonomics_connectivity_preset'>"
 				"<option value='connectivity.robonomics.network'");
 		if (is_default0) page_content += F(" selected='selected'");
-		page_content += F(">connectivity.robonomics.network</option>"
+		page_content += F(">connectivity.robonomics.network (RU)</option>"
 				"<option value='1.connectivity.robonomics.network'");
 		if (is_default1) page_content += F(" selected='selected'");
-		page_content += F(">1.connectivity.robonomics.network</option>"
+		page_content += F(">1.connectivity.robonomics.network (Global)</option>"
 				"<option value='2.connectivity.robonomics.network'");
 		if (is_default2) page_content += F(" selected='selected'");
-		page_content += F(">2.connectivity.robonomics.network</option>"
+		page_content += F(">2.connectivity.robonomics.network (Global)</option>"
 			"</select>"
 			"</div>");
 
@@ -663,6 +676,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("</div><div class='config-cluster'>");
 	page_content += form_select_lang();
 	page_content += form_select_timezone();
+	page_content += form_select_reg();
 	page_content += F("</div></div></section>");
 
 	maybe_flush();

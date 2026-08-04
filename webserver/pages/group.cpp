@@ -118,9 +118,7 @@ static const __FlashStringHelper* groupStatusText(Robonomics* robonomics, const 
 	                                                    : FPSTR(INTL_GROUP_STATUS_PENDING);
 }
 
-static void appendGroupOverview(String& page_content, unsigned mode, Robonomics* robonomics,
-                                const String& self_ss58, const String& self_display,
-                                const String& group_id_display, const String& current_devices) {
+static void appendGroupOverview(String& page_content, Robonomics* robonomics, const String& self_ss58) {
 	page_content += F("<div class='data-sheet'>");
 	page_content += F("<div class='data-block'><h3 class='data-block__title'>");
 	page_content += FPSTR(INTL_GROUP_STATUS_LABEL);
@@ -128,26 +126,6 @@ static void appendGroupOverview(String& page_content, unsigned mode, Robonomics*
 		"<span class='data-line__val'>");
 	page_content += groupStatusText(robonomics, self_ss58);
 	page_content += F("</span></div></div></div>");
-
-	if (mode == RWS_GROUP_FOLLOWER) {
-		add_data_section_start(page_content, FPSTR(INTL_GROUP_FOLLOWER_PANEL));
-		add_data_row_from_value(page_content, FPSTR(INTL_GROUP_MASTER_ADDRESS), String(cfg::rws_owner));
-		add_data_section_end(page_content);
-	}
-
-	if (mode == RWS_GROUP_MASTER) {
-		add_data_section_start(page_content, FPSTR(INTL_GROUP_MASTER_PANEL));
-		add_data_row_from_value(page_content, FPSTR(INTL_GROUP_ID_LABEL), group_id_display);
-		add_data_row_from_value(page_content, FPSTR(INTL_GROUP_MASTER_ADDRESS), self_display);
-		add_data_section_end(page_content);
-		page_content += F("<div class='data-block'><h3 class='data-block__title'>");
-		page_content += FPSTR(INTL_GROUP_CURRENT_DEVICES);
-		page_content += F("</h3><div class='data-block__rows'><div class='data-line data-line--stack'>"
-			"<code class='code-mono code-mono--pre'>");
-		page_content += current_devices;
-		page_content += F("</code></div></div></div>");
-	}
-
 	page_content += F("</div>");
 }
 
@@ -178,7 +156,7 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 
 	appendSaveFeedback(page_content, save_result);
 
-	appendGroupOverview(page_content, mode, robonomics, self_ss58, self_display, group_id_display, current_devices);
+	appendGroupOverview(page_content, robonomics, self_ss58);
 
 	page_content += F("<form class='page-form' method='POST' action='");
 	page_content += form_action;

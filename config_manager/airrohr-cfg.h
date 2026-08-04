@@ -78,6 +78,7 @@ enum ConfigShapeId {
 	Config_ssl_influx,
 	Config_donated_by,
 	Config_current_reg,
+	Config_region_manual,
 	Config_temp_correction,
 	Config_local_hostname,
 	Config_chosen_altruist_urban,
@@ -169,6 +170,7 @@ static constexpr char CFG_KEY_MEASUREMENT_NAME_INFLUX[] PROGMEM = "measurement_n
 static constexpr char CFG_KEY_SSL_INFLUX[] PROGMEM = "ssl_influx";
 static constexpr char CFG_KEY_DONATED_BY[] PROGMEM = "donated_by";
 static constexpr char CFG_KEY_CURRENT_REG[] PROGMEM = "current_reg";
+static constexpr char CFG_KEY_REGION_MANUAL[] PROGMEM = "region_manual";
 static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
 static constexpr char CFG_KEY_LOCAL_HOSTNAME[] PROGMEM = "local_hostname";
 static constexpr char CFG_KEY_CHOSEN_ALTRUIST_URBAN[] PROGMEM = "chosen_altruist_urban";
@@ -260,6 +262,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_SSL_INFLUX, &cfg::ssl_influx },
 	{ Config_Type_String, sizeof(cfg::donated_by)-1, CFG_KEY_DONATED_BY, cfg::donated_by },
 	{ Config_Type_String, sizeof(cfg::current_reg)-1, CFG_KEY_CURRENT_REG, cfg::current_reg },
+	{ Config_Type_Bool, 0, CFG_KEY_REGION_MANUAL, &cfg::region_manual },
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
 	{ Config_Type_String, sizeof(cfg::local_hostname)-1, CFG_KEY_LOCAL_HOSTNAME, cfg::local_hostname },
 	{ Config_Type_String, sizeof(cfg::chosen_altruist_urban)-1, CFG_KEY_CHOSEN_ALTRUIST_URBAN, cfg::chosen_altruist_urban },

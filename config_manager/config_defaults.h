@@ -13,6 +13,8 @@ namespace cfg {
 
 	extern char current_lang[3];
 	extern char current_reg[20];
+	/** True after user changes Region in UI; blocks OTA auto-region. */
+	extern bool region_manual;
 	// credentials for basic auth of internal web server
 	extern bool www_basicauth_enabled;
 	extern char www_username[LEN_WWW_USERNAME];

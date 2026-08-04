@@ -461,6 +461,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 
 #define INTL_REGION "Регион"
 #define INTL_REGION_GLOBAL "Весь мир"
+#define INTL_REGION_RU "Россия"
+#define INTL_REGION_HINT "Для sensors.social connectivity. Автоматически по координатам / языку / OTA, пока вы не измените вручную."
 #define INTL_REGION_EU "Европа"
 #define INTL_REGION_AS "Азия"
 #define INTL_REGION_AF "Африка"

@@ -2,6 +2,8 @@
 #define intl_h
 
 #define REGION_GLOBAL "Global"
+#define REGION_RU "RU"
+// Legacy region ids (migrated to Global on config load)
 #define REGION_EU "Europe"
 #define REGION_AS "Asia"
 #define REGION_AF "Africa"
@@ -830,6 +832,12 @@
 #endif
 #ifndef INTL_DATA_ENCRYPT_QR_FAIL
 #define INTL_DATA_ENCRYPT_QR_FAIL "Could not render key QR."
+#endif
+#ifndef INTL_REGION_RU
+#define INTL_REGION_RU "Russia"
+#endif
+#ifndef INTL_REGION_HINT
+#define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / language / OTA unless you change it here."
 #endif
 
 #endif

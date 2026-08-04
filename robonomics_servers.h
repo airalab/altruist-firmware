@@ -3,21 +3,13 @@
 
 #include "./intl.h"
 
-// Global Servers - REGION_GLOBAL
-// Europe - REGION_EU
-// Asia - REGION_AS
-// Africa - REGION_AF
-// Australia - REGION_AU
-// North America - REGION_NA
-// South America - REGION_SA
-
+// Built-in sensors.social connectivity pool (region-tagged).
+// Custom host / host pool in settings overrides this list.
 
 static const char* const HOST_ROBONOMICS[][2] PROGMEM = {
-                                                    {"connectivity.robonomics.network", REGION_GLOBAL},
-                                                    {"1.connectivity.robonomics.network", REGION_GLOBAL}, 
-                                                    {"2.connectivity.robonomics.network", REGION_GLOBAL},
-                                                    };
+	{"connectivity.robonomics.network", REGION_RU},
+	{"1.connectivity.robonomics.network", REGION_GLOBAL},
+	{"2.connectivity.robonomics.network", REGION_GLOBAL},
+};
 
-
-
-#endif // __ROBONOMICS_SERVERS_H__  
+#endif // __ROBONOMICS_SERVERS_H__

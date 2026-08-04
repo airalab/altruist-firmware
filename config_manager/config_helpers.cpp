@@ -2,9 +2,12 @@
 #include "device_backup.h"
 #include "utils.h"
 #include "../apis/rws_group.h"
+#include "../intl.h"
+#include "russia_region_poly.h"
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <strings.h>
+#include <cmath>
 #include <time.h>
 #if defined(ESP32) || defined(ESP8266)
 #include <freertos/FreeRTOS.h>
@@ -472,6 +475,16 @@ void readConfig(bool oldconfig) {
 			cfg::leds_brightness = 100;
 			rewriteConfig = true;
 		}
+		// Connectivity regions are only RU / Global now; migrate legacy continent ids.
+		if (strcmp(cfg::current_reg, REGION_RU) != 0 &&
+		    strcmp(cfg::current_reg, REGION_GLOBAL) != 0) {
+			strncpy(cfg::current_reg, REGION_GLOBAL, sizeof(cfg::current_reg) - 1);
+			cfg::current_reg[sizeof(cfg::current_reg) - 1] = '\0';
+			rewriteConfig = true;
+		}
+		if (cfgApplyAutoRegion()) {
+			rewriteConfig = true;
+		}
 	} else {
 		debug_outln_error(F("failed to load json config"));
 		logSubsystemError(F("config"), F("json_parse_failed"), String(F("path=")) + cfgName);
@@ -507,6 +520,124 @@ void init_config() {
 		return;
 	}
 	readConfig();
+}
+
+bool cfgHasValidMapCoords(double* lat_out, double* lon_out) {
+	double lat = 0.0;
+	double lon = 0.0;
+	if (strlen(cfg::coords_gps) == 0) {
+		return false;
+	}
+	if (sscanf(cfg::coords_gps, "%lf,%lf", &lat, &lon) != 2) {
+		return false;
+	}
+	if (lat == 0.0 && lon == 0.0) {
+		return false;
+	}
+	if (lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
+		return false;
+	}
+	if (lat_out) {
+		*lat_out = lat;
+	}
+	if (lon_out) {
+		*lon_out = lon;
+	}
+	return true;
+}
+
+static bool cfgPointInRuRing100(int32_t lon100, int32_t lat100, const RuLonLat* pts, uint16_t count) {
+	if (!pts || count < 3) {
+		return false;
+	}
+	bool inside = false;
+	RuLonLat prev;
+	memcpy_P(&prev, &pts[count - 1], sizeof(prev));
+	for (uint16_t i = 0; i < count; ++i) {
+		RuLonLat cur;
+		memcpy_P(&cur, &pts[i], sizeof(cur));
+		const int32_t yi = cur.lat100;
+		const int32_t yj = prev.lat100;
+		if ((yi > lat100) != (yj > lat100)) {
+			const int32_t xi = cur.lon100;
+			const int32_t xj = prev.lon100;
+			const int32_t den = yj - yi;
+			if (den != 0) {
+				const int32_t xinters = xi + static_cast<int32_t>(
+					(static_cast<int64_t>(xj - xi) * (lat100 - yi)) / den);
+				if (lon100 < xinters) {
+					inside = !inside;
+				}
+			}
+		}
+		prev = cur;
+	}
+	return inside;
+}
+
+static bool cfgCoordsInRussia(double lat, double lon) {
+	// Cheap reject before point-in-polygon.
+	if (lat < 41.0 || lat > 82.5) {
+		return false;
+	}
+	if (!((lon >= 19.0 && lon <= 180.0) || (lon >= -180.0 && lon <= -169.0))) {
+		return false;
+	}
+
+	const int32_t lon100 = static_cast<int32_t>(lround(lon * 100.0));
+	const int32_t lat100 = static_cast<int32_t>(lround(lat * 100.0));
+	for (uint8_t r = 0; r < kRuRingCount; ++r) {
+		RuRing ring;
+		memcpy_P(&ring, &kRuRings[r], sizeof(ring));
+		if (cfgPointInRuRing100(lon100, lat100, ring.pts, ring.count)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool cfgIsRuLanguage() {
+	char lang[8];
+	strncpy(lang, cfg::current_lang, sizeof(lang) - 1);
+	lang[sizeof(lang) - 1] = '\0';
+	for (char* p = lang; *p; ++p) {
+		if (*p >= 'a' && *p <= 'z') {
+			*p = static_cast<char>(*p - 'a' + 'A');
+		}
+	}
+	if (strcmp(lang, "RU") == 0) {
+		return true;
+	}
+#if defined(INTL_RU)
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool cfgApplyAutoRegion() {
+	if (cfg::region_manual) {
+		return false;
+	}
+
+	const char* want = nullptr;
+	double lat = 0.0;
+	double lon = 0.0;
+	if (cfgHasValidMapCoords(&lat, &lon)) {
+		want = cfgCoordsInRussia(lat, lon) ? REGION_RU : REGION_GLOBAL;
+	} else if (cfgIsRuLanguage()) {
+		want = REGION_RU;
+	} else {
+		return false;
+	}
+
+	if (strcmp(cfg::current_reg, want) == 0) {
+		return false;
+	}
+	strncpy(cfg::current_reg, want, sizeof(cfg::current_reg) - 1);
+	cfg::current_reg[sizeof(cfg::current_reg) - 1] = '\0';
+	debug_outln_info(F("Region auto-set: "), String(want));
+	return true;
 }
 
 String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type) {

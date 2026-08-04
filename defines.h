@@ -488,7 +488,11 @@ static const char URL_CUSTOM[] PROGMEM = "";
 
 // Robonomics
 #include "./intl.h"
-static const char CURRENT_REG[] PROGMEM = "Global";
+#if defined(INTL_RU)
+static const char CURRENT_REG[] PROGMEM = REGION_RU;
+#else
+static const char CURRENT_REG[] PROGMEM = REGION_GLOBAL;
+#endif
 // #define PORT_ROBONOMICS 31112
 #define PORT_ROBONOMICS 65
 #define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"

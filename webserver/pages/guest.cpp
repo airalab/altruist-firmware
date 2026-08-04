@@ -35,6 +35,7 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 	page_content += form_checkbox(Config_wlannopwd, FPSTR(INTL_NO_WLAN_PWD), false);
 	add_form_input(page_content, Config_local_hostname, FPSTR(INTL_LOCAL_HOSTNAME), LEN_LOCAL_HOSTNAME - 1);
 	page_content += form_select_timezone();
+	page_content += form_select_reg();
 	page_content += F("</div></section>");
 
 	page_content += F("<section class='config-section'><h2 class='config-section__title'>");

@@ -8,16 +8,22 @@
 namespace
 {
 
-	void logConnectivityAttempt(uint32_t seq)
+	void logConnectivityAttempt(uint32_t seq, const String &region, const String &host)
 	{
 		Serial.print(F("[CONNECTIVITY] attempt channel=sensors-connectivity seq="));
-		Serial.println(seq);
+		Serial.print(seq);
+		Serial.print(F(" region="));
+		Serial.print(region);
+		Serial.print(F(" host="));
+		Serial.println(host);
 	}
 
-	void logConnectivitySuccess(uint32_t seq, const String &host, int code)
+	void logConnectivitySuccess(uint32_t seq, const String &host, int code, const String &region)
 	{
 		Serial.print(F("[CONNECTIVITY] success channel=sensors-connectivity seq="));
 		Serial.print(seq);
+		Serial.print(F(" region="));
+		Serial.print(region);
 		Serial.print(F(" host="));
 		Serial.print(host);
 		Serial.print(F(" code="));
@@ -51,6 +57,62 @@ namespace
 			Serial.print(response_len);
 		}
 		Serial.println();
+	}
+
+	void logConnectivityNoServer(uint32_t seq, const String &region, const String &hosts)
+	{
+		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
+		Serial.print(seq);
+		Serial.print(F(" reason=no_server_available region="));
+		Serial.print(region);
+		Serial.print(F(" host="));
+		Serial.println(hosts.length() > 0 ? hosts : String(F("-")));
+	}
+
+	bool isRuRegion(const String &reg)
+	{
+		return reg == REGION_RU || reg.equalsIgnoreCase(F("Russia")) || reg == F("Россия");
+	}
+
+	bool hostRegionMatches(const String &reg, const char *host_region)
+	{
+		const String tag = FPSTR(host_region);
+		if (reg == tag)
+		{
+			return true;
+		}
+		// UI label / legacy aliases for RU
+		if (tag == REGION_RU && isRuRegion(reg))
+		{
+			return true;
+		}
+		return false;
+	}
+
+	String builtInHostsForSelection(const String &reg, bool onlyGlobal)
+	{
+		String hosts;
+		const int n = sizeof(HOST_ROBONOMICS) / sizeof(HOST_ROBONOMICS[0]);
+		for (int i = 0; i < n; ++i)
+		{
+			if (onlyGlobal)
+			{
+				if (!hostRegionMatches(REGION_GLOBAL, HOST_ROBONOMICS[i][1]))
+				{
+					continue;
+				}
+			}
+			else if (!hostRegionMatches(reg, HOST_ROBONOMICS[i][1]))
+			{
+				continue;
+			}
+			if (hosts.length() > 0)
+			{
+				hosts += ',';
+			}
+			hosts += FPSTR(HOST_ROBONOMICS[i][0]);
+		}
+		return hosts;
 	}
 
 } // namespace
@@ -180,7 +242,14 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 	int num_of_host;
 	String data_to_send;
 	map_send_seq_active = ++map_send_seq;
-	logConnectivityAttempt(map_send_seq_active);
+
+	// Prefer live config (region may change after setup()).
+	current_reg = cfg::current_reg;
+	connectivity_host_override = String(cfg::robonomics_connectivity_host);
+	connectivity_host_override.trim();
+	connectivity_hosts_pool = String(cfg::robonomics_connectivity_hosts);
+	connectivity_hosts_pool.trim();
+
 	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] Send attempt"));
 	if (WiFi.status() != WL_CONNECTED)
 	{
@@ -231,7 +300,8 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 	}
 
 	num_of_host = chooseRobonomicsServer(false);
-	if (num_of_host == 255)
+	// Global fallback only when region is not RU — otherwise RU would silently use 1./2.
+	if (num_of_host == 255 && !isRuRegion(current_reg))
 	{
 		debug_outln_verbose(F("[Map] No regional server found, trying global..."));
 		num_of_host = chooseRobonomicsServer(true);
@@ -242,7 +312,15 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 	}
 	else
 	{
-		logConnectivityFailure(map_send_seq_active, WiFi.status() == WL_CONNECTED ? F("no_server_available") : F("wifi_disconnected"));
+		if (WiFi.status() != WL_CONNECTED)
+		{
+			logConnectivityFailure(map_send_seq_active, F("wifi_disconnected"));
+		}
+		else
+		{
+			logConnectivityNoServer(map_send_seq_active, current_reg,
+				builtInHostsForSelection(current_reg, false));
+		}
 		debug_outln_verbose(F("[Map] FAILED: No server available (all hosts unreachable or returned errors)"));
 		debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] selection failed"));
 	}
@@ -312,6 +390,7 @@ void RobonomicsHTTPAPI::POSTRequest(const String &data, const String &host)
 		return;
 	}
 	const String &s_Host = host;
+	logConnectivityAttempt(map_send_seq_active, current_reg, s_Host);
 	String s_url(FPSTR(URL_ROBONOMICS));
 	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] POST to ") + s_Host + ":" + String(PORT_ROBONOMICS) + s_url);
 	_http.setTimeout(20 * 1000);
@@ -324,7 +403,7 @@ void RobonomicsHTTPAPI::POSTRequest(const String &data, const String &host)
 		result = _http.POST(data);
 		if (result >= HTTP_CODE_OK && result <= HTTP_CODE_ALREADY_REPORTED)
 		{
-			logConnectivitySuccess(map_send_seq_active, s_Host, result);
+			logConnectivitySuccess(map_send_seq_active, s_Host, result, current_reg);
 			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] OK, POST succeeded -> ") + s_Host);
 			is_ok = true;
 		}
@@ -372,12 +451,12 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal)
 		}
 		if (onlyGlobal)
 		{
-			if (strcmp(HOST_ROBONOMICS[i][1], INTL_REGION_GLOBAL) != 0)
+			if (!hostRegionMatches(REGION_GLOBAL, HOST_ROBONOMICS[i][1]))
 			{
 				continue;
 			}
 		}
-		else if (strcmp(current_reg.c_str(), HOST_ROBONOMICS[i][1]) != 0)
+		else if (!hostRegionMatches(current_reg, HOST_ROBONOMICS[i][1]))
 		{
 			continue;
 		}

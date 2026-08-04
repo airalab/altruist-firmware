@@ -20,6 +20,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Bottom navigation icons** — Local / Map / Custom / System PNGs from `display/icons/interface/`, embedded in `nav-icons.h`.
 - **Favicon** — `/favicon.ico` and `/favicon-dark.ico` (PNG, light/dark scheme) replace the previous generic tab icon.
 - **Config panels** — Sectioned settings (Wi-Fi, Robonomics, data sharing, GPS, auth, debug, LEDs, sleep analytics, integrations) with checkbox **grids** for map-sharing toggles and shared JS for conditional fields (`script-js-config-toggles.h`).
+- **Connectivity region (RU / Global)** — Built-in sensors.social hosts are split by region: **RU** → `connectivity.robonomics.network`, **Global** → `1.` / `2.connectivity.robonomics.network`. Web UI offers only RU/Global (legacy continent ids migrate to Global). Auto-select when not set manually: map coordinates via simplified Russia polygons (geoBoundaries ADM0) → else RU UI / RU firmware build → else OTA host (`updru` → RU, `upd` → Global). Custom single host / host pool still overrides the built-in pool.
 
 ### Improvements
 

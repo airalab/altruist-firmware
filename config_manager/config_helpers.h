@@ -20,6 +20,15 @@ void removeWebUiCredentials();
 bool config_set_string_by_key(const char* key, const char* value);
 /** sensors.social map deep link (type, date, coords, owner, sensor). */
 String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type = "pm10");
+/**
+ * Auto connectivity region when not set manually:
+ * 1) valid coords_gps → RU if in rough Russia bbox, else Global
+ * 2) else RU UI/build language → RU
+ * Returns true if cfg::current_reg changed.
+ */
+bool cfgApplyAutoRegion();
+/** True when coords_gps parses to a non-zero lat/lon. */
+bool cfgHasValidMapCoords(double* lat_out = nullptr, double* lon_out = nullptr);
 
 #if defined(ALTRUIST_INSIGHT)
 /** Drop cached Urban SS58 / HTTP telemetry when pairing target changes. */

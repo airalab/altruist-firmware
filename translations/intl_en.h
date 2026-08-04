@@ -291,7 +291,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi in Configuration Mode"
 #define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Custom API"
-#define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
+#define INTL_PANEL_TITLE_INFLUX "Influx DB"
 #define INTL_PANEL_TITLE_DATA_SHARING "Publish to Map"
 #define INTL_DATA_SHARING_DISCLAIMER "By default, all sensor data is shared to the public sensors map. You can choose which data types to share below. Unshared data will still be displayed on your device screen and available locally."
 #define INTL_DATA_SHARING_ADDITIONAL "Additional sensors (optional)"
@@ -471,6 +471,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 
 #define INTL_REGION "Region"
 #define INTL_REGION_GLOBAL "Global"
+#define INTL_REGION_RU "Russia"
+#define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / language / OTA unless you change it here."
 #define INTL_REGION_EU "Europe"
 #define INTL_REGION_AS "Asia"
 #define INTL_REGION_AF "Africa"

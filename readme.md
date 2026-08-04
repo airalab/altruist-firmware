@@ -115,6 +115,17 @@ Stable unless `ALTRUIST_CHANNEL_TESTING=1` is set explicitly. The build output
 prints the resolved branch, channel, profile, telemetry state, and commit before
 compilation.
 
+Stable and Testing release builds use the same runtime logging behavior. The
+channel controls firmware identity, artifact names, and OTA policy; the build
+profile controls diagnostic verbosity. Debug builds force verbose project logs
+with `ALTRUIST_FORCE_LOG_LEVEL=4`.
+
+The tester UART contract is independent from runtime project logs: `[BOOT]`,
+`[BUILD]`, `[LOG]`, `[HEALTH]`, `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`, and
+`[SUBSYSTEM]` are emitted directly to Serial in release builds, while full
+transport payloads, sensor internals, and HTTP details stay behind verbose/debug
+logging.
+
 CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
 `ALTRUIST_BUILD_COMMIT` explicitly, so published builds do not depend on local
 Git state. These variables can also override the automatic local defaults.

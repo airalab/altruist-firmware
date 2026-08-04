@@ -361,16 +361,12 @@ String form_select_timezone() {
 String form_select_reg() {
 	String s_select = F(" selected='selected'");
 	String s = F(	"<div class='form-group'>"
-					"<label for='current_reg'>" INTL_REGION ":&nbsp</label>"
+					"<label for='current_reg'>" INTL_REGION ":&nbsp;</label>"
 					"<select id='current_reg' name='current_reg'>"
 					"<option value='" REGION_GLOBAL "'>" INTL_REGION_GLOBAL "</option>"
-					"<option value='" REGION_EU "'>" INTL_REGION_EU "</option>"
-					"<option value='" REGION_AS "'>" INTL_REGION_AS "</option>"
-					"<option value='" REGION_AF "'>" INTL_REGION_AF "</option>"
-					"<option value='" REGION_AU "'>" INTL_REGION_AU "</option>"
-					"<option value='" REGION_NA "'>" INTL_REGION_NA "</option>"
-					"<option value='" REGION_SA "'>" INTL_REGION_SA "</option>"
+					"<option value='" REGION_RU "'>" INTL_REGION_RU "</option>"
 					"</select>"
+					"<p class='form-hint'>" INTL_REGION_HINT "</p>"
 					"</div>");
 
 	s.replace("'" + String(cfg::current_reg) + "'>", "'" + String(cfg::current_reg) + "'" + s_select + ">");

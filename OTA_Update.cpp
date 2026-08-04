@@ -8,6 +8,8 @@
 #include "utils.h"
 #include <MD5Builder.h>
 #include <Update.h>
+#include <cstring>
+#include <strings.h>
 
 /*****************************************************************
  * OTAUpdate                                                     *
@@ -16,6 +18,30 @@
 static const char* const FW_HOSTS[] = { FW_DOWNLOAD_HOST, FW_DOWNLOAD_HOST_ALTERNATIVE };
 static constexpr int FW_HOST_COUNT = 2;
 static constexpr unsigned long FW_HOST_TIMEOUT_MS = 30000;  // 30s per host attempt
+
+/** Auto-set connectivity region from successful OTA host unless a stronger signal exists. */
+static void applyRegionFromOtaHostIfAuto(const char* host) {
+	if (!host || cfg::region_manual || cfgHasValidMapCoords()) {
+		return;
+	}
+	// Language / RU firmware build already own auto-region; OTA is a weaker fallback.
+	if (strcasecmp(cfg::current_lang, "RU") == 0) {
+		return;
+	}
+#if defined(INTL_RU)
+	return;
+#else
+	const bool from_ru = (strcmp(host, FW_DOWNLOAD_HOST_ALTERNATIVE) == 0);
+	const char* want = from_ru ? REGION_RU : REGION_GLOBAL;
+	if (strcmp(cfg::current_reg, want) == 0) {
+		return;
+	}
+	strncpy(cfg::current_reg, want, sizeof(cfg::current_reg) - 1);
+	cfg::current_reg[sizeof(cfg::current_reg) - 1] = '\0';
+	writeConfig();
+	debug_outln_info(F("Region auto-set from OTA host: "), String(want) + F(" (") + String(host) + F(")"));
+#endif
+}
 
 static String buildFirmwarePath() {
 	String language(cfg::current_lang);
@@ -52,7 +78,7 @@ static String buildUserAgent() {
 	return agent;
 }
 
-static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostream, device_status_t &deviceStatus) {
+static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostream, device_status_t &deviceStatus, const char** used_host = nullptr) {
 
 	String agent = buildUserAgent();
 
@@ -71,7 +97,12 @@ static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostr
 			if (r == HTTP_CODE_OK) {
 				int bytes_written = http.writeToStream(ostream);
 				http.end();
-				if (bytes_written > 0) return true;
+				if (bytes_written > 0) {
+					if (used_host) {
+						*used_host = FW_HOSTS[h];
+					}
+					return true;
+				}
 			} else {
 				http.end();
 			}
@@ -249,6 +280,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
         }
 
         debug_outln_info(F("OTA successful and verified"));
+		applyRegionFromOtaHostIfAuto(host);
         http.end();
         return true;
     }
@@ -277,11 +309,15 @@ void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
 	debug_outln_info(F("download md5 begin"));
 
 	StreamString newFwmd5;
-	if (!fwDownloadStream(client, fetch_md5_name, &newFwmd5, deviceStatus)){
+	const char* md5_host = nullptr;
+	if (!fwDownloadStream(client, fetch_md5_name, &newFwmd5, deviceStatus, &md5_host)){
 		debug_outln_info(F("download md5 fail"));
 		logSubsystemError(F("ota"), F("md5_download_failed"), String(F("path=")) + fetch_md5_name);
 		return;}
 	debug_outln_info(F("download md5 end"));
+	if (md5_host) {
+		applyRegionFromOtaHostIfAuto(md5_host);
+	}
 
 	newFwmd5.trim();
 	if (newFwmd5 == ESP.getSketchMD5()) {
