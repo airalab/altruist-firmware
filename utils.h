@@ -84,7 +84,17 @@ struct device_status_t {
 	bool ota_failed = false;       // When true, display shows "Update failed" screen before returning
 	bool ota_success = false;      // When true, display shows "Update successful" screen before restart
 	int ota_progress_percent = -1;  // 0-100 during download, -1 when not applicable
-	volatile bool ota_update_requested = false;  // Set by webserver to trigger manual OTA check
+	volatile bool ota_update_requested = false;  // Set by webserver to trigger manual OTA install
+	/** UI result of last manual OTA check (hub / /ota). */
+	enum OtaCheckUi : uint8_t {
+		OtaCheckUi_None = 0,
+		OtaCheckUi_UpToDate = 1,
+		OtaCheckUi_Available = 2,
+		OtaCheckUi_Failed = 3,
+		OtaCheckUi_InstallQueued = 4,
+	};
+	OtaCheckUi ota_check_ui = OtaCheckUi_None;
+	char ota_remote_version[48] = "";
 	String ip_address;
 	std::map<std::string, api_status_t> apis_status;
 	std::vector<std::string> sensor_names;

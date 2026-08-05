@@ -78,6 +78,9 @@ private:
     void _webserver_static();
     void _webserver_not_found();
     void _webserver_ota();
+    void _webserver_ota_check_json();
+    void _webserver_ota_install_json();
+    void _webserver_ota_progress_json();
     void _webserver_finish_setup();
 
     void _webserver_group();

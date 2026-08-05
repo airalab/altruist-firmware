@@ -22,8 +22,8 @@ bool config_set_string_by_key(const char* key, const char* value);
 String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type = "pm10");
 /**
  * Auto connectivity region when not set manually:
- * 1) valid coords_gps → RU if in rough Russia bbox, else Global
- * 2) else RU UI/build language → RU
+ * valid coords_gps → RU if inside Russia polygon, else Global.
+ * OTA host is a weaker fallback (see OTA_Update).
  * Returns true if cfg::current_reg changed.
  */
 bool cfgApplyAutoRegion();

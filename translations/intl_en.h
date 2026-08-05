@@ -287,7 +287,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_ANALYTICS_MORNING_END_HINT "After this time the display returns to the main screen. End time is exclusive (10:00 means until 09:59)."
 #define INTL_ANALYTICS_SLEEP_ADD_URBAN "Add Urban data to sleep analytics (PM2.5 & noise)"
 #define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in sleep analytics."
-#define INTL_PANEL_TITLE_FIRMWARE "Firmware Version"
+#define INTL_PANEL_TITLE_FIRMWARE "System"
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi in Configuration Mode"
 #define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Custom API"
@@ -398,6 +398,13 @@ const char INTL_LAST_OTA[] PROGMEM = "Last OTA check";
 #define INTL_OTA_UPDATE "Firmware Update"
 const char INTL_OTA_CHECK_UPDATE[] PROGMEM = "Check for update";
 const char INTL_OTA_CURRENT_VERSION[] PROGMEM = "Current version";
+const char INTL_OTA_LATEST_VERSION[] PROGMEM = "Latest available";
+const char INTL_OTA_UP_TO_DATE[] PROGMEM = "Firmware is up to date";
+const char INTL_OTA_UPDATE_AVAILABLE[] PROGMEM = "A newer firmware is available";
+const char INTL_OTA_INSTALL[] PROGMEM = "Update";
+const char INTL_OTA_INSTALL_REQUESTED[] PROGMEM = "Update started. Keep Wi‑Fi connected until the device restarts.";
+const char INTL_OTA_UPDATING[] PROGMEM = "Updating firmware";
+const char INTL_OTA_CHECK_FAILED[] PROGMEM = "Could not check for updates. Try again later.";
 const char INTL_OTA_CHECK_REQUESTED[] PROGMEM = "Update check requested. The device will download and install the new firmware if available.";
 const char INTL_OTA_NO_WIFI[] PROGMEM = "WiFi is not connected. Cannot check for updates.";
 const char INTL_OTA_SWITCH_LANG[] PROGMEM = "Switch language";
@@ -472,7 +479,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_REGION "Region"
 #define INTL_REGION_GLOBAL "Global"
 #define INTL_REGION_RU "Russia"
-#define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / language / OTA unless you change it here."
+#define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / OTA unless you change it here."
 #define INTL_REGION_EU "Europe"
 #define INTL_REGION_AS "Asia"
 #define INTL_REGION_AF "Africa"

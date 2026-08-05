@@ -14,6 +14,7 @@
 #include "../defines.h"
 #include "../utils.h"
 #include "../wifi_manager.h"
+#include "../OTA_Update.h"
 #include <Robonomics.h>
 #include "web-header-logo-select.h"
 #include "favicon.h"
@@ -139,6 +140,9 @@ void SensorWebServer::setup() {
 	         std::bind(&SensorWebServer::_webserver_restore_backup_upload, this));
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
+	server.on(F("/ota-check.json"), HTTP_GET, std::bind(&SensorWebServer::_webserver_ota_check_json, this));
+	server.on(F("/ota-install.json"), HTTP_POST, std::bind(&SensorWebServer::_webserver_ota_install_json, this));
+	server.on(F("/ota-progress.json"), HTTP_GET, std::bind(&SensorWebServer::_webserver_ota_progress_json, this));
 	server.on(F("/finish_setup"), std::bind(&SensorWebServer::_webserver_finish_setup, this));
 	server.on(F("/group"), std::bind(&SensorWebServer::_webserver_group, this));
 #ifdef ALTRUIST_INSIGHT
@@ -999,72 +1003,148 @@ void SensorWebServer::_webserver_ota() {
 	RESERVE_STRING(page_content, LARGE_STR);
 	start_html_page(page_content, FPSTR(INTL_OTA_UPDATE), false, "settings");
 
-	if (server.method() == HTTP_POST) {
-		append_app_page_body_start(page_content, F(INTL_PAGE_OTA_INTRO));
-		if (server.hasArg("action") && server.arg("action") == F("switch_lang")) {
-			String new_lang = server.arg("current_lang");
-			new_lang.toUpperCase();
-			if (new_lang == String(CURRENT_LANG)) {
-				page_content += F("<div class='ui-notice ui-notice--warn'><strong>");
-				page_content += FPSTR(INTL_OTA_LANG_SAME);
-				page_content += F("</strong></div>");
-			} else {
-				strncpy(cfg::current_lang, new_lang.c_str(), sizeof(cfg::current_lang) - 1);
-				cfg::current_lang[sizeof(cfg::current_lang) - 1] = '\0';
-				writeConfig();
-				deviceStatus.ota_update_requested = true;
-				page_content += F("<div class='ui-notice ui-notice--ok'><strong>");
-				page_content += FPSTR(INTL_OTA_LANG_REQUESTED);
-				page_content += F("</strong></div>");
-			}
+	String lang_notice;
+	if (server.method() == HTTP_POST && server.hasArg("action") && server.arg("action") == F("switch_lang")) {
+		String new_lang = server.arg("current_lang");
+		new_lang.toUpperCase();
+		if (new_lang == String(CURRENT_LANG)) {
+			lang_notice = F("<div class='ui-notice ui-notice--warn'><strong>");
+			lang_notice += FPSTR(INTL_OTA_LANG_SAME);
+			lang_notice += F("</strong></div>");
 		} else {
+			strncpy(cfg::current_lang, new_lang.c_str(), sizeof(cfg::current_lang) - 1);
+			cfg::current_lang[sizeof(cfg::current_lang) - 1] = '\0';
+			writeConfig();
 			deviceStatus.ota_update_requested = true;
-			page_content += F("<div class='ui-notice ui-notice--ok'><strong>");
-			page_content += FPSTR(INTL_OTA_CHECK_REQUESTED);
-			page_content += F("</strong></div>");
+			lang_notice = F("<div class='ui-notice ui-notice--ok'><strong>");
+			lang_notice += FPSTR(INTL_OTA_LANG_REQUESTED);
+			lang_notice += F("</strong></div>");
 		}
-	} else {
-		append_app_page_body_start(page_content, F(INTL_PAGE_OTA_INTRO));
-		page_content += F("<div class='data-sheet'>");
-		add_data_section_start(page_content, FPSTR(INTL_OTA_UPDATE));
-		add_data_row_from_value(page_content, FPSTR(INTL_OTA_CURRENT_VERSION), String(SOFTWARE_VERSION_STR));
-		add_data_row_from_value(page_content, "Firmware channel", ALTRUIST_BUILD_CHANNEL);
-		add_data_row_from_value(page_content, FPSTR(INTL_LAST_OTA),
-			delayToString(millis() - deviceStatus.last_update_attempt));
-		add_data_section_end(page_content);
-		page_content += F("</div>");
-
-		page_content += F("<div class='page-form'>");
-
-		page_content += F("<section class='config-section'><h2 class='config-section__title'>");
-		page_content += FPSTR(INTL_OTA_CHECK_UPDATE);
-		page_content += F("</h2><div class='config-section__body'>"
-			"<form method='POST' action='/ota'>");
-		page_content += form_submit(FPSTR(INTL_OTA_CHECK_UPDATE));
-		page_content += F("</form></div></section>");
-
-		page_content += F("<section class='config-section'><h2 class='config-section__title'>");
-		page_content += FPSTR(INTL_OTA_SWITCH_LANG);
-		page_content += F("</h2><div class='config-section__body'>"
-			"<p class='form-hint'><strong>");
-		page_content += FPSTR(INTL_OTA_CURRENT_LANG);
-		page_content += F(":</strong> ");
-		page_content += String(CURRENT_LANG);
-		page_content += F("</p>"
-			"<form method='POST' action='/ota'>"
-			"<input type='hidden' name='action' value='switch_lang'>");
-		page_content += form_select_lang();
-		page_content += F("<p class='form-hint'>");
-		page_content += FPSTR(INTL_OTA_SWITCH_LANG_NOTE);
-		page_content += F("</p>");
-		page_content += form_submit(FPSTR(INTL_OTA_SWITCH_LANG));
-		page_content += F("</form></div></section>");
-
-		page_content += F("</div>");
 	}
+
+	append_app_page_body_start(page_content, F(INTL_PAGE_OTA_INTRO));
+	if (lang_notice.length()) {
+		page_content += lang_notice;
+	}
+	page_content += F("<div class='page-form'>");
+	webserver_append_ota_section(page_content, deviceStatus, "/ota");
+	page_content += F("</div>");
 
 	append_app_page_body_end(page_content);
 	end_html_page_app(page_content);
+}
+
+static void jsonAppendEscaped(String& out, const String& in) {
+	for (size_t i = 0; i < in.length(); ++i) {
+		const char c = in[i];
+		if (c == '"' || c == '\\') {
+			out += '\\';
+		}
+		if (c == '\n' || c == '\r') {
+			continue;
+		}
+		out += c;
+	}
+}
+
+void SensorWebServer::_webserver_ota_check_json() {
+	if (WiFi.status() != WL_CONNECTED) {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_JSON), F("{\"status\":\"failed\",\"show_install\":false}"));
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	otaCheckForUpdate(deviceStatus);
+
+	String latest;
+	String message;
+	const char* status = "failed";
+	bool show_install = false;
+	switch (deviceStatus.ota_check_ui) {
+	case device_status_t::OtaCheckUi_UpToDate:
+		status = "uptodate";
+		message = FPSTR(INTL_OTA_UP_TO_DATE);
+		latest = deviceStatus.ota_remote_version[0]
+			? String(deviceStatus.ota_remote_version)
+			: String(SOFTWARE_VERSION_STR);
+		break;
+	case device_status_t::OtaCheckUi_Available:
+		status = "available";
+		message = FPSTR(INTL_OTA_UPDATE_AVAILABLE);
+		show_install = true;
+		latest = deviceStatus.ota_remote_version[0]
+			? String(deviceStatus.ota_remote_version)
+			: String(FPSTR(INTL_OTA_UPDATE_AVAILABLE));
+		break;
+	default:
+		status = "failed";
+		message = FPSTR(INTL_OTA_CHECK_FAILED);
+		break;
+	}
+
+	String json = F("{\"status\":\"");
+	json += status;
+	json += F("\",\"show_install\":");
+	json += show_install ? F("true") : F("false");
+	json += F(",\"message\":\"");
+	jsonAppendEscaped(json, message);
+	json += F("\",\"latest\":\"");
+	jsonAppendEscaped(json, latest);
+	json += F("\",\"last_check\":\"0s\"}");
+	server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), json);
+}
+
+void SensorWebServer::_webserver_ota_install_json() {
+	if (WiFi.status() != WL_CONNECTED) {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_JSON), F("{\"status\":\"failed\",\"show_install\":false}"));
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	deviceStatus.ota_update_requested = true;
+	deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_InstallQueued;
+	deviceStatus.ota_failed = false;
+	deviceStatus.ota_success = false;
+	if (deviceStatus.ota_progress_percent < 0) {
+		deviceStatus.ota_progress_percent = 0;
+	}
+
+	String json = F("{\"status\":\"install\",\"show_install\":false,\"message\":\"");
+	jsonAppendEscaped(json, String(FPSTR(INTL_OTA_INSTALL_REQUESTED)));
+	json += F("\",\"updating\":\"");
+	jsonAppendEscaped(json, String(FPSTR(INTL_OTA_UPDATING)));
+	json += F("\"}");
+	server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), json);
+}
+
+void SensorWebServer::_webserver_ota_progress_json() {
+	if (WiFi.status() != WL_CONNECTED) {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_JSON), F("{\"in_progress\":false}"));
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	const bool queued = deviceStatus.ota_update_requested;
+	const int percent = deviceStatus.ota_progress_percent < 0 ? 0 : deviceStatus.ota_progress_percent;
+
+	String json = F("{\"in_progress\":");
+	json += deviceStatus.ota_in_progress ? F("true") : F("false");
+	json += F(",\"queued\":");
+	json += queued ? F("true") : F("false");
+	json += F(",\"failed\":");
+	json += deviceStatus.ota_failed ? F("true") : F("false");
+	json += F(",\"success\":");
+	json += deviceStatus.ota_success ? F("true") : F("false");
+	json += F(",\"percent\":");
+	json += String(percent);
+	json += '}';
+	server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), json);
 }
 
 void SensorWebServer::_webserver_config() {
@@ -1154,6 +1234,30 @@ void SensorWebServer::_webserver_hub_local() {
 	start_html_page(page_content, title, false, "local", true);
 
 	if (server.method() == HTTP_POST) {
+		if (server.hasArg("action") && server.arg("action") == F("switch_lang")) {
+			String new_lang = server.arg("current_lang");
+			new_lang.toUpperCase();
+			if (new_lang != String(CURRENT_LANG)) {
+				strncpy(cfg::current_lang, new_lang.c_str(), sizeof(cfg::current_lang) - 1);
+				cfg::current_lang[sizeof(cfg::current_lang) - 1] = '\0';
+				writeConfig();
+				deviceStatus.ota_update_requested = true;
+			}
+			DynamicJsonDocument values_snapshot(sensors_data.capacity());
+			bool readings_busy = false;
+			if (!xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
+				readings_busy = true;
+			} else {
+				values_snapshot.set(sensors_data.as<JsonVariantConst>());
+				xSemaphoreGive(mutex);
+				if (values_snapshot.overflowed()) {
+					readings_busy = true;
+				}
+			}
+			webserver_hub_local(page_content, values_snapshot, deviceStatus, server, wificonfig_loop, readings_busy);
+			end_html_page_app(page_content);
+			return;
+		}
 #ifdef ALTRUIST_INSIGHT
 		const bool prev_use_custom_urban = cfg::use_custom_urban;
 		const String prev_custom_urban_ip = String(cfg::custom_altruist_urban);

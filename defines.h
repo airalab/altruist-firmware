@@ -488,11 +488,9 @@ static const char URL_CUSTOM[] PROGMEM = "";
 
 // Robonomics
 #include "./intl.h"
-#if defined(INTL_RU)
-static const char CURRENT_REG[] PROGMEM = REGION_RU;
-#else
+// Connectivity region default is Global for all language builds.
+// RU is set only by GPS polygon, OTA host fallback, or manual UI.
 static const char CURRENT_REG[] PROGMEM = REGION_GLOBAL;
-#endif
 // #define PORT_ROBONOMICS 31112
 #define PORT_ROBONOMICS 65
 #define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"

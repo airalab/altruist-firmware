@@ -663,7 +663,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	}
 #endif
 
-	// Firmware Version (tab 2)
+	// System (tab 2): auto-update, timezone, region
 	if (section_enabled(HubSec_Firmware)) {
 	page_content += F("<section class='config-section");
 	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_FIRMWARE "</h2>"
@@ -674,7 +674,6 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_checkbox(Config_standalone, FPSTR(INTL_INSIGHT_STANDALONE), true);
 #endif
 	page_content += F("</div><div class='config-cluster'>");
-	page_content += form_select_lang();
 	page_content += form_select_timezone();
 	page_content += form_select_reg();
 	page_content += F("</div></div></section>");

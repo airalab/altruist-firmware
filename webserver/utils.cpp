@@ -274,7 +274,6 @@ String form_submit(const String& value) {
 
 String form_select_lang() {
 	String s_select = F(" selected='selected'");
-	//INTL_LANGUAGE
 	String s = F("<div class='form-group'>"
 		"<label for='current_lang'>" INTL_LANGUAGE "</label>"
 		"<select id='current_lang' name='current_lang'>"

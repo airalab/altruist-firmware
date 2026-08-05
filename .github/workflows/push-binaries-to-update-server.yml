@@ -33,6 +33,6 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local_path: ./builds/*.bin*
+          local_path: './builds/*'
           remote_path: /home/updsens/web/upd.sensors.robonomics.network/public_html/pre_release/
           port: 22

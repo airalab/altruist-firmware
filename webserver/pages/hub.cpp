@@ -90,23 +90,50 @@ void append_hub_backup_section(String& page_content) {
 		"</script>");
 }
 
-void append_hub_ota_section(String& page_content, device_status_t& deviceStatus) {
+} // namespace
+
+void webserver_append_ota_section(String& page_content, device_status_t& deviceStatus, const char* form_action) {
+	if (!form_action || !form_action[0]) {
+		form_action = "/";
+	}
+
 	page_content += F("<div class='hub-ota'>"
 		"<div class='data-sheet'>"
 		"<div class='data-block'><div class='data-block__rows'>");
 	add_data_row_from_value(page_content, FPSTR(INTL_OTA_CURRENT_VERSION), String(SOFTWARE_VERSION_STR));
 	add_data_row_from_value(page_content, "Firmware channel", ALTRUIST_BUILD_CHANNEL);
-	add_data_row_from_value(page_content, FPSTR(INTL_LAST_OTA),
-		delayToString(millis() - deviceStatus.last_update_attempt));
-	page_content += F("</div></div></div>"
+	page_content += F("<div class='data-line'><span class='data-line__name'>");
+	page_content += FPSTR(INTL_LAST_OTA);
+	page_content += F("</span><span class='data-line__reading'><span class='data-line__val' id='ota-last-check'>");
+	page_content += delayToString(millis() - deviceStatus.last_update_attempt);
+	page_content += F("</span></span></div>"
+		"<div class='data-line' id='ota-latest-row' hidden>"
+		"<span class='data-line__name'>");
+	page_content += FPSTR(INTL_OTA_LATEST_VERSION);
+	page_content += F("</span><span class='data-line__reading'><span class='data-line__val' id='ota-latest-val'></span>"
+		"</span></div></div></div></div>"
 		"<div class='hub-ota__actions'>");
 
-	page_content += F("<section class='config-section'><h2 class='config-section__title'>");
+	page_content += F("<section class='config-section hub-ota__check'>"
+		"<div class='hub-ota__check-row'>"
+		"<h2 class='config-section__title'>");
 	page_content += FPSTR(INTL_OTA_CHECK_UPDATE);
-	page_content += F("</h2><div class='config-section__body'>"
-		"<form method='POST' action='/ota'>");
-	page_content += form_submit(FPSTR(INTL_OTA_CHECK_UPDATE));
-	page_content += F("</form></div></section>");
+	page_content += F("</h2>"
+		"<button type='button' class='submit-btn' id='ota-check-btn' data-fail='");
+	page_content += FPSTR(INTL_OTA_CHECK_FAILED);
+	page_content += F("'>");
+	page_content += FPSTR(INTL_OTA_CHECK_UPDATE);
+	page_content += F("</button></div>"
+		"<div class='hub-ota__check-result' id='ota-check-result' hidden>"
+		"<div class='hub-ota__check-result-main'>"
+		"<p class='hub-ota__check-msg' id='ota-check-msg'></p>"
+		"<div class='hub-ota__progress' id='ota-progress' hidden>"
+		"<div class='hub-ota__progress-track'><div class='hub-ota__progress-bar' id='ota-progress-bar'></div></div>"
+		"<span class='hub-ota__progress-pct' id='ota-progress-pct'>0%</span>"
+		"</div></div>"
+		"<button type='button' class='submit-btn hub-ota__install-btn' id='ota-install-btn' hidden>");
+	page_content += FPSTR(INTL_OTA_INSTALL);
+	page_content += F("</button></div></section>");
 
 	page_content += F("<section class='config-section'><h2 class='config-section__title'>");
 	page_content += FPSTR(INTL_OTA_SWITCH_LANG);
@@ -116,7 +143,9 @@ void append_hub_ota_section(String& page_content, device_status_t& deviceStatus)
 	page_content += F(":</strong> ");
 	page_content += String(CURRENT_LANG);
 	page_content += F("</p>"
-		"<form method='POST' action='/ota'>"
+		"<form method='POST' action='");
+	page_content += form_action;
+	page_content += F("'>"
 		"<input type='hidden' name='action' value='switch_lang'>");
 	page_content += form_select_lang();
 	page_content += F("<p class='form-hint'>");
@@ -124,8 +153,109 @@ void append_hub_ota_section(String& page_content, device_status_t& deviceStatus)
 	page_content += F("</p>");
 	page_content += form_submit(FPSTR(INTL_OTA_SWITCH_LANG));
 	page_content += F("</form></div></section>"
-		"</div></div>");
+		"</div></div>"
+		"<script>(function(){"
+		"var root=document.querySelector('.hub-ota');"
+		"if(!root)return;"
+		"var checkBtn=root.querySelector('#ota-check-btn');"
+		"var installBtn=root.querySelector('#ota-install-btn');"
+		"var result=root.querySelector('#ota-check-result');"
+		"var msg=root.querySelector('#ota-check-msg');"
+		"var latestRow=root.querySelector('#ota-latest-row');"
+		"var latestVal=root.querySelector('#ota-latest-val');"
+		"var lastCheck=root.querySelector('#ota-last-check');"
+		"var progress=root.querySelector('#ota-progress');"
+		"var progressBar=root.querySelector('#ota-progress-bar');"
+		"var progressPct=root.querySelector('#ota-progress-pct');"
+		"var updatingLabel=\"");
+	page_content += FPSTR(INTL_OTA_UPDATING);
+	page_content += F("\";"
+		"var successLabel=\"");
+	page_content += INTL_DISP_OTA_SUCCESS;
+	page_content += F("\";"
+		"var failLabel=\"");
+	page_content += INTL_DISP_OTA_FAILED;
+	page_content += F("\";"
+		"var restartLabel=\"");
+	page_content += INTL_DISP_OTA_RESTARTING;
+	page_content += F("\";"
+		"var pollTimer=null;"
+		"if(!checkBtn||!result||!msg)return;"
+		"function failMsg(){return checkBtn.getAttribute('data-fail')||'Error';}"
+		"function setProgress(p){"
+		"p=Math.max(0,Math.min(100,p|0));"
+		"if(progress)progress.hidden=false;"
+		"if(progressBar)progressBar.style.width=p+'%';"
+		"if(progressPct)progressPct.textContent=p+'%';"
+		"msg.textContent=updatingLabel+' - '+p+'%';"
+		"}"
+		"function stopPoll(){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}"
+		"function startPoll(){"
+		"stopPoll();"
+		"checkBtn.disabled=true;"
+		"if(installBtn)installBtn.hidden=true;"
+		"setProgress(0);"
+		"pollTimer=setInterval(function(){"
+		"fetch('/ota-progress.json',{credentials:'same-origin'}).then(function(r){"
+		"if(!r.ok)throw new Error('http');return r.json();"
+		"}).then(function(d){"
+		"if(d.success){"
+		"stopPoll();setProgress(100);"
+		"msg.textContent=successLabel+' - '+restartLabel;"
+		"msg.className='hub-ota__check-msg';"
+		"return;"
+		"}"
+		"if(d.failed){"
+		"stopPoll();"
+		"if(progress)progress.hidden=true;"
+		"msg.textContent=failLabel;"
+		"msg.className='hub-ota__check-msg hub-ota__check-msg--warn';"
+		"checkBtn.disabled=false;"
+		"return;"
+		"}"
+		"if(d.in_progress||d.queued){setProgress(d.percent||0);}"
+		"}).catch(function(){"
+		"stopPoll();"
+		"msg.textContent=restartLabel;"
+		"msg.className='hub-ota__check-msg';"
+		"if(progressBar)progressBar.style.width='100%';"
+		"if(progressPct)progressPct.textContent='100%';"
+		"});"
+		"},800);"
+		"}"
+		"function showResult(d){"
+		"d=d||{};"
+		"result.hidden=false;"
+		"msg.textContent=d.message||'';"
+		"msg.className='hub-ota__check-msg'+(d.status==='failed'?' hub-ota__check-msg--warn':'');"
+		"if(installBtn){installBtn.hidden=!d.show_install;installBtn.disabled=false;}"
+		"if(lastCheck){lastCheck.textContent=d.last_check||'0s';}"
+		"if(latestRow&&latestVal){"
+		"if(d.status==='failed'){latestRow.hidden=true;}"
+		"else if(d.latest){latestVal.textContent=d.latest;latestRow.hidden=false;}"
+		"else{latestRow.hidden=true;}"
+		"}"
+		"if(d.status==='install'){if(d.updating)updatingLabel=d.updating;startPoll();}"
+		"}"
+		"checkBtn.addEventListener('click',function(){"
+		"checkBtn.disabled=true;"
+		"fetch('/ota-check.json',{credentials:'same-origin'}).then(function(r){"
+		"if(!r.ok)throw new Error('http');return r.json();"
+		"}).then(showResult)"
+		".catch(function(){showResult({status:'failed',message:failMsg(),show_install:false});})"
+		".finally(function(){checkBtn.disabled=false;});"
+		"});"
+		"if(installBtn){installBtn.addEventListener('click',function(){"
+		"installBtn.disabled=true;"
+		"fetch('/ota-install.json',{method:'POST',credentials:'same-origin'}).then(function(r){"
+		"if(!r.ok)throw new Error('http');return r.json();"
+		"}).then(showResult)"
+		".catch(function(){showResult({status:'failed',message:failMsg(),show_install:false});installBtn.disabled=false;});"
+		"});}"
+		"})();</script>");
 }
+
+namespace {
 
 void append_hub_social_map_info(String& page_content, const String& robonomics_address) {
 #if !defined(ALTRUIST_URBAN_C3_LITE)
@@ -157,14 +287,14 @@ void append_hub_settings_cards(WebServer& server, String& page_content, bool wif
 
 void webserver_hub_local(String& page_content, JsonDocument& data, device_status_t& deviceStatus, WebServer& server,
                          bool wificonfig_loop, bool readings_busy) {
-	// Settings: connect → secure → device prefs → locale/updates → rare AP
+	// Settings: WiFi (home + setup AP) → secure → device prefs → system → OTA below
 	static const uint16_t kLocalSettingsOrder[] = {
 		HubSec_WiFi,
+		HubSec_WiFiConfig,
 		HubSec_Auth,
 		HubSec_LEDs,
 		HubSec_Sleep,
 		HubSec_Firmware,
-		HubSec_WiFiConfig,
 	};
 
 	append_hub_page_start(page_content);
@@ -195,9 +325,9 @@ void webserver_hub_local(String& page_content, JsonDocument& data, device_status
 	                         sizeof(kLocalSettingsOrder) / sizeof(kLocalSettingsOrder[0]));
 	web_page_flush_chunk(page_content, &server);
 
-	// Keep check-update / switch-lang next to firmware prefs
+	// Check-update / switch-lang after System prefs
 	append_hub_section_start(page_content, FPSTR(INTL_OTA_UPDATE), "ota");
-	append_hub_ota_section(page_content, deviceStatus);
+	webserver_append_ota_section(page_content, deviceStatus, "/");
 	append_hub_section_end(page_content);
 	append_hub_group_end(page_content);
 

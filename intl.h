@@ -837,7 +837,7 @@
 #define INTL_REGION_RU "Russia"
 #endif
 #ifndef INTL_REGION_HINT
-#define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / language / OTA unless you change it here."
+#define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / OTA unless you change it here."
 #endif
 
 #endif

@@ -81,9 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (autoUpdate) {
     function syncOta() {
       var on = autoUpdate.checked;
-      var lang = byId('current_lang');
       var beta = byId('use_beta');
-      if (lang) lang.disabled = !on;
       if (beta) beta.disabled = !on;
     }
     syncOta();

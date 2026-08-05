@@ -18,19 +18,13 @@
 static const char* const FW_HOSTS[] = { FW_DOWNLOAD_HOST, FW_DOWNLOAD_HOST_ALTERNATIVE };
 static constexpr int FW_HOST_COUNT = 2;
 static constexpr unsigned long FW_HOST_TIMEOUT_MS = 30000;  // 30s per host attempt
+static constexpr unsigned long FW_CHECK_TIMEOUT_MS = 8000;   // keep web UI responsive
 
 /** Auto-set connectivity region from successful OTA host unless a stronger signal exists. */
 static void applyRegionFromOtaHostIfAuto(const char* host) {
 	if (!host || cfg::region_manual || cfgHasValidMapCoords()) {
 		return;
 	}
-	// Language / RU firmware build already own auto-region; OTA is a weaker fallback.
-	if (strcasecmp(cfg::current_lang, "RU") == 0) {
-		return;
-	}
-#if defined(INTL_RU)
-	return;
-#else
 	const bool from_ru = (strcmp(host, FW_DOWNLOAD_HOST_ALTERNATIVE) == 0);
 	const char* want = from_ru ? REGION_RU : REGION_GLOBAL;
 	if (strcmp(cfg::current_reg, want) == 0) {
@@ -40,7 +34,6 @@ static void applyRegionFromOtaHostIfAuto(const char* host) {
 	cfg::current_reg[sizeof(cfg::current_reg) - 1] = '\0';
 	writeConfig();
 	debug_outln_info(F("Region auto-set from OTA host: "), String(want) + F(" (") + String(host) + F(")"));
-#endif
 }
 
 static String buildFirmwarePath() {
@@ -67,6 +60,15 @@ static String buildFirmwarePath() {
 	return path;
 }
 
+static String buildVersionPath(const String& firmware_path) {
+	String path(firmware_path);
+	if (path.endsWith(F(".bin"))) {
+		path.remove(path.length() - 4);
+	}
+	path += F(".version");
+	return path;
+}
+
 static String buildUserAgent() {
 	String agent(SOFTWARE_VERSION_STR);
 	agent += ' ';
@@ -78,13 +80,13 @@ static String buildUserAgent() {
 	return agent;
 }
 
-static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostream, device_status_t &deviceStatus, const char** used_host = nullptr) {
+static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostream, device_status_t &deviceStatus, const char** used_host = nullptr, unsigned long timeout_ms = FW_HOST_TIMEOUT_MS) {
 
 	String agent = buildUserAgent();
 
 	for (int h = 0; h < FW_HOST_COUNT; h++) {
 		HTTPClient http;
-		http.setTimeout(FW_HOST_TIMEOUT_MS);
+		http.setTimeout(timeout_ms);
 		http.setUserAgent(agent);
 		http.setReuse(false);
 
@@ -288,6 +290,58 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
     debug_outln_error(F("OTA failed after all attempts"));
     logSubsystemError(F("ota"), F("all_attempts_failed"));
     return false;
+}
+
+void otaCheckForUpdate(device_status_t &deviceStatus) {
+	deviceStatus.ota_remote_version[0] = '\0';
+	deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_Failed;
+
+	String fetch_name = buildFirmwarePath();
+	debug_outln_info(F("OTA check: "), fetch_name);
+
+	WiFiClient client;
+	String fetch_md5_name(fetch_name);
+	fetch_md5_name += F(".md5");
+
+	StreamString newFwmd5;
+	const char* md5_host = nullptr;
+	if (!fwDownloadStream(client, fetch_md5_name, &newFwmd5, deviceStatus, &md5_host, FW_CHECK_TIMEOUT_MS)) {
+		debug_outln_info(F("OTA check: md5 download failed"));
+		logSubsystemError(F("ota"), F("check_md5_failed"), String(F("path=")) + fetch_md5_name);
+		deviceStatus.last_update_attempt = millis();
+		return;
+	}
+	if (md5_host) {
+		applyRegionFromOtaHostIfAuto(md5_host);
+	}
+
+	newFwmd5.trim();
+	// Optional human-readable version next to the binary (may be missing on older mirrors).
+	{
+		StreamString ver;
+		if (fwDownloadStream(client, buildVersionPath(fetch_name), &ver, deviceStatus, nullptr, FW_CHECK_TIMEOUT_MS)) {
+			ver.trim();
+			ver.replace(F("\r"), emptyString);
+			ver.replace(F("\n"), emptyString);
+			if (ver.length() > 0 && ver.length() < sizeof(deviceStatus.ota_remote_version)) {
+				strncpy(deviceStatus.ota_remote_version, ver.c_str(), sizeof(deviceStatus.ota_remote_version) - 1);
+				deviceStatus.ota_remote_version[sizeof(deviceStatus.ota_remote_version) - 1] = '\0';
+			}
+		}
+	}
+
+	deviceStatus.last_update_attempt = millis();
+	if (newFwmd5.equalsIgnoreCase(ESP.getSketchMD5())) {
+		deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_UpToDate;
+		debug_outln_info(F("OTA check: up to date"));
+		return;
+	}
+
+	deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_Available;
+	debug_outln_info(F("OTA check: update available md5="), newFwmd5);
+	if (deviceStatus.ota_remote_version[0]) {
+		debug_outln_info(F("OTA check: remote version="), String(deviceStatus.ota_remote_version));
+	}
 }
 
 void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {

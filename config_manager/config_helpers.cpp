@@ -596,41 +596,18 @@ static bool cfgCoordsInRussia(double lat, double lon) {
 	return false;
 }
 
-static bool cfgIsRuLanguage() {
-	char lang[8];
-	strncpy(lang, cfg::current_lang, sizeof(lang) - 1);
-	lang[sizeof(lang) - 1] = '\0';
-	for (char* p = lang; *p; ++p) {
-		if (*p >= 'a' && *p <= 'z') {
-			*p = static_cast<char>(*p - 'a' + 'A');
-		}
-	}
-	if (strcmp(lang, "RU") == 0) {
-		return true;
-	}
-#if defined(INTL_RU)
-	return true;
-#else
-	return false;
-#endif
-}
-
 bool cfgApplyAutoRegion() {
 	if (cfg::region_manual) {
 		return false;
 	}
 
-	const char* want = nullptr;
 	double lat = 0.0;
 	double lon = 0.0;
-	if (cfgHasValidMapCoords(&lat, &lon)) {
-		want = cfgCoordsInRussia(lat, lon) ? REGION_RU : REGION_GLOBAL;
-	} else if (cfgIsRuLanguage()) {
-		want = REGION_RU;
-	} else {
+	if (!cfgHasValidMapCoords(&lat, &lon)) {
 		return false;
 	}
 
+	const char* want = cfgCoordsInRussia(lat, lon) ? REGION_RU : REGION_GLOBAL;
 	if (strcmp(cfg::current_reg, want) == 0) {
 		return false;
 	}

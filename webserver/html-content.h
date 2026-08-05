@@ -28,7 +28,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 	"<link rel='icon' type='image/png' href='/favicon.ico' media='(prefers-color-scheme: light)'>" \
 	"<link rel='icon' type='image/png' href='/favicon-dark.ico' media='(prefers-color-scheme: dark)'>"
 
-#define STATIC_PREFIX "/" INTL_LANG "_s3.76"
+#define STATIC_PREFIX "/" INTL_LANG "_s3.81"
 // Bust browser cache after PNG→SVG / logo changes; `m` reflects build (insight vs urban).
 #define WEB_HEADER_LOGO_SRC STATIC_PREFIX "?r=logo&v=" SOFTWARE_VERSION_STR "&m=" DEVICE_MODEL
 #define WEB_NAV_ICON_LOCAL_SRC STATIC_PREFIX "?r=nav-local&v=" SOFTWARE_VERSION_STR

@@ -277,7 +277,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_ANALYTICS_MORNING_END_HINT "После этого времени экран вернётся на главный. Конец не включается (10:00 — до 09:59)."
 #define INTL_ANALYTICS_SLEEP_ADD_URBAN "Добавлять данные Urban в аналитику сна (PM2.5 и шум)"
 #define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Отключите режим standalone Insight в разделе Firmware, чтобы связать Urban и использовать уличные PM2.5/шум в аналитике сна."
-#define INTL_PANEL_TITLE_FIRMWARE "Версия Прошивки"
+#define INTL_PANEL_TITLE_FIRMWARE "Система"
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi в режиме настройки"
 #define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Пользовательский API"
@@ -388,6 +388,13 @@ const char INTL_LAST_OTA[] PROGMEM = "Последняя проверка OTA";
 #define INTL_OTA_UPDATE "Обновление прошивки"
 const char INTL_OTA_CHECK_UPDATE[] PROGMEM = "Проверить обновление";
 const char INTL_OTA_CURRENT_VERSION[] PROGMEM = "Текущая версия";
+const char INTL_OTA_LATEST_VERSION[] PROGMEM = "Доступная версия";
+const char INTL_OTA_UP_TO_DATE[] PROGMEM = "Установлена актуальная прошивка";
+const char INTL_OTA_UPDATE_AVAILABLE[] PROGMEM = "Доступна новая прошивка";
+const char INTL_OTA_INSTALL[] PROGMEM = "Обновить";
+const char INTL_OTA_INSTALL_REQUESTED[] PROGMEM = "Обновление запущено. Не отключайте Wi‑Fi до перезагрузки устройства.";
+const char INTL_OTA_UPDATING[] PROGMEM = "Обновление прошивки";
+const char INTL_OTA_CHECK_FAILED[] PROGMEM = "Не удалось проверить обновления. Попробуйте позже.";
 const char INTL_OTA_CHECK_REQUESTED[] PROGMEM = "Запрос на обновление отправлен. Устройство загрузит и установит новую прошивку, если она доступна.";
 const char INTL_OTA_NO_WIFI[] PROGMEM = "WiFi не подключен. Невозможно проверить обновления.";
 const char INTL_OTA_SWITCH_LANG[] PROGMEM = "Сменить язык";
@@ -462,7 +469,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_REGION "Регион"
 #define INTL_REGION_GLOBAL "Весь мир"
 #define INTL_REGION_RU "Россия"
-#define INTL_REGION_HINT "Для sensors.social connectivity. Автоматически по координатам / языку / OTA, пока вы не измените вручную."
+#define INTL_REGION_HINT "Для sensors.social connectivity. Автоматически по координатам / OTA, пока вы не измените вручную."
 #define INTL_REGION_EU "Европа"
 #define INTL_REGION_AS "Азия"
 #define INTL_REGION_AF "Африка"
