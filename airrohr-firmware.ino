@@ -780,6 +780,19 @@ bool fetchSensors() {
 					if (sensor_json_updated) {
 						any_sensor_json_updated = true;
 					}
+					// ArduinoJson 6 orphans replaced strings/arrays; reclaim before hard overflow
+					// (Insight SCD4x+BME680+Urban filled 4096 after hours — issue #149).
+					const size_t used = sensors_data.memoryUsage();
+					const size_t cap = sensors_data.capacity();
+					if (sensors_data.overflowed() || (cap > 0 && used * 5 >= cap * 4)) {
+						const size_t before = used;
+						if (sensors_data.garbageCollect()) {
+							debug_outln_info(F("[Sensors] JSON garbageCollect "),
+							                 String(before) + F(" -> ") +
+							                     String(sensors_data.memoryUsage()) + F("/") +
+							                     String(sensors_data.capacity()));
+						}
+					}
 					if (sensors_data.overflowed()) {
 						debug_outln_error(F("[Sensors] JSON overflow after fetch"));
 						debug_outln_info(F("[Sensors] sensor: "), String(activeSensors[i]->sensor_name));

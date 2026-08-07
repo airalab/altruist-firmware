@@ -44,6 +44,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
+- **Insight `sensors_data` JSON overflow after hours (#149)** — ArduinoJson 6 does not reclaim pool memory when strings/arrays are replaced. Long runs with SCD4x + BME680 + Urban HTTP filled the 4096-byte document (`json_overflow`). Fixed by setting `intl_name`/`units` only once, reusing `altruist_addresses` instead of recreating it every Urban fetch, and calling `garbageCollect()` when usage exceeds ~80% or overflow is detected.
 - **Config not saved after Wi‑Fi / setup** — `writeConfig()` used `json.as<JsonObject>()` on an empty document (null object), so `config.json` was never written. Devices could loop in captive-portal setup after enabling encryption or finishing guest Wi‑Fi. Fixed to `json.to<JsonObject>()`.
 - **Concurrent `writeConfig()` corrupted config.json** — Saving standalone mode from the web UI could race with `ensureRwsDevicesRegistered()` in the sensor worker (both calling `writeConfig()` without synchronization), breaking `/config.json` and `/config.json.old` and forcing a new Robonomics identity. Config reads/writes are now serialized with a recursive mutex; writes go to `/config.json.new` before atomic rename.
 - **Map POST with encrypted metrics** — Connectivity verifies the raw signed message. Encrypted `e....` values push the payload past the Substrate 256-byte Blake2b signing path in `ESPRobonomicsClient`; Map/custom HTTP now sign raw Ed25519 bytes (`signMessageRaw`) so encrypted payloads no longer fail verification (HTTP 500).

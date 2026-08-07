@@ -195,7 +195,15 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
     // when TCP was already closed (Arduino leaves dangling _client).
     WiFiClient client;
     HTTPClient http;
-    JsonArray addresses = data["service_data"].createNestedArray("altruist_addresses");
+    JsonObject service = data["service_data"].isNull()
+        ? data.createNestedObject("service_data")
+        : data["service_data"].as<JsonObject>();
+    JsonArray addresses;
+    if (service.containsKey("altruist_addresses") && service["altruist_addresses"].is<JsonArray>()) {
+        addresses = service["altruist_addresses"].as<JsonArray>();
+    } else {
+        addresses = service.createNestedArray("altruist_addresses");
+    }
     for (const auto& ip_address : sensor_addresses) {
         bool already_exists = false;
         for (JsonVariant v : addresses) {
@@ -342,10 +350,19 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             JsonObject ipObj = urbanRoot["IP_address"];
             if (ipObj.isNull()) {
                 ipObj = urbanRoot.createNestedObject("IP_address");
+                ipObj[F("intl_name")] = INTL_IP_ADDRESS;
+                ipObj[F("units")]     = "";
             }
-            ipObj[F("value")]    = target_ip;
-            ipObj[F("intl_name")] = INTL_IP_ADDRESS;
-            ipObj[F("units")]     = "";
+            if (!ipObj[F("value")].isNull()) {
+                const char *prev = ipObj[F("value")].as<const char*>();
+                if (prev && strcmp(prev, target_ip.c_str()) == 0) {
+                    // unchanged
+                } else {
+                    ipObj[F("value")] = target_ip;
+                }
+            } else {
+                ipObj[F("value")] = target_ip;
+            }
         }
 
         // Parse Urban's /data.json payload and map sensordatavalues into altruist_urban
@@ -403,10 +420,10 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             JsonObject measObj = urbanRoot[type];
             if (measObj.isNull()) {
                 measObj = urbanRoot.createNestedObject(type);
+                measObj[F("intl_name")] = intl_name;
+                measObj[F("units")]     = units;
             }
-            measObj[F("value")]     = value;
-            measObj[F("intl_name")] = intl_name;
-            measObj[F("units")]     = units;
+            measObj[F("value")] = value;
         }
         if (!seen_sds_p1) {
             urbanRoot.remove("SDS_P1");
@@ -423,7 +440,10 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             String urban_addr = doc["service_data"]["robonomics_address"].as<String>();
             if (urban_addr.length() > 0) {
                 JsonObject service = data["service_data"].isNull() ? data.createNestedObject("service_data") : data["service_data"].as<JsonObject>();
-                service["urban_robonomics_address"] = urban_addr;
+                const char *prev = service["urban_robonomics_address"].as<const char*>();
+                if (!prev || strcmp(prev, urban_addr.c_str()) != 0) {
+                    service["urban_robonomics_address"] = urban_addr;
+                }
                 has_urban_addr = true;
             }
         }
@@ -447,7 +467,10 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
                         if (len >= 47 && len <= 50) { // accept typical SS58 length range
                             String urban_addr = html.substring(i, j);
                             JsonObject service = data["service_data"].isNull() ? data.createNestedObject("service_data") : data["service_data"].as<JsonObject>();
-                            service["urban_robonomics_address"] = urban_addr;
+                            const char *prev = service["urban_robonomics_address"].as<const char*>();
+                            if (!prev || strcmp(prev, urban_addr.c_str()) != 0) {
+                                service["urban_robonomics_address"] = urban_addr;
+                            }
                             break;
                         }
                     }
