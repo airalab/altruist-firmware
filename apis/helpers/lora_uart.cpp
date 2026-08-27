@@ -1,4 +1,8 @@
+#include <Arduino.h>
+
 #include "lora_uart.h"
+
+#if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
 
 #include "../../config_manager/config_defaults.h"
 #include "../../defines.h"
@@ -49,7 +53,6 @@ bool addMeasurement(
 
 void setupLoRaUart()
 {
-#if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
 	if (!cfg::lora_uart_enabled) {
 		return;
 	}
@@ -62,12 +65,10 @@ void setupLoRaUart()
 	    LORA_UART_BAUD,
 	    static_cast<unsigned int>(LORA_UART_MAX_LINE_BYTES)
 	);
-#endif
 }
 
 void sendLoRaTelemetryIfDue(const JsonDocument& data, const char* sensor_id)
 {
-#if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
 	if (!uart_ready || !cfg::lora_uart_enabled) {
 		return;
 	}
@@ -116,8 +117,16 @@ void sendLoRaTelemetryIfDue(const JsonDocument& data, const char* sensor_id)
 	} else {
 		debug_outln_error(F("[LoRa UART] write failed"));
 	}
+}
+
 #else
+
+void setupLoRaUart() {}
+
+void sendLoRaTelemetryIfDue(const JsonDocument& data, const char* sensor_id)
+{
 	(void)data;
 	(void)sensor_id;
-#endif
 }
+
+#endif

@@ -97,7 +97,8 @@ Release environments:
 - `esp32c6_inside_en`, `esp32c6_inside_ru`
 
 Debug environments use the same names with the `_debug` suffix. ESP32-C3 Debug
-builds keep the C3-lite feature set to stay within the old hardware limits. The
+builds keep the C3-lite feature set and size-optimized codegen (`-Os`, not
+`-Og`) so they fit the 1 728 KB app slot. The
 legacy `inside` environment name builds Insight firmware.
 
 ### Common Scenarios

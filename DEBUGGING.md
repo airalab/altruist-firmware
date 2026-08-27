@@ -15,7 +15,7 @@ All `_debug` environments (`esp32c3_urban_en_debug`, `esp32c3_urban_ru_debug`, `
 | **Project logs** (`ALTRUIST_FORCE_LOG_LEVEL=4`) | Keeps `debug_outln_error/info/verbose` enabled even when saved `cfg::debug` is lower |
 | **Arduino core logs** (`CORE_DEBUG_LEVEL=4`) | Enables Arduino framework informational and debug output at level 4 |
 | **Health telemetry** (`ALTRUIST_HEALTH_TELEMETRY`) | Emits the stable `[HEALTH]` UART snapshot once per minute |
-| **Debug symbols** (`-g -Og`) | Enables breakpoints and variable inspection |
+| **Debug symbols** (`-g -Og` on C6; `-g` on C3) | Enables breakpoints and variable inspection. C3 debug stays size-optimized so it fits the 1.7 MB app slot. |
 | **Built-in JTAG** (`debug_tool = esp-builtin`) | No external hardware needed on supported ESP32-C3/C6 boards |
 
 ### 3-step debugging
@@ -384,7 +384,7 @@ debug_init_break = tbreak setup ; Break at setup() on start
 
 Build flags for debugging:
 
-- `-g -Og -fno-inline` — Include debug symbols, optimize for debugging
+- `-g -Og -fno-inline` — C6: debug symbols and debug-friendly codegen. C3 debug omits `-Og`/`-fno-inline` and `build_type = debug` so the image fits the 1 728 KB app slot; logs stay verbose.
 - `-DUSING_JTAG_DEBUGGER_PINS=1` — Reserve JTAG pins
 - `-DDEBUG_ESP_PORT=Serial` — Route framework diagnostics to `Serial`
 - `-DCORE_DEBUG_LEVEL=4` — Enable Arduino framework logs at level 4
@@ -564,7 +564,7 @@ pio run -e esp32c6_inside_en_debug -t clean
 | **Логи проекта** (`ALTRUIST_FORCE_LOG_LEVEL=4`) | Не позволяет сохраненному `cfg::debug` отключить `debug_outln_error/info/verbose` |
 | **Логи Arduino core** (`CORE_DEBUG_LEVEL=4`) | Включает информационный и отладочный вывод Arduino framework на уровне 4 |
 | **Health telemetry** (`ALTRUIST_HEALTH_TELEMETRY`) | Раз в минуту выводит стабильную строку `[HEALTH]` |
-| **Символы отладки** (`-g -Og`) | Позволяют ставить точки останова и инспектировать переменные |
+| **Символы отладки** (`-g -Og` на C6; `-g` на C3) | Точки останова и инспекция переменных. C3 debug остаётся size-optimized, чтобы влезть в слот 1.7 МБ. |
 | **Встроенный JTAG** (`debug_tool = esp-builtin`) | Внешнее оборудование не нужно на поддерживаемых платах ESP32‑C3/C6 |
 
 ### Отладка в 3 шага
@@ -883,7 +883,7 @@ debug_init_break = tbreak setup ; Остановиться на setup() при �
 
 Флаги сборки для отладки:
 
-- `-g -Og -fno-inline` — символы отладки, оптимизация для отладки
+- `-g -Og -fno-inline` — C6: символы и отладочная кодогенерация. C3 debug без `-Og`/`-fno-inline` и без `build_type = debug`, чтобы влезть в слот 1 728 КБ; подробные логи остаются.
 - `-DUSING_JTAG_DEBUGGER_PINS=1` — резервирование пинов JTAG
 - `-DDEBUG_ESP_PORT=Serial` — направление логов фреймворка в `Serial`
 - `-DCORE_DEBUG_LEVEL=4` — логи Arduino framework на уровне 4
