@@ -1,0 +1,23 @@
+# nanopb static allocation for ESP32.
+# Keep counts tight: flash/RAM grow with max_count * nested message size.
+
+core.v1.Meta.owner max_size:32 fixed_length:true
+
+crypto.v1.Encrypted.algorithm max_size:16
+crypto.v1.Encrypted.from max_size:32 fixed_length:true
+crypto.v1.Encrypted.nonce max_size:24
+crypto.v1.Encrypted.ciphertext max_size:768
+
+crypto.v1.SignedEnvelope.sensor_id max_size:32 fixed_length:true
+crypto.v1.SignedEnvelope.nonce max_size:32
+crypto.v1.SignedEnvelope.message max_size:1280
+crypto.v1.SignedEnvelope.signature max_size:64 fixed_length:true
+crypto.v1.SignedEnvelopeBatch.batch max_count:1
+
+device.v1.Urban.public max_count:12
+device.v1.Urban.private max_count:2
+device.v1.EncryptedUrban.sensors max_count:12
+
+device.v1.Insight.public max_count:12
+device.v1.Insight.private max_count:2
+device.v1.EncryptedInsight.sensors max_count:12

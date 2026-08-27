@@ -161,16 +161,21 @@ public:
 	LoggingSerial();
     size_t write(uint8_t c) override;
     size_t write(const uint8_t *buffer, size_t size) override;
+	void beginStructuredOutput(unsigned long baud, int8_t rx_pin, int8_t tx_pin);
+	bool writeStructuredLine(const String& line);
 	String popLines();
 
 private:
 	QueueHandle_t m_buffer;
 	SemaphoreHandle_t m_write_mutex;
+	bool m_structured_output = false;
 };
 
 extern class LoggingSerial Debug;
 
 extern unsigned int effectiveRuntimeLogLevel();
+/** Mute USB CDC logs while Improv Serial owns the port (webflasher). */
+extern void debugSetUsbQuiet(bool quiet);
 extern void debug_out(const String& text, unsigned int level);
 extern void debug_out(const __FlashStringHelper* text, unsigned int level);
 extern void debug_outln(const String& text, unsigned int level);

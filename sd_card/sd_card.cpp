@@ -98,24 +98,31 @@ bool SDCard::begin() {
 }
 
 bool SDCard::_beginSD(SPIClass &spi) {
-    if (!SD.begin(SPI_CS_PIN, spi, 40000000)) {
-        debug_outln_info(F("Card Mount Failed"));
-        logSubsystemError(F("sd"), F("mount_failed"));
-        return false;
+    // 40 MHz is fragile on Insight (remount / some cards). Try safer clocks first.
+    static const uint32_t kSpeedsHz[] = { 10000000UL, 4000000UL, 20000000UL };
+    for (uint32_t hz : kSpeedsHz) {
+        if (SD.begin(SPI_CS_PIN, spi, hz)) {
+            const uint8_t cardType = SD.cardType();
+            if (cardType == CARD_NONE) {
+                debug_outln_info(F("No SD card attached"));
+                logSubsystemError(F("sd"), F("card_missing"));
+                SD.end();
+                delay(20);
+                continue;
+            }
+            cardSizeMB = (float)SD.cardSize() / (1024 * 1024);
+            usedMemMB = (float)SD.usedBytes() / (1024 * 1024);
+            debug_outln_info(F("[SDCardLogger] Mounted at Hz "), String(hz));
+            debug_outln_verbose(F("SD Card Size (MB): "), String(cardSizeMB));
+            debug_outln_verbose(F("Used space (MB): "), String(usedMemMB));
+            return true;
+        }
+        SD.end();
+        delay(20);
     }
-    uint8_t cardType = SD.cardType();
-
-    if (cardType == CARD_NONE) {
-        debug_outln_info(F("No SD card attached"));
-        logSubsystemError(F("sd"), F("card_missing"));
-        return false;
-    }
-
-    cardSizeMB = (float)SD.cardSize() / (1024 * 1024);
-    usedMemMB = (float)SD.usedBytes() / (1024 * 1024);
-    debug_outln_verbose(F("SD Card Size (MB): "), String(cardSizeMB));
-    debug_outln_verbose(F("Used space (MB): "), String(usedMemMB));
-    return true;
+    debug_outln_info(F("Card Mount Failed"));
+    logSubsystemError(F("sd"), F("mount_failed"));
+    return false;
 }
 
 bool SDCard::writeTextFile(const String& fullPath, const String& content) {
@@ -536,6 +543,7 @@ bool SDCard::checkInserted() {
         return true;
     }
     static sdcard_type_t last_type = CARD_NONE;
+    static uint32_t last_remount_ms = 0;
 
     sdcard_type_t card_type = SD.cardType();
     // Only log when the type changes, or when we hit an error below.
@@ -543,29 +551,42 @@ bool SDCard::checkInserted() {
         last_type = card_type;
         debug_outln_verbose(F("[SDCardLogger] Card type: "), _getCardTypeName(card_type));
     }
+
+    auto remount = [&](const char *reason) -> bool {
+        // Throttle: hammering SD.begin while the bus is unhappy makes it worse.
+        if (last_remount_ms != 0U && msSince(last_remount_ms) < 5000UL) {
+            return false;
+        }
+        last_remount_ms = millis();
+        debug_outln_info(F("[SDCardLogger] Remount: "), String(reason));
+        SD.end();
+        delay(50);
+        SPI.begin(SPI_SCK_PIN, SPI_MISO_PIN, SPI_MOSI_PIN, SPI_CS_PIN);
+        if (_beginSD(SPI)) {
+            last_type = SD.cardType();
+            refreshCache();
+            return true;
+        }
+        last_type = CARD_NONE;
+        return false;
+    };
     
     if (card_type == CARD_NONE) {
-        debug_outln_info("[SDCardLogger] No SD card present, retry begin...");
-        return _beginSD(SPI);
+        return remount("card_type_none");
     }
     
     // Try to actually access the card to verify it's really there
     // cardType() might return cached value, so we need to test actual access
     if (!SD.exists("/")) {
         debug_outln_info(F("[SDCardLogger] Card type OK but filesystem not accessible - card may be removed"));
-        // Try to reinitialize
-        SD.end();
-        delay(50);
-        return _beginSD(SPI);
+        return remount("fs_inaccessible");
     }
     
     // Try to open root directory to verify card is actually accessible
     File root = SD.open("/");
     if (!root) {
         debug_outln_info(F("[SDCardLogger] Cannot open root directory - card may be removed"));
-        SD.end();
-        delay(50);
-        return _beginSD(SPI);
+        return remount("root_open_failed");
     }
     root.close();
     

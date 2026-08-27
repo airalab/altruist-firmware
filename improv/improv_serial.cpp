@@ -1,5 +1,7 @@
 #include "improv_serial.h"
 #include "../defines.h"
+#include "../utils.h"
+#include "../wifi_manager.h"
 #include <WiFi.h>
 #include <cstring>
 
@@ -182,19 +184,31 @@ static void improv_handle_rpc(const uint8_t* data, size_t len) {
         }
         String password((const char*)(data + 4 + ssid_len), pwd_len);
 
+        // Spec: clear error, then Provisioning. Do not send an RPC result yet —
+        // ESP Web Tools treats the first WIFI_SETTINGS result as "Connect done".
+        // An empty result made the UI stop waiting, then a later failure/reboot
+        // showed "Unable to connect" even when Wi-Fi was saved and the device restarted.
+        improv_send_error(IMPROV_ERROR_NONE);
         improv_set_state(IMPROV_STATE_PROVISIONING);
-        improv_send_rpc_response(IMPROV_CMD_WIFI_SETTINGS, std::vector<String>());
 
         bool connected = false;
         if (s_wifi_cb) {
+            debugSetUsbQuiet(true);
             connected = s_wifi_cb(ssid, password);
+            if (!connected) {
+                debugSetUsbQuiet(false);
+            }
         }
 
         if (connected) {
+            improv_send_error(IMPROV_ERROR_NONE);
             improv_set_state(IMPROV_STATE_PROVISIONED);
             std::vector<String> result;
-            result.push_back(WiFi.localIP().toString());
+            result.push_back(String(F("http://")) + WiFi.localIP().toString() + F("/"));
             improv_send_rpc_response(IMPROV_CMD_WIFI_SETTINGS, result);
+            Serial.flush();
+            delay(400);
+            wifiRequestImprovProvisionRestart();
         } else {
             improv_set_error(IMPROV_ERROR_UNABLE_TO_CONNECT);
             improv_set_state(IMPROV_STATE_AUTHORIZED);
@@ -268,7 +282,8 @@ void improv_serial_loop() {
         uint8_t checksum = 0;
         for (size_t i = 0; i < s_improv_pos - 1; i++) checksum += s_improv_buf[i];
         if (checksum != s_improv_buf[s_improv_pos - 1]) {
-            improv_send_error(IMPROV_ERROR_INVALID_RPC);
+            // USB CDC also carries boot/debug text. Do not send INVALID_RPC (webflasher
+            // shows that as "Unknown error (1)") for leftover noise after a valid exchange.
             s_improv_pos = 0;
             continue;
         }
@@ -278,9 +293,12 @@ void improv_serial_loop() {
             continue;
         }
 
-        if (s_improv_state == IMPROV_STATE_AUTHORIZED) {
-            if (type == IMPROV_TYPE_RPC) {
+        if (type == IMPROV_TYPE_RPC) {
+            if (s_improv_state == IMPROV_STATE_AUTHORIZED) {
                 improv_handle_rpc(&s_improv_buf[9], data_len);
+            } else if (s_improv_state == IMPROV_STATE_PROVISIONING && data_len >= 1 &&
+                       s_improv_buf[9] == IMPROV_CMD_GET_CURRENT_STATE) {
+                improv_send_state(s_improv_state);
             }
         }
 

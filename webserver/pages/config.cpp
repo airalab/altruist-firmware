@@ -227,6 +227,14 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	auto flush_chunk = [&]() {
 		web_page_flush_chunk(page_content, &server);
 	};
+	/** Hub sidebar anchors: only emit id= when rendering a hub zone card. */
+	auto append_section_anchor = [&](const char* section_id) {
+		if (hub_mode && section_id != nullptr && section_id[0] != '\0') {
+			page_content += F(" id='");
+			page_content += section_id;
+			page_content += F("'");
+		}
+	};
 	auto maybe_flush = [&]() {
 		if (page_content.length() >= 384) {
 			flush_chunk();
@@ -272,7 +280,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	if (hub_mode) {
 		page_content += F(" config-section--full");
 	}
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_WIFI "</h2>"
+	page_content += F("'");
+	append_section_anchor("cfg-wifi");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_WIFI "</h2>"
 		"<div class='config-section__body config-section__body--compact'>");
 	add_form_input(page_content, Config_wlanssid, FPSTR(INTL_FS_WIFI_NAME), LEN_WLANSSID-1);
 	add_form_input(page_content, Config_wlanpwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
@@ -293,7 +303,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	}
 
 	page_content += F("<section class='config-section");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_ROBONOMICS "</h2>"
+	page_content += F("'");
+	append_section_anchor("cfg-robonomics");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_ROBONOMICS "</h2>"
 		"<div class='config-section__body'>");
 	if (!hub_mode) {
 	// page_content += form_checkbox(Config_send2robonomics, FPSTR(WEB_ROBONOMICS), false);
@@ -429,6 +441,15 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			"Example pool:<br/>"
 			"<code>connectivity.robonomics.network<br/>1.connectivity.robonomics.network<br/>2.connectivity.robonomics.network</code>"
 			"</div>");
+#ifdef ALTRUIST_PROTO_PROTOCOL
+		page_content += F("<p class='form-hint'>");
+		page_content += FPSTR(INTL_MAP_DUAL_HINT);
+		page_content += F("</p>");
+		add_form_checkbox(Config_map_send_csv, FPSTR(INTL_MAP_SEND_CSV), true);
+		add_form_checkbox(Config_map_send_proto, FPSTR(INTL_MAP_SEND_PROTO), true);
+		add_form_input(page_content, Config_robonomics_proto_connectivity_host, FPSTR(INTL_MAP_PROTO_HOST),
+			LEN_ROBONOMICS_CONNECTIVITY_HOST - 1);
+#endif
 	}
 #endif
 	page_content += F("</div></section>");
@@ -441,7 +462,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 
 	if (section_enabled(HubSec_DataSharing)) {
 	page_content += F("<section class='config-section config-section--full");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_DATA_SHARING "</h2>"
+	page_content += F("'");
+	append_section_anchor("cfg-publish");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_DATA_SHARING "</h2>"
 		"<div class='config-section__body'>"
 			"<p class='form-hint'>"
 				INTL_DATA_SHARING_DISCLAIMER
@@ -474,7 +497,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	maybe_flush();
 
 	page_content += F("<section class='config-section config-section--full");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_DATA_ENCRYPT "</h2>"
+	page_content += F("'");
+	append_section_anchor("cfg-encrypt");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_DATA_ENCRYPT "</h2>"
 		"<div class='config-section__body'>"
 			"<p class='form-hint'>"
 				INTL_DATA_ENCRYPT_DISCLAIMER
@@ -528,13 +553,13 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	if (section_enabled(HubSec_GPS)) {
 #if !defined(ALTRUIST_URBAN_C3_LITE)
 	page_content += F("<section class='config-section config-section--full config-section--gps");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_GPS "</h2>"
-		"<div class='config-section__body'>");
 #else
 	page_content += F("<section class='config-section config-section--gps");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_GPS "</h2>"
-		"<div class='config-section__body'>");
 #endif
+	page_content += F("'");
+	append_section_anchor("cfg-gps");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_GPS "</h2>"
+		"<div class='config-section__body'>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
 #ifdef ALTRUIST_URBAN
@@ -567,7 +592,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 
 	if (section_enabled(HubSec_Auth)) {
 	page_content += F("<section class='config-section");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_AUTH "</h2>"
+	page_content += F("'");
+	append_section_anchor("cfg-auth");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_AUTH "</h2>"
 		"<div class='config-section__body'>");
 
 	add_form_checkbox(Config_www_basicauth_enabled, FPSTR(INTL_BASICAUTH), true);
@@ -582,7 +609,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// Debug Level (tab 2)
 	if (section_enabled(HubSec_Debug)) {
 	page_content += F("<section class='config-section");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_DEBUG "</h2>"
+	page_content += F("'");
+	append_section_anchor("cfg-debug");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_DEBUG "</h2>"
 		"<div class='config-section__body'>");
 	add_form_input(page_content, Config_debug, FPSTR(INTL_DEBUG_LEVEL), 1);
 	add_form_input(page_content, Config_sending_intervall_ms, FPSTR(INTL_MEASUREMENT_INTERVAL), 5);
@@ -592,13 +621,19 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// LEDs / display (tab 2)
 	if (section_enabled(HubSec_LEDs) && LED_PIN != -1) {
 		page_content += F("<section class='config-section");
-		page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_LEDS "</h2>"
+		page_content += F("'");
+		append_section_anchor("cfg-leds");
+		page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_LEDS "</h2>"
 			"<div class='config-section__body'>");
 		add_form_checkbox(Config_leds_on, FPSTR(INTL_LEDS_ON), true);
+		page_content += F("<div class='form-fields-pack'>");
 		add_form_input(page_content, Config_leds_brightness, FPSTR(INTL_LEDS_BRIGHTNESS), 5);
 #ifdef ALTRUIST_INSIGHT
 		add_form_input(page_content, Config_leds_off_hour, FPSTR(INTL_LEDS_OFF_HOUR), 2);
 		add_form_input(page_content, Config_leds_on_hour, FPSTR(INTL_LEDS_ON_HOUR), 2);
+#endif
+		page_content += F("</div>");
+#ifdef ALTRUIST_INSIGHT
 		page_content += F("<p class='form-hint'>");
 		page_content += FPSTR(INTL_LEDS_SCHEDULE_HINT);
 		page_content += F("</p>");
@@ -612,28 +647,35 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// Sleep analytics (tab 2)
 	if (section_enabled(HubSec_Sleep)) {
 	page_content += F("<section class='config-section");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_SLEEP_ANALYTICS "</h2>"
+	page_content += F("'");
+	append_section_anchor("cfg-sleep");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_SLEEP_ANALYTICS "</h2>"
 		"<div class='config-section__body'>");
 	{
 		const String start_v =
 		    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_start_hour, 22u * 60u));
 		const String end_v =
 		    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_end_hour, 7u * 60u));
-		page_content += F("<div class='form-group'><label for='analytics_night_start_time'>");
+		page_content += F("<div class='config-cluster'><h3 class='config-cluster__title'>");
+		page_content += FPSTR(INTL_ANALYTICS_GROUP_NIGHT);
+		page_content += F("</h3><div class='form-fields-pack'>"
+			"<div class='form-group'><label for='analytics_night_start_time'>");
 		page_content += FPSTR(INTL_ANALYTICS_NIGHT_START_TIME);
 		page_content += F("</label>"
-			"<input type='text' id='analytics_night_start_time' name='analytics_night_start_time' "
+			"<input type='text' class='input-narrow' id='analytics_night_start_time' name='analytics_night_start_time' "
 			"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='22:00' value='");
 		page_content += start_v;
 		page_content += F("'/></div><div class='form-group'><label for='analytics_night_end_time'>");
 		page_content += FPSTR(INTL_ANALYTICS_NIGHT_END_TIME);
 		page_content += F("</label>"
-			"<input type='text' id='analytics_night_end_time' name='analytics_night_end_time' "
+			"<input type='text' class='input-narrow' id='analytics_night_end_time' name='analytics_night_end_time' "
 			"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='07:00' value='");
 		page_content += end_v;
-		page_content += F("'/></div><p class='form-hint'>");
+		page_content += F("'/></div></div><p class='form-hint'>");
 		page_content += FPSTR(INTL_ANALYTICS_NIGHT_END_HINT);
-		page_content += F("</p>");
+		page_content += F("</p></div><div class='config-cluster'><h3 class='config-cluster__title'>");
+		page_content += FPSTR(INTL_ANALYTICS_GROUP_MORNING);
+		page_content += F("</h3>");
 		add_form_checkbox(Config_analytics_morning_autoswitch, FPSTR(INTL_ANALYTICS_MORNING_AUTOSWITCH), true);
 		{
 			const String morning_end_v =
@@ -641,13 +683,16 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			page_content += F("<div class='form-group' id='analytics_morning_end_wrap'><label for='analytics_morning_end_time'>");
 			page_content += FPSTR(INTL_ANALYTICS_MORNING_END_TIME);
 			page_content += F("</label>"
-				"<input type='text' id='analytics_morning_end_time' name='analytics_morning_end_time' "
+				"<input type='text' class='input-narrow' id='analytics_morning_end_time' name='analytics_morning_end_time' "
 				"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='12:00' value='");
 			page_content += morning_end_v;
 			page_content += F("'/><p class='form-hint'>");
 			page_content += FPSTR(INTL_ANALYTICS_MORNING_END_HINT);
 			page_content += F("</p></div>");
 		}
+		page_content += F("</div><div class='config-cluster'><h3 class='config-cluster__title'>");
+		page_content += FPSTR(INTL_ANALYTICS_GROUP_DATA);
+		page_content += F("</h3>");
 		add_form_checkbox(Config_analytics_sleep_add_urban,
 		                  FPSTR(INTL_ANALYTICS_SLEEP_ADD_URBAN),
 		                  !cfg::standalone);
@@ -656,6 +701,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			page_content += FPSTR(INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT);
 			page_content += F("</p>");
 		}
+		page_content += F("</div>");
 	}
 	page_content += F("</div></section>");
 
@@ -666,10 +712,18 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// System (tab 2): auto-update, timezone, region
 	if (section_enabled(HubSec_Firmware)) {
 	page_content += F("<section class='config-section");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_FIRMWARE "</h2>"
+	page_content += F("'");
+	append_section_anchor("cfg-system");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_FIRMWARE "</h2>"
 		"<div class='config-section__body'>"
 		"<div class='config-cluster'>");
 	add_form_checkbox(Config_auto_update, FPSTR(INTL_AUTO_UPDATE), true);
+#if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
+	add_form_checkbox(Config_lora_uart_enabled, FPSTR(INTL_LORA_UART_ENABLED), true);
+	page_content += F("<p class='form-hint'>");
+	page_content += FPSTR(INTL_LORA_UART_HINT);
+	page_content += F("</p>");
+#endif
 #ifdef ALTRUIST_INSIGHT
 	add_form_checkbox(Config_standalone, FPSTR(INTL_INSIGHT_STANDALONE), true);
 #endif
@@ -684,7 +738,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// WiFi Sensor in configuration mode (tab 2)
 	if (section_enabled(HubSec_WiFiConfig)) {
 	page_content += F("<section class='config-section");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_WIFI_CONFIG "</h2>"
+	page_content += F("'");
+	append_section_anchor("cfg-wifi-config");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_WIFI_CONFIG "</h2>"
 		"<div class='config-section__body'>");
 	add_form_input(page_content, Config_fs_ssid, FPSTR(INTL_FS_WIFI_NAME), LEN_FS_SSID-1);
 	add_form_input(page_content, Config_fs_pwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
@@ -701,7 +757,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// Custom API (tab 3)
 	if (section_enabled(HubSec_CustomAPI)) {
 	page_content += F("<section class='config-section");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_CUSTOMAPI
+	page_content += F("'");
+	append_section_anchor("cfg-custom-api");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_CUSTOMAPI
 		" <span class='config-tag'>" INTL_BADGE_BETA "</span></h2>"
 		"<div class='config-section__body'>");
 	page_content += form_checkbox(Config_send2custom, FPSTR(INTL_SEND_TO_OWN_API), false, true);
@@ -715,7 +773,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// Influx DB (tab 3)
 	if (section_enabled(HubSec_Influx)) {
 	page_content += F("<section class='config-section");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_INFLUX
+	page_content += F("'");
+	append_section_anchor("cfg-influx");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_INFLUX
 		" <span class='config-tag config-tag--muted'>" INTL_BADGE_EXPERIMENTAL "</span></h2>"
 		"<div class='config-section__body'>");
 	page_content += form_checkbox(Config_send2influx, tmpl(FPSTR(INTL_SEND_TO), F("InfluxDB")), false, false);
@@ -734,7 +794,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// CSV (tab 3)
 	if (section_enabled(HubSec_CSV)) {
 	page_content += F("<section class='config-section");
-	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_CSV
+	page_content += F("'");
+	append_section_anchor("cfg-csv");
+	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_CSV
 		" <span class='config-tag config-tag--muted'>" INTL_BADGE_EXPERIMENTAL "</span></h2>"
 		"<div class='config-section__body'>");
 	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV), false);

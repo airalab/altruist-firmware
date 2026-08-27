@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package device.v1;
+
+import "crypto/v1/encrypted.proto";
+import "sensor/v1/sensor.proto";
+
+// Urban (outdoor) sensor telemetry.
+// Designed for outdoor environmental monitoring stations measuring
+// air quality, noise pollution, weather conditions, and radiation.
+
+// Urban board sensors.
+// Each event carries one sensor-specific payload.
+message UrbanSensor {
+  oneof sensor {
+    sensor.v1.GPS gps = 1;
+    sensor.v1.BME280 bme280 = 2;
+    sensor.v1.SDS011 sds011 = 3;
+    sensor.v1.ICS43434 ics43434 = 4;
+  }
+}
+
+// Protected measurements, encrypted data serialized using this message
+message EncryptedUrban {
+  // Measurements for encryption
+  repeated UrbanSensor sensors = 1;
+}
+
+// Urban payload with public/private data sharing.
+message Urban {
+  // Public measurements visible to everyone
+  repeated UrbanSensor public = 1;
+
+  // Encrypted measurements sections, each for a different recipient
+  // Allows sharing different subsets of measurements with different users
+  repeated crypto.v1.Encrypted private = 2;
+}

@@ -183,6 +183,28 @@ void guestSuccessProcessPendingRestart(void) {
 	wifiCaptivePortalRestartAfterSuccess();
 }
 
+static volatile bool s_improv_provision_restart = false;
+
+void wifiRequestImprovProvisionRestart(void) {
+	s_improv_provision_restart = true;
+}
+
+void wifiProcessImprovProvisionRestart(void) {
+	if (!s_improv_provision_restart) {
+		return;
+	}
+	s_improv_provision_restart = false;
+	Serial.flush();
+	delay(800);
+	if (wificonfig_loop) {
+		wifiCaptivePortalRestartAfterSuccess();
+	}
+	set_restart_reason(RESTART_REASON_CONFIG);
+	Serial.flush();
+	delay(200);
+	esp_restart();
+}
+
 #if defined(ESP32)
 static volatile bool s_sta_disconnect_pending = false;
 static unsigned long s_last_disconnect_kick_ms = 0;
@@ -577,6 +599,7 @@ void wifiConfig(SensorWebServer &webserver) {
 		wifiPortalMaybeRescan();
 		webserver.handleClient();
 		improv_serial_loop();
+		wifiProcessImprovProvisionRestart();
 		guestSuccessProcessPendingRestart();
 #ifdef ALTRUIST_INSIGHT
 		insightGuestProcessPendingFinish();
@@ -635,10 +658,12 @@ void wifiConfig(SensorWebServer &webserver) {
 }
 
 // First link check is immediate; then interval_ms between polls (no fixed 500 ms blind wait).
-static void waitForWifiToConnect(unsigned maxDelays, unsigned long interval_ms) {
+// log_progress must stay off during Improv: '.' on USB CDC shares the Improv Serial stream.
+static void waitForWifiToConnect(unsigned maxDelays, unsigned long interval_ms, bool log_progress = true) {
 	unsigned delays_done = 0;
 	for (;;) {
 		improv_serial_loop();
+		wifiProcessImprovProvisionRestart();
 		if (wifiStaLinkReady()) {
 			return;
 		}
@@ -646,7 +671,9 @@ static void waitForWifiToConnect(unsigned maxDelays, unsigned long interval_ms) 
 			return;
 		}
 		delay(interval_ms);
-		debug_out(".", DEBUG_MIN_INFO);
+		if (log_progress) {
+			debug_out(".", DEBUG_MIN_INFO);
+		}
 		++delays_done;
 	}
 }
@@ -756,22 +783,47 @@ bool wifiApplyImprovCredentials(const String& ssid, const String& password) {
 
 	debug_outln_info(F("[IMPROV] Connecting to SSID: "), ssid);
 
-	WiFi.disconnect(true, false);
-	delay(150);
-	WiFi.mode(WIFI_OFF);
-	delay(80);
-	wifiApplyStaHostname();
-	WiFi.mode(WIFI_STA);
-	wifiApplyStaHostname();
+	// Webflasher Improv usually runs while the captive portal AP is up. WIFI_OFF there
+	// tears the radio down and burns most of the old ~15 s wait before DHCP can finish.
+	const bool keep_setup_ap = (WiFi.getMode() & WIFI_AP) != 0;
+	if (keep_setup_ap) {
+		wifiGuestPortalPrepareStaJoin();
+		wifiApplyStaHostname();
+	} else {
+		WiFi.disconnect(true, false);
+		delay(150);
+		WiFi.mode(WIFI_OFF);
+		delay(80);
+		wifiApplyStaHostname();
+		WiFi.mode(WIFI_STA);
+		wifiApplyStaHostname();
+	}
+#if defined(ESP32)
 	WiFi.setSleep(false);
+#endif
 	if (cfg::wlannopwd) {
 		WiFi.begin(cfg::wlanssid);
 	} else {
 		WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
 	}
 
-	waitForWifiToConnect(75, 200);
-	bool connected = wifiStaLinkReady();
+	// ESP Web Tools waits ~45 s for the WIFI_SETTINGS RPC result. Stay under that
+	// and require a real STA IPv4 (not the 192.168.4.x setup AP).
+	const unsigned wait_steps = 150; // 150 * 200 ms = 30 s
+	unsigned delays_done = 0;
+	for (;;) {
+		improv_serial_loop();
+		const bool ready = keep_setup_ap ? wifiGuestPortalStaReady() : wifiStaLinkReady();
+		if (ready) {
+			break;
+		}
+		if (delays_done >= wait_steps) {
+			break;
+		}
+		delay(200);
+		++delays_done;
+	}
+	bool connected = keep_setup_ap ? wifiGuestPortalStaReady() : wifiStaLinkReady();
 	if (connected) {
 		debug_outln_info(F("[IMPROV] Connected, IP: "), WiFi.localIP().toString());
 	} else {

@@ -33,6 +33,9 @@ namespace cfg {
 	extern char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE];
 	extern char robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST];
 	extern char robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS];
+	extern char robonomics_proto_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST];
+	extern bool map_send_csv;
+	extern bool map_send_proto;
 	extern bool rws_auto_register;
 	extern unsigned rws_group_mode;
 	extern char rws_group_id[LEN_RWS_GROUP_ID];
@@ -46,6 +49,8 @@ namespace cfg {
 	extern bool send2custom;
 	extern bool send2influx;
 	extern bool send2csv;
+	/** Urban C6: compact JSON Lines UART on CN4, TX GPIO22 / RX GPIO20, 115200 baud. */
+	extern bool lora_uart_enabled;
 
 	extern bool auto_update;
 	extern bool use_beta;  // Legacy persisted key; ignored by channel-aware OTA.

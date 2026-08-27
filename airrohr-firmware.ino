@@ -96,6 +96,7 @@
 #include <Robonomics.h>
 #include "sensors/sensor_factory.h"
 #include "apis/apis.h"
+#include "apis/helpers/lora_uart.h"
 #include "apis/rws_devices_registry.h"
 #include "config_manager/config_helpers.h"
 #include "wifi_manager.h"
@@ -742,6 +743,10 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 			const float v = urban["PCBA_noiseAvg"]["value"].as<float>();
 			if (validNoise(v)) { values.noise_avg.current = v; values.noise_avg.has_current = true; }
 		}
+		if (urban.containsKey("PCBA_noiseMax")) {
+			const float v = urban["PCBA_noiseMax"]["value"].as<float>();
+			if (validNoise(v)) { values.noise_max.current = v; values.noise_max.has_current = true; }
+		}
 	}
 
 	if (values.temp_indoor.has_current && values.hum_indoor.has_current && values.hum_indoor.current > 0.0f) {
@@ -781,7 +786,7 @@ bool fetchSensors() {
 						any_sensor_json_updated = true;
 					}
 					// ArduinoJson 6 orphans replaced strings/arrays; reclaim before hard overflow
-					// (Insight SCD4x+BME680+Urban filled 4096 after hours — issue #149).
+					// (Insight SCD4x+BME680+Urban filled 4096 after hours).
 					const size_t used = sensors_data.memoryUsage();
 					const size_t cap = sensors_data.capacity();
 					if (sensors_data.overflowed() || (cap > 0 && used * 5 >= cap * 4)) {
@@ -916,6 +921,12 @@ void sensorAndAPIWorker(void *pvParameters) {
 		// Mark that we're about to fetch sensor data
 		markCrashSection(CRASH_SECTION_FETCH_SENSORS);
 		const bool sensors_updated = fetchSensors();
+#if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
+		if (sensors_updated && xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
+			sendLoRaTelemetryIfDue(sensors_data, robonomics.getSs58Address());
+			xSemaphoreGive(mutex);
+		}
+#endif
 #if defined(ALTRUIST_INSIGHT)
 		// Keep analytics history collection independent from Analytics screen rendering.
 		if (xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
@@ -1294,6 +1305,7 @@ void setup(void) {
 	// Announce AUTHORIZED state periodically so webflasher detects the device even on late connect.
 	for (int i = 0; i < 30; i++) {
 		improv_serial_loop();
+		wifiProcessImprovProvisionRestart();
 		delay(100);
 	}
 	improv_start_announce(20);
@@ -1421,6 +1433,7 @@ void setup(void) {
 	);
 
 	init_config();
+	setupLoRaUart();
 #if defined(CORE_DEBUG_LEVEL)
 	constexpr unsigned int core_log_level = CORE_DEBUG_LEVEL;
 #else
@@ -1704,6 +1717,7 @@ void loop(void) {
 		webserver.handleClient();
 	}
 	improv_serial_loop();
+	wifiProcessImprovProvisionRestart();
 #if defined(ALTRUIST_INSIGHT)
 	markCrashSection(CRASH_SECTION_DISPLAY_UPDATE);
 	displayManager.process(btn_press);

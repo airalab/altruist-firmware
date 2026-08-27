@@ -28,21 +28,23 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 	"<link rel='icon' type='image/png' href='/favicon.ico' media='(prefers-color-scheme: light)'>" \
 	"<link rel='icon' type='image/png' href='/favicon-dark.ico' media='(prefers-color-scheme: dark)'>"
 
-#define STATIC_PREFIX "/" INTL_LANG "_s3.81"
+#define STATIC_PREFIX "/" INTL_LANG "_s3.119"
 // Bust browser cache after PNG→SVG / logo changes; `m` reflects build (insight vs urban).
 #define WEB_HEADER_LOGO_SRC STATIC_PREFIX "?r=logo&v=" SOFTWARE_VERSION_STR "&m=" DEVICE_MODEL
 #define WEB_NAV_ICON_LOCAL_SRC STATIC_PREFIX "?r=nav-local&v=" SOFTWARE_VERSION_STR
 #define WEB_NAV_ICON_MAP_SRC STATIC_PREFIX "?r=nav-map&v=" SOFTWARE_VERSION_STR
 #define WEB_NAV_ICON_CUSTOM_SRC STATIC_PREFIX "?r=nav-custom&v=" SOFTWARE_VERSION_STR
 #define WEB_NAV_ICON_SYSTEM_SRC STATIC_PREFIX "?r=nav-system&v=" SOFTWARE_VERSION_STR
+#define WEB_STATIC_CSS_HREF STATIC_PREFIX "?r=css&v=" SOFTWARE_VERSION_STR
+#define WEB_STATIC_JS_HREF STATIC_PREFIX "?r=js&v=" SOFTWARE_VERSION_STR
 #if defined(ALTRUIST_URBAN_C3_LITE)
 // C3 flash budget: text-only tabs (PNG nav icons are ~47 KB in PROGMEM).
-#define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><span class='app-tab__label'>{local}</span></a>"
+#define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><span class='app-tab__label'>" INTL_HUB_LOCAL_TITLE "</span></a>"
 #define WEB_APP_TAB_SOCIAL "<a class='app-tab' data-tab='social' href='/social'><span class='app-tab__label'>" INTL_DASH_CAT_MAP "</span></a>"
 #define WEB_APP_TAB_CUSTOM "<a class='app-tab' data-tab='custom' href='/custom'><span class='app-tab__label'>" INTL_DASH_GROUP_CUSTOM_TITLE "</span></a>"
 #define WEB_APP_TAB_ADVANCED "<a class='app-tab' data-tab='advanced' href='/advanced'><span class='app-tab__label'>" INTL_NAV_ADVANCED "</span></a>"
 #else
-#define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><img class='app-tab__icon' src='" WEB_NAV_ICON_LOCAL_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>{local}</span></a>"
+#define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><img class='app-tab__icon' src='" WEB_NAV_ICON_LOCAL_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_HUB_LOCAL_TITLE "</span></a>"
 #define WEB_APP_TAB_SOCIAL "<a class='app-tab' data-tab='social' href='/social'><img class='app-tab__icon' src='" WEB_NAV_ICON_MAP_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_DASH_CAT_MAP "</span></a>"
 #define WEB_APP_TAB_CUSTOM "<a class='app-tab' data-tab='custom' href='/custom'><img class='app-tab__icon' src='" WEB_NAV_ICON_CUSTOM_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_DASH_GROUP_CUSTOM_TITLE "</span></a>"
 #define WEB_APP_TAB_ADVANCED "<a class='app-tab' data-tab='advanced' href='/advanced'><img class='app-tab__icon' src='" WEB_NAV_ICON_SYSTEM_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_NAV_ADVANCED "</span></a>"
@@ -59,7 +61,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 
 const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>" \
     WEB_PAGE_FAVICON_LINKS \
-    "<link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
+    "<link rel='stylesheet' href='" WEB_STATIC_CSS_HREF "'>\
     </style>\
     </head><body>\
     <div class='canvas'>\
@@ -68,9 +70,9 @@ const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='widt
 
 const char WEB_PAGE_HEADER_CONFIG_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>" \
 WEB_PAGE_FAVICON_LINKS \
-"<link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
+"<link rel='stylesheet' href='" WEB_STATIC_CSS_HREF "'>\
 </style>\
-<script src='" STATIC_PREFIX "?r=js' defer></script>\
+<script src='" WEB_STATIC_JS_HREF "' defer></script>\
 </head><body class='configuration'>\
 <div class='canvas'>\
 <a class='b' href='/' style='background:none;display:inline'>\
@@ -127,26 +129,37 @@ const char WEB_PAGE_DATA_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
 
 const char WEB_PAGE_APP_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>" \
     WEB_PAGE_FAVICON_LINKS \
-    "<link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
+    "<link rel='stylesheet' href='" WEB_STATIC_CSS_HREF "'>\
     </style>\
     </head><body class='app-shell' data-page='{page}'>";
 
 const char WEB_PAGE_APP_CONFIG_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>" \
     WEB_PAGE_FAVICON_LINKS \
-    "<link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
+    "<link rel='stylesheet' href='" WEB_STATIC_CSS_HREF "'>\
     </style>\
-    <script src='" STATIC_PREFIX "?r=js' defer></script>\
+    <script src='" WEB_STATIC_JS_HREF "' defer></script>\
     </head><body class='app-shell configuration' data-page='{page}'>";
 
 const char WEB_PAGE_APP_TOPBAR_BODY[] PROGMEM = "<header class='app-topbar'>\
+<div class='app-topbar__inner'>\
 <a class='app-topbar__brand' href='/'>\
-<img class='app-topbar__logo' src='" WEB_HEADER_LOGO_SRC "' alt='" INTL_BACK_TO_HOME "' width='56' height='56'/></a>\
-<div class='app-topbar__meta'><h1 class='app-topbar__title'>" PM_SENSOR_NAME "</h1>\
-<div class='app-topbar__details'>\
-<span class='app-topbar__detail'><span class='app-topbar__lbl'>ID</span> {device}</span>\
-<span class='app-topbar__detail'><span class='app-topbar__lbl'>" INTL_FIRMWARE "</span> " WEB_FW_BUILD_INFO "</span>\
-<span class='app-topbar__detail'><span class='app-topbar__lbl'>" INTL_ROBONOMICS_ADDR "</span> " WEB_ROBONOMICS_ADDR_FIELD "</span>\
+<img class='app-topbar__logo' src='" WEB_HEADER_LOGO_SRC "' alt='" INTL_BACK_TO_HOME "' width='48' height='48'/></a>\
+<div class='app-topbar__primary'>\
+<div class='app-topbar__heading'>\
+<h1 class='app-topbar__title'>" PM_SENSOR_NAME " — {device}</h1>\
+{tags}\
 </div></div>\
+<div class='app-topbar__chips'>\
+{device_chip}\
+{send_chip}\
+<button type='button' class='app-topbar__chip app-topbar__chip--copy' data-copy='{ip}' data-copied='" INTL_COPIED "'>\
+<span class='app-topbar__chip-lbl'>" INTL_IP_ADDRESS "</span>\
+<span class='app-topbar__chip-val app-topbar__chip-val--mono app-topbar__chip-val--ip'>{ip}</span>\
+<span class='app-topbar__chip-sub app-topbar__chip-sub--muted'>{host}</span>\
+<span class='app-topbar__chip-hint'>" INTL_TOPBAR_TAP_COPY "</span>\
+</button>\
+</div></div>\
+<script>(function(){function c(t){if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t);return new Promise(function(r,j){try{var o=document.createElement('textarea');o.value=t;o.style.position='fixed';o.style.opacity='0';document.body.appendChild(o);o.select();document.execCommand('copy');document.body.removeChild(o);r()}catch(e){j(e)}})}function bindCopy(el,hintSel){el.addEventListener('click',function(ev){ev.stopPropagation();var v=el.getAttribute('data-copy')||'';if(!v||v==='—')return;var h=hintSel?el.querySelector(hintSel):null;var p=h?h.textContent:'';c(v).then(function(){if(h){h.textContent=el.getAttribute('data-copied')||'Copied';setTimeout(function(){h.textContent=p},1200)}}).catch(function(){})})}document.querySelectorAll('.app-topbar__chip--copy').forEach(function(b){bindCopy(b,'.app-topbar__chip-hint')});document.querySelectorAll('.app-topbar__chip-copy').forEach(function(b){bindCopy(b,null)})})();</script>\
 </header>";
 
 const char WEB_PAGE_APP_LAYOUT_OPEN[] PROGMEM = "<div class='app-layout'>";

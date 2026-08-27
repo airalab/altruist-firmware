@@ -59,14 +59,14 @@ const char INTL_CONFIGURATION[] PROGMEM = "Configuration";
 #define INTL_HUB_DIV_DIAGNOSTICS "Diagnostics"
 #define INTL_HUB_DIV_DANGER "Danger zone"
 #define INTL_DASH_GROUP_LOCAL_INTRO "Readings, settings, and maintenance on your home network."
-#define INTL_DASH_GROUP_SOCIAL_TITLE "sensors.social"
+#define INTL_DASH_GROUP_SOCIAL_TITLE "Map"
 #define INTL_DASH_GROUP_SOCIAL_INTRO "Public map, Robonomics network, and what you publish."
 #define INTL_DASH_GROUP_CUSTOM_TITLE "Custom"
 #define INTL_DASH_GROUP_CUSTOM_INTRO "Home Assistant, your own API, InfluxDB, and CSV export."
 #define INTL_DASH_CAT_DATA "Data"
 #define INTL_DASH_CAT_SETTINGS "Settings"
 #define INTL_DASH_CAT_MAINTENANCE "Maintenance"
-#define INTL_DASH_CAT_MAP "Public map"
+#define INTL_DASH_CAT_MAP "Map"
 #define INTL_DASH_CAT_NETWORK "Robonomics"
 #define INTL_DASH_CAT_INTEGRATIONS "Integrations"
 #define INTL_DASH_CONFIG_MAP_DESC "Choose which measurements appear on the public map."
@@ -264,6 +264,12 @@ const char INTL_ROBONOMICS_CONNECTIVITY_MODE_CUSTOM[] PROGMEM = "Custom host";
 const char INTL_ROBONOMICS_CONNECTIVITY_MODE_POOL[] PROGMEM = "Custom pool";
 const char INTL_ROBONOMICS_CONNECTIVITY_PRESET_LABEL[] PROGMEM = "Pinned host (preset)";
 const char INTL_ROBONOMICS_CONNECTIVITY_CUSTOM_LABEL[] PROGMEM = "Custom host";
+const char INTL_MAP_SEND_CSV[] PROGMEM = "Send JSON/CSV to Map (current connectivity)";
+const char INTL_MAP_SEND_PROTO[] PROGMEM = "Send protobuf (new protocol)";
+const char INTL_MAP_PROTO_HOST[] PROGMEM = "Protobuf URL (empty = same Map host:65/)";
+const char INTL_MAP_DUAL_HINT[] PROGMEM = "Both can be on at once. JSON keeps the live map. For the test connectivity paste http://128.140.46.75/v1/telemetry below. Datalog is not duplicated.";
+const char INTL_LORA_UART_ENABLED[] PROGMEM = "Send compact JSON to LoRa UART";
+const char INTL_LORA_UART_HINT[] PROGMEM = "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8). Meshtastic Serial Module: enabled, TEXTMSG, 115200 (baud 11), timeout 1 s. Cross TX/RX and share GND.";
 const char INTL_ROBONOMICS_PUBLIC_NODE_CUSTOM[] PROGMEM = "Custom Robonomics Public Node";
 const char INTL_GUEST_CONNECTED_SENSORS[] PROGMEM = "Connected Sensors";
 const char INTL_COORD_LAT[] PROGMEM = "Latitude";
@@ -279,6 +285,9 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_DEBUG "Debug Level"
 #define INTL_PANEL_TITLE_LEDS "LEDs"
 #define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
+#define INTL_ANALYTICS_GROUP_NIGHT "Night window"
+#define INTL_ANALYTICS_GROUP_MORNING "Morning display"
+#define INTL_ANALYTICS_GROUP_DATA "Data"
 #define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
 #define INTL_ANALYTICS_NIGHT_START_TIME "Sleep analytics night start (local, HH:MM)"
 #define INTL_ANALYTICS_NIGHT_END_TIME "Sleep analytics night end (local, HH:MM)"
@@ -466,6 +475,30 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DATA_SECTION_NETWORK "Network"
 #define INTL_DATA_SECTION_EXPORT "Data export"
 #define INTL_DATA_SECTION_TECHNICAL "Technical details"
+#define INTL_COPY_ALL "Copy all"
+#define INTL_COPIED "Copied"
+#define INTL_TOPBAR_ONLINE "Online"
+#define INTL_TOPBAR_OFFLINE "Offline"
+#define INTL_TOPBAR_SEND_ISSUE "Send issue"
+#define INTL_TOPBAR_SEND_OK "OK"
+#define INTL_TOPBAR_SEND_ERR "Not send"
+#define INTL_TOPBAR_LAST_SEND "Last send"
+#define INTL_TOPBAR_NO_SENDS "No sends yet"
+#define INTL_TOPBAR_MAP "Map"
+#define INTL_TOPBAR_DATALOG "Datalog"
+#define INTL_TOPBAR_JUST_NOW "just now"
+#define INTL_TOPBAR_WIFI "Wi‑Fi"
+#define INTL_TOPBAR_HOST "Hostname"
+#define INTL_TOPBAR_DEVICE "Device"
+#define INTL_TOPBAR_SEND "Send"
+#define INTL_TOPBAR_STANDALONE "Standalone"
+#define INTL_TOPBAR_PAIRED "Urban paired"
+#define INTL_TOPBAR_UPDATE "Update"
+#define INTL_TOPBAR_FW_CURRENT "Up to date"
+#define INTL_TOPBAR_ROBONOMICS "Robonomics address"
+#define INTL_TOPBAR_Q_ACCESS "Open in browser"
+#define INTL_TOPBAR_TAP_COPY "Tap to copy"
+#define INTL_TOPBAR_MORE "Device info"
 #define INTL_VALUE_YES "Yes"
 #define INTL_VALUE_NO "No"
 #define INTL_READINGS_SECTION_NETWORK_INTRO "Wi-Fi signal strength at the sensor."

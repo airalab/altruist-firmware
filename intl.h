@@ -512,6 +512,18 @@
 #define INTL_PANEL_TITLE_LEDS "LEDs"
 #endif
 
+#ifndef INTL_PANEL_TITLE_SLEEP_ANALYTICS
+#define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
+#endif
+#ifndef INTL_ANALYTICS_GROUP_NIGHT
+#define INTL_ANALYTICS_GROUP_NIGHT "Night window"
+#endif
+#ifndef INTL_ANALYTICS_GROUP_MORNING
+#define INTL_ANALYTICS_GROUP_MORNING "Morning display"
+#endif
+#ifndef INTL_ANALYTICS_GROUP_DATA
+#define INTL_ANALYTICS_GROUP_DATA "Data"
+#endif
 #ifndef INTL_ANALYTICS_MORNING_AUTOSWITCH
 #define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
 #endif
@@ -535,9 +547,6 @@
 #endif
 #ifndef INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT
 #define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in sleep analytics."
-#endif
-#ifndef INTL_PANEL_TITLE_SLEEP_ANALYTICS
-#define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
 #endif
 #ifndef INTL_ANALYTICS_MORNING_AUTOSWITCH
 #define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
@@ -577,6 +586,78 @@
 #endif
 #ifndef INTL_DATA_SECTION_TECHNICAL
 #define INTL_DATA_SECTION_TECHNICAL "Technical details"
+#endif
+#ifndef INTL_COPY_ALL
+#define INTL_COPY_ALL "Copy all"
+#endif
+#ifndef INTL_COPIED
+#define INTL_COPIED "Copied"
+#endif
+#ifndef INTL_TOPBAR_ONLINE
+#define INTL_TOPBAR_ONLINE "Online"
+#endif
+#ifndef INTL_TOPBAR_OFFLINE
+#define INTL_TOPBAR_OFFLINE "Offline"
+#endif
+#ifndef INTL_TOPBAR_SEND_ISSUE
+#define INTL_TOPBAR_SEND_ISSUE "Send issue"
+#endif
+#ifndef INTL_TOPBAR_SEND_OK
+#define INTL_TOPBAR_SEND_OK "OK"
+#endif
+#ifndef INTL_TOPBAR_SEND_ERR
+#define INTL_TOPBAR_SEND_ERR "Not send"
+#endif
+#ifndef INTL_TOPBAR_LAST_SEND
+#define INTL_TOPBAR_LAST_SEND "Last send"
+#endif
+#ifndef INTL_TOPBAR_NO_SENDS
+#define INTL_TOPBAR_NO_SENDS "No sends yet"
+#endif
+#ifndef INTL_TOPBAR_MAP
+#define INTL_TOPBAR_MAP "Map"
+#endif
+#ifndef INTL_TOPBAR_DATALOG
+#define INTL_TOPBAR_DATALOG "Datalog"
+#endif
+#ifndef INTL_TOPBAR_JUST_NOW
+#define INTL_TOPBAR_JUST_NOW "just now"
+#endif
+#ifndef INTL_TOPBAR_WIFI
+#define INTL_TOPBAR_WIFI "Wi‑Fi"
+#endif
+#ifndef INTL_TOPBAR_HOST
+#define INTL_TOPBAR_HOST "Hostname"
+#endif
+#ifndef INTL_TOPBAR_DEVICE
+#define INTL_TOPBAR_DEVICE "Device"
+#endif
+#ifndef INTL_TOPBAR_SEND
+#define INTL_TOPBAR_SEND "Send"
+#endif
+#ifndef INTL_TOPBAR_STANDALONE
+#define INTL_TOPBAR_STANDALONE "Standalone"
+#endif
+#ifndef INTL_TOPBAR_PAIRED
+#define INTL_TOPBAR_PAIRED "Urban paired"
+#endif
+#ifndef INTL_TOPBAR_UPDATE
+#define INTL_TOPBAR_UPDATE "Update"
+#endif
+#ifndef INTL_TOPBAR_FW_CURRENT
+#define INTL_TOPBAR_FW_CURRENT "Up to date"
+#endif
+#ifndef INTL_TOPBAR_ROBONOMICS
+#define INTL_TOPBAR_ROBONOMICS "Robonomics address"
+#endif
+#ifndef INTL_TOPBAR_Q_ACCESS
+#define INTL_TOPBAR_Q_ACCESS "Open in browser"
+#endif
+#ifndef INTL_TOPBAR_TAP_COPY
+#define INTL_TOPBAR_TAP_COPY "Tap to copy"
+#endif
+#ifndef INTL_TOPBAR_MORE
+#define INTL_TOPBAR_MORE "Device info"
 #endif
 #ifndef INTL_VALUE_YES
 #define INTL_VALUE_YES "Yes"
@@ -714,7 +795,7 @@
 #define INTL_DASH_GROUP_LOCAL_INTRO "Readings, settings, and maintenance on your home network."
 #endif
 #ifndef INTL_DASH_GROUP_SOCIAL_TITLE
-#define INTL_DASH_GROUP_SOCIAL_TITLE "sensors.social"
+#define INTL_DASH_GROUP_SOCIAL_TITLE "Map"
 #endif
 #ifndef INTL_DASH_GROUP_SOCIAL_INTRO
 #define INTL_DASH_GROUP_SOCIAL_INTRO "Public map, Robonomics network, and what you publish."
@@ -735,7 +816,7 @@
 #define INTL_DASH_CAT_MAINTENANCE "Maintenance"
 #endif
 #ifndef INTL_DASH_CAT_MAP
-#define INTL_DASH_CAT_MAP "Public map"
+#define INTL_DASH_CAT_MAP "Map"
 #endif
 #ifndef INTL_DASH_CAT_NETWORK
 #define INTL_DASH_CAT_NETWORK "Robonomics"
@@ -838,6 +919,24 @@
 #endif
 #ifndef INTL_REGION_HINT
 #define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / OTA unless you change it here."
+#endif
+#ifndef INTL_MAP_SEND_CSV
+#define INTL_MAP_SEND_CSV "Send JSON/CSV to Map (current connectivity)"
+#endif
+#ifndef INTL_MAP_SEND_PROTO
+#define INTL_MAP_SEND_PROTO "Send protobuf (new protocol)"
+#endif
+#ifndef INTL_MAP_PROTO_HOST
+#define INTL_MAP_PROTO_HOST "Protobuf URL (empty = same Map host:65/)"
+#endif
+#ifndef INTL_MAP_DUAL_HINT
+#define INTL_MAP_DUAL_HINT "Both can be on at once. JSON keeps the live map. For the test connectivity paste http://128.140.46.75/v1/telemetry below. Datalog is not duplicated."
+#endif
+#ifndef INTL_LORA_UART_ENABLED
+#define INTL_LORA_UART_ENABLED "Send compact JSON to LoRa UART"
+#endif
+#ifndef INTL_LORA_UART_HINT
+#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8). Meshtastic Serial Module: enabled, TEXTMSG, 115200 (baud 11), timeout 1 s. Cross TX/RX and share GND."
 #endif
 
 #endif

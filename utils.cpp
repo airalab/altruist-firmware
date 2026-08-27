@@ -210,7 +210,7 @@ size_t LoggingSerial::write(uint8_t c)
 		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
 	}
 	xQueueSendToBack(m_buffer, ( void * ) &c, ( TickType_t ) 1);
-	const size_t n = HardwareSerial::write(c);
+	const size_t n = m_structured_output ? 1 : HardwareSerial::write(c);
 	if (m_write_mutex) {
 		xSemaphoreGive(m_write_mutex);
 	}
@@ -225,11 +225,42 @@ size_t LoggingSerial::write(const uint8_t *buffer, size_t size)
 	for (size_t i = 0; i < size; i++) {
 		xQueueSendToBack(m_buffer, ( void * ) &buffer[i], ( TickType_t ) 1);
 	}
-	const size_t n = HardwareSerial::write(buffer, size);
+	const size_t n = m_structured_output ? size : HardwareSerial::write(buffer, size);
 	if (m_write_mutex) {
 		xSemaphoreGive(m_write_mutex);
 	}
 	return n;
+}
+
+void LoggingSerial::beginStructuredOutput(unsigned long baud, int8_t rx_pin, int8_t tx_pin)
+{
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	HardwareSerial::end();
+	HardwareSerial::begin(baud, SERIAL_8N1, rx_pin, tx_pin);
+	m_structured_output = true;
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+}
+
+bool LoggingSerial::writeStructuredLine(const String& line)
+{
+	if (!m_structured_output || line.isEmpty()) {
+		return false;
+	}
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	const size_t payload_written =
+	    HardwareSerial::write(reinterpret_cast<const uint8_t *>(line.c_str()), line.length());
+	const size_t newline_written = HardwareSerial::write(static_cast<uint8_t>('\n'));
+	HardwareSerial::flush();
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return payload_written == line.length() && newline_written == 1;
 }
 
 String LoggingSerial::popLines()
@@ -257,18 +288,24 @@ unsigned int effectiveRuntimeLogLevel() {
 	return max(static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL), cfg::debug);
 }
 
+static volatile bool s_usb_log_quiet = false;
+
+void debugSetUsbQuiet(bool quiet) {
+	s_usb_log_quiet = quiet;
+}
+
 #define debug_level_check(level) { if (level > effectiveRuntimeLogLevel()) return; }
 
 void debug_out(const String& text, unsigned int level) {
-	debug_level_check(level); Debug.print(text); Serial.print(text);
+	debug_level_check(level); Debug.print(text); if (!s_usb_log_quiet) Serial.print(text);
 }
 
 void debug_out(const __FlashStringHelper* text, unsigned int level) {
-	debug_level_check(level); Debug.print(text); Serial.print(text);
+	debug_level_check(level); Debug.print(text); if (!s_usb_log_quiet) Serial.print(text);
 }
 
 void debug_outln(const String& text, unsigned int level) {
-	debug_level_check(level); Debug.println(text); Serial.println(text);
+	debug_level_check(level); Debug.println(text); if (!s_usb_log_quiet) Serial.println(text);
 }
 
 void debug_outln_info(const String& text) {
@@ -276,11 +313,11 @@ void debug_outln_info(const String& text) {
 	String dated_text = "[" + String(millis()) + "] " + tagged; 
 	debug_level_check(DEBUG_MIN_INFO);
 	Debug.println(tagged);
-	Serial.println(dated_text);
+	if (!s_usb_log_quiet) Serial.println(dated_text);
 }
 
 void debug_outln_verbose(const String& text) {
-	debug_level_check(DEBUG_MED_INFO); Debug.println(text); Serial.println(text);
+	debug_level_check(DEBUG_MED_INFO); Debug.println(text); if (!s_usb_log_quiet) Serial.println(text);
 }
 
 void debug_outln_error(const __FlashStringHelper* text) {
@@ -288,14 +325,14 @@ void debug_outln_error(const __FlashStringHelper* text) {
 	String tagged = "[ERROR] ";
 	tagged += String(text);
 	Debug.println(tagged);
-	Serial.println(tagged);
+	if (!s_usb_log_quiet) Serial.println(tagged);
 }
 
 void debug_outln_info(const __FlashStringHelper* text) {
 	String tagged = "[INFO] ";
 	tagged += String(text);
 	String dated_text = "[" + String(millis()) + "] " + tagged; 
-	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); Serial.println(dated_text);
+	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); if (!s_usb_log_quiet) Serial.println(dated_text);
 }
 
 void debug_outln_verbose(const __FlashStringHelper* text) {
@@ -303,7 +340,7 @@ void debug_outln_verbose(const __FlashStringHelper* text) {
 	String tagged = "[DEBUG] ";
 	tagged += String(text);
 	Debug.println(tagged);
-	Serial.println(tagged);
+	if (!s_usb_log_quiet) Serial.println(tagged);
 }
 
 void debug_outln_info(const __FlashStringHelper* text, const String& option) {
@@ -313,8 +350,10 @@ void debug_outln_info(const __FlashStringHelper* text, const String& option) {
 	debug_level_check(DEBUG_MIN_INFO);
 	Debug.print(tagged);
 	Debug.println(": " + option);
-	Serial.print(dated_text);
-	Serial.println(": " + option);
+	if (!s_usb_log_quiet) {
+		Serial.print(dated_text);
+		Serial.println(": " + option);
+	}
 }
 
 void debug_outln_info(const __FlashStringHelper* text, float value) {
@@ -327,8 +366,10 @@ void debug_outln_verbose(const __FlashStringHelper* text, const String& option) 
 	tagged += String(text);
 	Debug.print(tagged);
 	Debug.println(": " + option);
-	Serial.print(tagged);
-	Serial.println(": " + option);
+	if (!s_usb_log_quiet) {
+		Serial.print(tagged);
+		Serial.println(": " + option);
+	}
 }
 
 void debug_outln_info_bool(const __FlashStringHelper* text, const bool option) {
@@ -337,8 +378,10 @@ void debug_outln_info_bool(const __FlashStringHelper* text, const bool option) {
 	tagged += String(text);
 	Debug.print(tagged);
 	Debug.println(": " + String(option));
-	Serial.print(tagged);
-	Serial.println(": " + String(option));
+	if (!s_usb_log_quiet) {
+		Serial.print(tagged);
+		Serial.println(": " + String(option));
+	}
 }
 
 #undef debug_level_check
@@ -353,6 +396,9 @@ void logSubsystemEvent(
 	const __FlashStringHelper* reason,
 	const String& details
 ) {
+	if (s_usb_log_quiet) {
+		return;
+	}
 	Serial.print(F("[SUBSYSTEM] "));
 	Serial.print(level);
 	Serial.print(F(" subsystem="));

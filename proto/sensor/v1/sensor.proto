@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package sensor.v1;
+
+import "sensor/v1/measurement.proto";
+
+// Bosch BME680 environmental sensor.
+// Datasheet: https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors/bme680/
+// Measurement period: firmware-defined; this payload carries one measurement per event.
+message BME680 {
+  oneof measurement {
+    Temperature temperature = 1;
+    Humidity humidity = 2;
+    Pressure pressure = 3;
+  }
+}
+
+// Sensirion SCD41 photoacoustic CO₂ sensor.
+// Datasheet: https://sensirion.com/products/catalog/SCD41
+// Measurement period: typically 5 s in periodic mode; payload carries one measurement per event.
+message SCD41 {
+  oneof measurement {
+    CO2 co2 = 1;
+    Temperature temperature = 2;
+    Humidity humidity = 3;
+  }
+}
+
+// Bosch BME280 environmental sensor.
+// Datasheet: https://www.bosch-sensortec.com/products/environmental-sensors/humidity-sensors-bme280/
+// Measurement period: firmware-defined; payload carries one measurement per event.
+message BME280 {
+  oneof measurement {
+    Temperature temperature = 1;
+    Humidity humidity = 2;
+    Pressure pressure = 3;
+  }
+}
+
+// Nova SDS011 particulate matter sensor.
+// Datasheet: https://cdn-learn.adafruit.com/assets/assets/000/106/698/original/SDS011_laser_PM2.5_sensor_specification-V1.3.pdf
+// Measurement period: typically 1 s output updates; payload carries one measurement per event.
+message SDS011 {
+  oneof measurement {
+    PM25 pm25 = 1;
+    PM10 pm10 = 2;
+  }
+}
+
+// TDK InvenSense ICS-43434 digital MEMS microphone.
+// Datasheet: https://invensense.tdk.com/products/ics-43434/
+// Measurement period: firmware-defined aggregation window; payload carries one measurement per event.
+message ICS43434 {
+  oneof measurement {
+    NoiseLevel noise_max = 1;
+    NoiseLevel noise_avg = 2;
+  }
+}
+
+// Generic GNSS/GPS location sensor payload.
+// Coordinates use WGS84 datum.
+// Measurement period: firmware-defined; payload carries one location fix per event.
+message GPS {
+  // Latitude in decimal degrees, range: -90.0 to +90.0 (WGS84)
+  double lat = 1;
+
+  // Longitude in decimal degrees, range: -180.0 to +180.0 (WGS84)
+  double lon = 2;
+
+  // Height above mean sea level in meters (optional, 0 if not available)
+  double height_m = 3;
+}

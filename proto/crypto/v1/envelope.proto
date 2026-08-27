@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package crypto.v1;
+
+// Signed envelope for sensor measurements.
+message SignedEnvelope {
+  // Sensor's public key (for Ed25519 it's 32 bytes).
+  // Used as unique device identifier.
+  bytes sensor_id = 1;
+
+  // Unix timestamp in milliseconds (UTC).
+  // When the measurement was taken.
+  uint64 timestamp = 2;
+
+  // Random nonce to prevent replay attacks (16-32 bytes recommended).
+  // Should be unique for each request (e.g., random bytes or UUID bytes).
+  bytes nonce = 3;
+
+  // The actual telemetry as raw protobuf bytes.
+  // Connectivity layer can pass this through without decoding.
+  bytes message = 4;
+
+  // Measurement signature (for Ed25519 it's 64 bytes).
+  // Signs: sensor_id + timestamp + nonce + message.
+  bytes signature = 5;
+}
+
+// A batch of telemetry messages.
+// Used for blockchain anchoring and storage.
+message SignedEnvelopeBatch {
+  repeated SignedEnvelope batch = 1;
+}

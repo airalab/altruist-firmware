@@ -44,9 +44,7 @@ static bool sound = false;
 static SoundSensor soundSensor;
 
 bool initI2sSound() {
-  bool res = soundSensor.begin();
-  soundSensor.offset( MIC_OFFSET );
-  return res;
+  return soundSensor.begin();
 }
 
 void fetchSensorI2sSound(uint8_t *max_noise, float *mean_noise) {

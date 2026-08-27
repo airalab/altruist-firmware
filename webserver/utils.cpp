@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <string.h>
+#include <time.h>
 
 namespace {
 
@@ -118,7 +119,12 @@ void add_reading_metrics_grid_end(String& page_content) {
 }
 
 void add_reading_metric_card(String& page_content, const __FlashStringHelper* label, const String& value, const char* unit) {
-	page_content += F("<div class='reading-card'><span class='reading-card__label'>");
+	const bool text_value = (unit == nullptr || unit[0] == '\0') && value.length() > 12;
+	page_content += F("<div class='reading-card");
+	if (text_value) {
+		page_content += F(" reading-card--text");
+	}
+	page_content += F("'><span class='reading-card__label'>");
 	page_content += label;
 	page_content += F("</span><div class='reading-card__reading'><span class='reading-card__value'>");
 	page_content += value;
@@ -132,7 +138,12 @@ void add_reading_metric_card(String& page_content, const __FlashStringHelper* la
 }
 
 void add_reading_metric_card(String& page_content, const String& label, const String& value, const char* unit) {
-	page_content += F("<div class='reading-card'><span class='reading-card__label'>");
+	const bool text_value = (unit == nullptr || unit[0] == '\0') && value.length() > 12;
+	page_content += F("<div class='reading-card");
+	if (text_value) {
+		page_content += F(" reading-card--text");
+	}
+	page_content += F("'><span class='reading-card__label'>");
 	page_content += label;
 	page_content += F("</span><div class='reading-card__reading'><span class='reading-card__value'>");
 	page_content += value;
@@ -377,22 +388,24 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 	if (enabled) {
 		s = F("<div class='form-group'>"
 				"<label for='{n}'>{i}</label>"
-				"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'{a}/>"
+				"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'{c}{a}/>"
 				"</div>");
 	} else {
 		s = F("<div class='form-group'>"
 			"<label for='{n}'>{i}</label>"
-			"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'{a} disabled/>"
+			"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'{c}{a} disabled/>"
 			"</div>");
 	}
 	String t_value;
 	String attrs;
+	String cls;
 	ConfigShapeEntry c;
 	memcpy_P(&c, &configShape[cfgid], sizeof(ConfigShapeEntry));
 	switch (c.cfg_type) {
 	case Config_Type_UInt:
 		t_value = String(*c.cfg_val.as_uint);
 		s.replace("{t}", F("number"));
+		cls = F(" class='input-narrow'");
 		if (cfgid == Config_leds_brightness) {
 			attrs = F(" min='0' max='100' step='1'");
 		} else if (cfgid == Config_leds_off_hour || cfgid == Config_leds_on_hour) {
@@ -404,6 +417,7 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 	case Config_Type_Time:
 		t_value = String((*c.cfg_val.as_uint) / 1000);
 		s.replace("{t}", F("number"));
+		cls = F(" class='input-narrow'");
 		attrs = F(" min='0' step='1'");
 		break;
 	default:
@@ -414,12 +428,17 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 			t_value = c.cfg_val.as_str;
 			t_value.replace("'", "&#39;");
 			s.replace("{t}", F("text"));
+			/* Short numeric-ish strings (e.g. temp correction) — same width hint as UInt. */
+			if (length > 0 && length <= 8) {
+				cls = F(" class='input-narrow'");
+			}
 		}
 	}
 	s.replace("{i}", info);
 	s.replace("{n}", String(c.cfg_key()));
 	s.replace("{v}", t_value);
 	s.replace("{l}", String(length));
+	s.replace("{c}", cls);
 	s.replace("{a}", attrs);
 	page_content += s;
 }
@@ -429,8 +448,8 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 }
 
 String buildLocalAccessLabel() {
-	// Stable UI brand for sidebar / browser tab / footer (not the unique DHCP/mDNS name).
-	return F("altruist.local");
+	// Functional hub name for UI nav (not the unique DHCP/mDNS hostname).
+	return F(INTL_HUB_LOCAL_TITLE);
 }
 
 String buildDeviceAccessHost() {
@@ -445,6 +464,257 @@ String buildDeviceAccessHost() {
 		host += F(".local");
 	}
 	return host;
+}
+
+namespace {
+
+String topbarShortAge(unsigned long age_sec) {
+	char buf[24];
+	if (age_sec < 60) {
+		return String(FPSTR(INTL_TOPBAR_JUST_NOW));
+	}
+	if (age_sec < 3600UL) {
+		sprintf_P(buf, PSTR("%lu min"), age_sec / 60UL);
+		return String(buf);
+	}
+	if (age_sec < 86400UL) {
+		sprintf_P(buf, PSTR("%lu h"), age_sec / 3600UL);
+		return String(buf);
+	}
+	sprintf_P(buf, PSTR("%lu d"), age_sec / 86400UL);
+	return String(buf);
+}
+
+String topbarFormatLastSendAge(time_t when) {
+	if (when == 0) {
+		return String();
+	}
+
+	String age;
+	const time_t now = time(nullptr);
+	if (now > 1600000000L && now >= when) {
+		age = topbarShortAge(static_cast<unsigned long>(now - when));
+	} else {
+		struct tm ti;
+		localtime_r(&when, &ti);
+		char buf[32];
+		strftime(buf, sizeof(buf), "%H:%M", &ti);
+		age = buf;
+	}
+
+	String out = String(FPSTR(INTL_TOPBAR_LAST_SEND));
+	out += F(" ");
+	out += age;
+	return out;
+}
+
+String topbarIpText(const device_status_t& deviceStatus, bool online) {
+	String ip = deviceStatus.ip_address;
+	ip.trim();
+	if (ip.length() == 0 && online) {
+		ip = WiFi.localIP().toString();
+	}
+	if (ip.length() == 0) {
+		ip = F("—");
+	}
+	return ip;
+}
+
+const api_status_t* topbarFindApi(const device_status_t& deviceStatus, const char* name) {
+	const auto it = deviceStatus.apis_status.find(name);
+	if (it == deviceStatus.apis_status.end()) {
+		return nullptr;
+	}
+	return &it->second;
+}
+
+bool topbarApiHasSends(const api_status_t* st) {
+	return st != nullptr && st->count_sends > 0;
+}
+
+bool topbarApiHasIssue(const api_status_t* st) {
+	return topbarApiHasSends(st) && !st->is_ok;
+}
+
+void topbarAppendSendApiRow(String& out, const __FlashStringHelper* label, const api_status_t* st) {
+	out += F("<div class='app-topbar__send-row");
+	if (topbarApiHasIssue(st)) {
+		out += F(" app-topbar__send-row--warn");
+	} else if (topbarApiHasSends(st) && st->is_ok) {
+		out += F(" app-topbar__send-row--ok");
+	} else {
+		out += F(" app-topbar__send-row--muted");
+	}
+	out += F("'><div class='app-topbar__send-row-top'>"
+		"<span class='app-topbar__send-row-lbl'>");
+	out += label;
+	out += F("</span><span class='app-topbar__send-row-val'><span class='app-topbar__dot'></span>");
+	if (!topbarApiHasSends(st)) {
+		out += F("—");
+	} else {
+		if (!st->is_ok) {
+			out += FPSTR(INTL_TOPBAR_SEND_ERR);
+		} else {
+			out += FPSTR(INTL_TOPBAR_SEND_OK);
+		}
+		out += F(" · ");
+		out += String(st->count_sends_success);
+		out += F("/");
+		out += String(st->count_sends);
+	}
+	out += F("</span></div>");
+	if (st != nullptr && st->last_send_time != 0) {
+		const String age_line = topbarFormatLastSendAge(st->last_send_time);
+		if (age_line.length() > 0) {
+			out += F("<span class='app-topbar__send-row-age'>");
+			out += age_line;
+			out += F("</span>");
+		}
+	}
+	out += F("</div>");
+}
+
+} // namespace
+
+void fill_app_topbar_placeholders(String& topbar, const device_status_t& deviceStatus,
+                                  const String& chipid, const String& robonomics_addr) {
+	const bool online = (WiFi.status() == WL_CONNECTED);
+
+	const api_status_t* map_st = topbarFindApi(deviceStatus, "Robonomics Map");
+	const api_status_t* datalog_st = topbarFindApi(deviceStatus, "Robonomics Datalog");
+	const bool send_issue = topbarApiHasIssue(map_st) || topbarApiHasIssue(datalog_st);
+	const bool any_sends = topbarApiHasSends(map_st) || topbarApiHasSends(datalog_st);
+
+	const bool ota_available =
+		(deviceStatus.ota_check_ui == device_status_t::OtaCheckUi_Available);
+	const bool ota_ok =
+		(deviceStatus.ota_check_ui == device_status_t::OtaCheckUi_UpToDate);
+
+	String device_chip;
+	device_chip.reserve(420);
+	device_chip = F("<div class='app-topbar__chip app-topbar__chip--status");
+	if (!online) {
+		device_chip += F(" app-topbar__chip--off'>");
+	} else if (ota_available) {
+		device_chip += F(" app-topbar__chip--warn'>");
+	} else {
+		device_chip += F(" app-topbar__chip--ok'>");
+	}
+	device_chip += F("<span class='app-topbar__chip-lbl'>");
+	device_chip += FPSTR(INTL_TOPBAR_DEVICE);
+	device_chip += F("</span><div class='app-topbar__chip-head'>"
+		"<span class='app-topbar__chip-val'><span class='app-topbar__dot'></span>");
+	device_chip += online ? FPSTR(INTL_TOPBAR_ONLINE) : FPSTR(INTL_TOPBAR_OFFLINE);
+	device_chip += F("</span>");
+	if (online) {
+		const String ssid = WiFi.SSID();
+		if (ssid.length() > 0) {
+			device_chip += F("<span class='app-topbar__chip-wifi'>");
+			device_chip += FPSTR(INTL_TOPBAR_WIFI);
+			device_chip += F(" · ");
+			device_chip += ssid;
+			device_chip += F("</span>");
+		}
+	}
+	device_chip += F("</div>");
+	device_chip += F("<span class='app-topbar__chip-meta'><span class='app-topbar__chip-meta-lbl'>");
+	device_chip += FPSTR(INTL_FIRMWARE);
+	device_chip += F("</span><span class='app-topbar__chip-sub app-topbar__chip-sub--fw'>");
+	device_chip += F(SOFTWARE_VERSION_STR);
+	device_chip += F("</span></span>");
+	if (ota_available) {
+		device_chip += F("<a class='app-topbar__chip-sub app-topbar__chip-sub--ota' href='/ota'>");
+		device_chip += FPSTR(INTL_TOPBAR_UPDATE);
+		if (deviceStatus.ota_remote_version[0] != '\0') {
+			device_chip += F(" · ");
+			device_chip += deviceStatus.ota_remote_version;
+		}
+		device_chip += F("</a>");
+	} else if (ota_ok) {
+		device_chip += F("<span class='app-topbar__chip-sub app-topbar__chip-sub--muted'>");
+		device_chip += FPSTR(INTL_TOPBAR_FW_CURRENT);
+		device_chip += F("</span>");
+	}
+	device_chip += F("</div>");
+
+	String send_chip;
+	send_chip.reserve(640);
+	send_chip = F("<div class='app-topbar__chip app-topbar__chip--status app-topbar__chip--send");
+	if (send_issue) {
+		send_chip += F(" app-topbar__chip--warn'>");
+	} else if (any_sends) {
+		send_chip += F(" app-topbar__chip--ok'>");
+	} else {
+		send_chip += F("'>");
+	}
+	send_chip += F("<span class='app-topbar__chip-lbl'>");
+	send_chip += FPSTR(INTL_TOPBAR_SEND);
+	send_chip += F("</span><div class='app-topbar__send-rows'>");
+	topbarAppendSendApiRow(send_chip, FPSTR(INTL_TOPBAR_MAP), map_st);
+	topbarAppendSendApiRow(send_chip, FPSTR(INTL_TOPBAR_DATALOG), datalog_st);
+	send_chip += F("</div>");
+	if (robonomics_addr.length() > 0 && strcasecmp(robonomics_addr.c_str(), "Not Set") != 0) {
+		send_chip += F("<button type='button' class='app-topbar__chip-addr app-topbar__chip-copy' data-copy='");
+		send_chip += robonomics_addr;
+		send_chip += F("' data-copied='");
+		send_chip += FPSTR(INTL_COPIED);
+		send_chip += F("'><span class='app-topbar__chip-addr-lbl'>");
+		send_chip += FPSTR(INTL_TOPBAR_ROBONOMICS);
+		send_chip += F("</span><span class='app-topbar__chip-addr-val'>");
+		send_chip += robonomics_addr;
+		send_chip += F("</span></button>");
+	}
+	send_chip += F("</div>");
+
+	String host = buildDeviceAccessHost();
+	if (host.length() == 0) {
+		host = F("—");
+	}
+	String ip = topbarIpText(deviceStatus, online);
+
+	String tags;
+#if defined(ALTRUIST_INSIGHT)
+	{
+		String mode_html;
+		mode_html.reserve(120);
+		if (cfg::standalone) {
+			mode_html = F("<span class='app-topbar__tag'>");
+			mode_html += FPSTR(INTL_TOPBAR_STANDALONE);
+			mode_html += F("</span>");
+		} else {
+			mode_html = F("<span class='app-topbar__tag app-topbar__tag--paired'>");
+			mode_html += FPSTR(INTL_TOPBAR_PAIRED);
+			const char* urban_ip = nullptr;
+			if (cfg::use_custom_urban && cfg::custom_altruist_urban[0] != '\0') {
+				urban_ip = cfg::custom_altruist_urban;
+			} else if (cfg::chosen_altruist_urban[0] != '\0') {
+				urban_ip = cfg::chosen_altruist_urban;
+			}
+			if (urban_ip) {
+				mode_html += F(" · ");
+				mode_html += urban_ip;
+			}
+			mode_html += F("</span>");
+		}
+		tags += mode_html;
+	}
+#endif
+	if (tags.length() > 0) {
+		String wrap;
+		wrap.reserve(tags.length() + 40);
+		wrap = F("<div class='app-topbar__tags'>");
+		wrap += tags;
+		wrap += F("</div>");
+		tags = wrap;
+	}
+
+	topbar.replace(F("{device_chip}"), device_chip);
+	topbar.replace(F("{send_chip}"), send_chip);
+	topbar.replace(F("{tags}"), tags);
+	topbar.replace(F("{ip}"), ip);
+	topbar.replace(F("{host}"), host);
+	topbar.replace(F("{device}"), chipid);
+	topbar.replace(F("{addr}"), robonomics_addr);
 }
 
 String buildGuestDeviceInfoJson(const String& ip, const String& sensor_ss58) {
@@ -689,14 +959,13 @@ void append_device_backup_restore_form(String& page_content, const __FlashString
 }
 
 void append_app_sidebar(String& page_content) {
-	const String local_host = buildLocalAccessLabel();
-
 	// Nest each submenu directly under its category item (not after the whole hub list).
+	// Submenu = full TOC of hub cards (issue #152), in page order, with hash anchors.
 	page_content += F("<aside class='app-sidebar' aria-label='" INTL_NAV_MAIN "'>"
 		"<nav class='app-sidebar__nav'>"
 		"<div class='app-sidebar__block app-sidebar__hub'>"
 		"<a class='app-sidebar__item app-sidebar__item--local' data-tab='local' href='/'>");
-	page_content += local_host;
+	page_content += FPSTR(INTL_HUB_LOCAL_TITLE);
 	page_content += F("</a>"
 		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--local'>"
 		"<span class='app-sidebar__heading'>");
@@ -711,8 +980,27 @@ void append_app_sidebar(String& page_content) {
 		"<span class='app-sidebar__heading'>");
 	page_content += FPSTR(INTL_NAV_SETTINGS);
 	page_content += F("</span>"
-		"<a class='app-sidebar__subitem' href='/#settings'>");
-	page_content += FPSTR(INTL_CONFIGURATION);
+		"<a class='app-sidebar__subitem' href='/#cfg-wifi'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_WIFI);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/#cfg-wifi-config'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_WIFI_CONFIG);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/#cfg-auth'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_AUTH);
+	page_content += F("</a>");
+#if LED_PIN != -1
+	page_content += F("<a class='app-sidebar__subitem' href='/#cfg-leds'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_LEDS);
+	page_content += F("</a>");
+#endif
+#ifdef ALTRUIST_INSIGHT
+	page_content += F("<a class='app-sidebar__subitem' href='/#cfg-sleep'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_SLEEP_ANALYTICS);
+	page_content += F("</a>");
+#endif
+	page_content += F("<a class='app-sidebar__subitem' href='/#cfg-system'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_FIRMWARE);
 	page_content += F("</a>"
 		"<a class='app-sidebar__subitem' href='/#ota'>");
 	page_content += FPSTR(INTL_OTA_UPDATE);
@@ -729,15 +1017,26 @@ void append_app_sidebar(String& page_content) {
 		"<a class='app-sidebar__item app-sidebar__item--social' data-tab='social' href='/social'>");
 	page_content += FPSTR(INTL_DASH_GROUP_SOCIAL_TITLE);
 	page_content += F("</a>"
-		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--social'>"
-		"<a class='app-sidebar__subitem' href='/social#map-link'>");
+		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--social'>");
+#if !defined(ALTRUIST_URBAN_C3_LITE)
+	page_content += F("<a class='app-sidebar__subitem' href='/social#map-link'>");
 	page_content += FPSTR(INTL_ACTIVE_SENSORS_MAP);
-	page_content += F("</a>"
-		"<span class='app-sidebar__heading'>");
+	page_content += F("</a>");
+#endif
+	page_content += F("<span class='app-sidebar__heading'>");
 	page_content += FPSTR(INTL_NAV_SETTINGS);
 	page_content += F("</span>"
-		"<a class='app-sidebar__subitem' href='/social#settings'>");
-	page_content += FPSTR(INTL_HUB_DIV_LOCATION);
+		"<a class='app-sidebar__subitem' href='/social#cfg-gps'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_GPS);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/social#cfg-publish'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_DATA_SHARING);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/social#cfg-encrypt'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_DATA_ENCRYPT);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/social#cfg-robonomics'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_ROBONOMICS);
 	page_content += F("</a>"
 		"<a class='app-sidebar__subitem' href='/social#group'>");
 	page_content += FPSTR(INTL_GROUP_MENU);
@@ -749,8 +1048,14 @@ void append_app_sidebar(String& page_content) {
 		"<span class='app-sidebar__heading'>");
 	page_content += FPSTR(INTL_NAV_SETTINGS);
 	page_content += F("</span>"
-		"<a class='app-sidebar__subitem' href='/custom#settings'>");
-	page_content += FPSTR(INTL_CONFIG_TAB_INTEGRATIONS);
+		"<a class='app-sidebar__subitem' href='/custom#cfg-custom-api'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_CUSTOMAPI);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/custom#cfg-influx'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_INFLUX);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/custom#cfg-csv'>");
+	page_content += FPSTR(INTL_PANEL_TITLE_CSV);
 	page_content += F("</a></div>"
 		"<a class='app-sidebar__item app-sidebar__item--advanced' data-tab='advanced' href='/advanced'>");
 	page_content += FPSTR(INTL_NAV_ADVANCED);

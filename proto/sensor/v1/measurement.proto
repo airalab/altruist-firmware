@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package sensor.v1;
+
+// Ambient or surface temperature.
+// Unit: degrees Celsius (°C).
+message Temperature {
+  // Temperature in degrees Celsius.
+  double celsius = 1;
+}
+
+// Atmospheric pressure.
+// Unit: pascal (Pa).
+message Pressure {
+  // Pressure in pascals.
+  double pascal = 1;
+}
+
+// Relative humidity.
+// Unit: percent (%RH), expected range 0..100.
+message Humidity {
+  // Relative humidity in percent.
+  double percent = 1;
+}
+
+// Carbon dioxide concentration.
+// Unit: parts per million (ppm).
+message CO2 {
+  // CO₂ concentration in ppm.
+  double ppm = 1;
+}
+
+// Particulate matter with diameter ≤ 2.5 µm.
+// Unit: micrograms per cubic meter (µg/m³).
+message PM25 {
+  // PM2.5 concentration in µg/m³.
+  double ug_m3 = 1;
+}
+
+// Particulate matter with diameter ≤ 10 µm.
+// Unit: micrograms per cubic meter (µg/m³).
+message PM10 {
+  // PM10 concentration in µg/m³.
+  double ug_m3 = 1;
+}
+
+// Acoustic noise level.
+// Unit: decibel (dB).
+message NoiseLevel {
+  // Noise level in decibels.
+  double db = 1;
+}
+
+// Ionizing radiation dose rate.
+// Unit: microroentgen per hour (µR/h).
+message Radiation {
+  // Radiation dose rate in µR/h.
+  double ur_h = 1;
+}
+
+// Carbon monoxide concentration.
+// Unit: parts per million (ppm).
+message CarbonMonoxide {
+  // CO concentration in ppm.
+  double ppm = 1;
+}
+
+// Ozone concentration.
+// Unit: parts per billion (ppb).
+message Ozone {
+  // O₃ concentration in ppb.
+  double ppb = 1;
+}
+
+// Nitrogen dioxide concentration.
+// Unit: parts per billion (ppb).
+message NitrogenDioxide {
+  // NO₂ concentration in ppb.
+  double ppb = 1;
+}
+
+// Air quality index value.
+// Unit: index (dimensionless).
+message AirQualityIndex {
+  // AQI numeric index.
+  double index = 1;
+}

@@ -42,6 +42,9 @@ enum ConfigShapeId {
 	Config_robonomics_public_node,
 	Config_robonomics_connectivity_host,
 	Config_robonomics_connectivity_hosts,
+	Config_robonomics_proto_connectivity_host,
+	Config_map_send_csv,
+	Config_map_send_proto,
 	Config_rws_auto_register,
 	Config_rws_group_mode,
 	Config_rws_group_id,
@@ -51,6 +54,7 @@ enum ConfigShapeId {
 	Config_coords_gps,
 	Config_send2robonomics,
 	Config_send2csv,
+	Config_lora_uart_enabled,
 	Config_auto_update,
 	Config_use_beta,
 	Config_has_display,
@@ -134,6 +138,9 @@ static constexpr char CFG_KEY_RWS_OWNER[] PROGMEM = "rws_owner";
 static constexpr char CFG_KEY_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "robonomics_public_node";
 static constexpr char CFG_KEY_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "robonomics_connectivity_host";
 static constexpr char CFG_KEY_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "robonomics_connectivity_hosts";
+static constexpr char CFG_KEY_ROBONOMICS_PROTO_CONNECTIVITY_HOST[] PROGMEM = "robonomics_proto_connectivity_host";
+static constexpr char CFG_KEY_MAP_SEND_CSV[] PROGMEM = "map_send_csv";
+static constexpr char CFG_KEY_MAP_SEND_PROTO[] PROGMEM = "map_send_proto";
 static constexpr char CFG_KEY_RWS_AUTO_REGISTER[] PROGMEM = "rws_auto_register";
 static constexpr char CFG_KEY_RWS_GROUP_MODE[] PROGMEM = "rws_group_mode";
 static constexpr char CFG_KEY_RWS_GROUP_ID[] PROGMEM = "rws_group_id";
@@ -143,6 +150,7 @@ static constexpr char CFG_KEY_PRIVATE_KEY[] PROGMEM = "private_key";
 static constexpr char CFG_KEY_COORDS_GPS[] PROGMEM = "coords_gps";
 static constexpr char CFG_KEY_SEND2ROBONOMICS[] PROGMEM = "send2robonomics";
 static constexpr char CFG_KEY_SEND2CSV[] PROGMEM = "send2csv";
+static constexpr char CFG_KEY_LORA_UART_ENABLED[] PROGMEM = "lora_uart_enabled";
 static constexpr char CFG_KEY_AUTO_UPDATE[] PROGMEM = "auto_update";
 static constexpr char CFG_KEY_USE_BETA[] PROGMEM = "use_beta";
 static constexpr char CFG_KEY_HAS_DISPLAY[] PROGMEM = "has_display";
@@ -226,6 +234,9 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::robonomics_public_node)-1, CFG_KEY_ROBONOMICS_PUBLIC_NODE, cfg::robonomics_public_node },
 	{ Config_Type_String, sizeof(cfg::robonomics_connectivity_host)-1, CFG_KEY_ROBONOMICS_CONNECTIVITY_HOST, cfg::robonomics_connectivity_host },
 	{ Config_Type_String, sizeof(cfg::robonomics_connectivity_hosts)-1, CFG_KEY_ROBONOMICS_CONNECTIVITY_HOSTS, cfg::robonomics_connectivity_hosts },
+	{ Config_Type_String, sizeof(cfg::robonomics_proto_connectivity_host)-1, CFG_KEY_ROBONOMICS_PROTO_CONNECTIVITY_HOST, cfg::robonomics_proto_connectivity_host },
+	{ Config_Type_Bool, 0, CFG_KEY_MAP_SEND_CSV, &cfg::map_send_csv },
+	{ Config_Type_Bool, 0, CFG_KEY_MAP_SEND_PROTO, &cfg::map_send_proto },
 	{ Config_Type_Bool, 0, CFG_KEY_RWS_AUTO_REGISTER, &cfg::rws_auto_register },
 	{ Config_Type_UInt, 0, CFG_KEY_RWS_GROUP_MODE, &cfg::rws_group_mode },
 	{ Config_Type_String, sizeof(cfg::rws_group_id)-1, CFG_KEY_RWS_GROUP_ID, cfg::rws_group_id },
@@ -235,6 +246,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::coords_gps)-1, CFG_KEY_COORDS_GPS, cfg::coords_gps },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2ROBONOMICS, &cfg::send2robonomics },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2CSV, &cfg::send2csv },
+	{ Config_Type_Bool, 0, CFG_KEY_LORA_UART_ENABLED, &cfg::lora_uart_enabled },
 	{ Config_Type_Bool, 0, CFG_KEY_AUTO_UPDATE, &cfg::auto_update },
 	{ Config_Type_Bool, 0, CFG_KEY_USE_BETA, &cfg::use_beta },
 	{ Config_Type_Bool, 0, CFG_KEY_HAS_DISPLAY, &cfg::has_display },

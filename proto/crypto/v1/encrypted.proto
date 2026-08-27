@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package crypto.v1;
+
+// Common types shared across all message schemas.
+// Schema version: v1 (2024-08-06)
+
+// Encrypted message following Robonomics CPS encryption format.
+// Uses AEAD (Authenticated Encryption with Associated Data) to ensure
+// confidentiality and integrity of sensor measurements.
+// Based on: https://github.com/airalab/robonomics/blob/master/frame/cps/README.md#self-describing-encryption-format
+message Encrypted {
+  // Encryption protocol version (currently always 1)
+  uint32 version = 1;
+
+  // Encryption algorithm identifier, one of:
+  // - "xchacha20": XChaCha20-Poly1305 (24-byte nonce, portable)
+  // - "aesgcm256": AES-256-GCM (12-byte nonce, hardware accelerated)
+  // - "chacha20": ChaCha20-Poly1305 (12-byte nonce, portable)
+  string algorithm = 2;
+
+  // Sender's public key.
+  // Used for ECDH key agreement to derive the encryption key.
+  bytes from = 3;
+
+  // Random nonce/initialization vector:
+  // - XChaCha20: 24 bytes (192 bits)
+  // - AES-GCM/ChaCha20: 12 bytes (96 bits)
+  // Must be unique for each message encrypted with the same key.
+  bytes nonce = 4;
+
+  // AEAD ciphertext including the authentication tag.
+  // Contains the encrypted protobuf-serialized payload (UrbanProtected or InsightProtected)
+  // plus a 16-byte Poly1305/GCM authentication tag appended.
+  bytes ciphertext = 5;
+}

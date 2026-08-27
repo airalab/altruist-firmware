@@ -37,6 +37,7 @@ analytics_view_t g_analytics_view = analytics_view_t::OVERVIEW_24H;
 struct RollingHourBucket {
     uint32_t hour_key = 0; // local hour key (day_key*24 + hour)
     float sum_v = 0.0f;
+    float max_v = 0.0f;    // peak sample in this hour (used for noise >45 dB)
     uint16_t count = 0;
 };
 
@@ -51,7 +52,9 @@ RollingHourHistory g_pm25_hour_hist;
 RollingHourHistory g_co2_hour_hist;
 RollingHourHistory g_noise_hour_hist;
 
-constexpr uint8_t kAnalyticsHistVersion = 4;
+constexpr uint8_t kAnalyticsHistVersion = 5;
+constexpr uint8_t kAnalyticsHistVersionPrev = 4; // pre-max_v buckets
+constexpr float kNoisePeakThresholdDb = 45.0f;
 constexpr uint32_t kAnalyticsPersistIntervalMs = 60UL * 60UL * 1000UL; // 1 hour
 bool g_hist_loaded = false;
 bool g_hist_dirty = false;
@@ -71,6 +74,46 @@ uint32_t g_dev_last_status_log_ms = 0;
 #endif
 static uint32_t currentLocalHourKey(time_t now);
 static void formatHourKey(char *out, size_t out_sz, uint32_t hour_key);
+static void saveRollingHistoryIfNeeded(bool force);
+
+/** v4 bucket layout (no max_v). Natural align → 12 bytes on ESP32. */
+struct RollingHourBucketV4 {
+    uint32_t hour_key = 0;
+    float sum_v = 0.0f;
+    uint16_t count = 0;
+};
+struct RollingHourHistoryV4 {
+    RollingHourBucketV4 buckets[48];
+};
+static_assert(sizeof(RollingHourBucketV4) == 12, "v4 analytics bucket size");
+static_assert(sizeof(RollingHourBucket) == 16, "v5 analytics bucket size");
+
+static void migrateHourHistoryV4ToV5(RollingHourHistory &dst, const RollingHourHistoryV4 &src) {
+    for (int i = 0; i < 48; i++) {
+        const RollingHourBucketV4 &o = src.buckets[i];
+        RollingHourBucket &n = dst.buckets[i];
+        n.hour_key = o.hour_key;
+        n.sum_v = o.sum_v;
+        n.count = o.count;
+        // No true peak stored in v4 — use hourly average as provisional max until
+        // fresh samples overwrite (noise peaks may under-count for one night).
+        n.max_v = (o.count > 0) ? (o.sum_v / (float)o.count) : 0.0f;
+    }
+}
+
+static bool loadHourHistoryV5(Preferences &prefs, const char *key, RollingHourHistory &hist) {
+    if (prefs.getBytesLength(key) != sizeof(hist)) return false;
+    prefs.getBytes(key, &hist, sizeof(hist));
+    return true;
+}
+
+static bool loadHourHistoryMigratingV4(Preferences &prefs, const char *key, RollingHourHistory &hist) {
+    RollingHourHistoryV4 old{};
+    if (prefs.getBytesLength(key) != sizeof(old)) return false;
+    prefs.getBytes(key, &old, sizeof(old));
+    migrateHourHistoryV4ToV5(hist, old);
+    return true;
+}
 
 static void loadRollingHistoryIfNeeded() {
     if (g_hist_loaded) return;
@@ -83,21 +126,39 @@ static void loadRollingHistoryIfNeeded() {
     }
 
     const uint8_t version = prefs.getUChar("ver", 0);
-    if (version != kAnalyticsHistVersion) {
+    if (version != kAnalyticsHistVersion && version != kAnalyticsHistVersionPrev) {
         prefs.end();
         return;
     }
     g_hist_first_save_ts = prefs.getULong("fst_ts", 0);
     g_hist_last_save_ts = prefs.getULong("lst_ts", 0);
 
-    if (prefs.getBytesLength("h_temp") == sizeof(g_temp_hour_hist)) prefs.getBytes("h_temp", &g_temp_hour_hist, sizeof(g_temp_hour_hist));
-    if (prefs.getBytesLength("h_hum") == sizeof(g_hum_hour_hist)) prefs.getBytes("h_hum", &g_hum_hour_hist, sizeof(g_hum_hour_hist));
-    if (prefs.getBytesLength("h_dew") == sizeof(g_dew_hour_hist)) prefs.getBytes("h_dew", &g_dew_hour_hist, sizeof(g_dew_hour_hist));
-    if (prefs.getBytesLength("h_pm25") == sizeof(g_pm25_hour_hist)) prefs.getBytes("h_pm25", &g_pm25_hour_hist, sizeof(g_pm25_hour_hist));
-    if (prefs.getBytesLength("h_co2") == sizeof(g_co2_hour_hist)) prefs.getBytes("h_co2", &g_co2_hour_hist, sizeof(g_co2_hour_hist));
-    if (prefs.getBytesLength("h_noise") == sizeof(g_noise_hour_hist)) prefs.getBytes("h_noise", &g_noise_hour_hist, sizeof(g_noise_hour_hist));
+    bool migrated = false;
+    if (version == kAnalyticsHistVersion) {
+        loadHourHistoryV5(prefs, "h_temp", g_temp_hour_hist);
+        loadHourHistoryV5(prefs, "h_hum", g_hum_hour_hist);
+        loadHourHistoryV5(prefs, "h_dew", g_dew_hour_hist);
+        loadHourHistoryV5(prefs, "h_pm25", g_pm25_hour_hist);
+        loadHourHistoryV5(prefs, "h_co2", g_co2_hour_hist);
+        loadHourHistoryV5(prefs, "h_noise", g_noise_hour_hist);
+    } else {
+        // v4 → v5: keep averages; fill max_v from avg (provisional for noise peaks).
+        migrated |= loadHourHistoryMigratingV4(prefs, "h_temp", g_temp_hour_hist);
+        migrated |= loadHourHistoryMigratingV4(prefs, "h_hum", g_hum_hour_hist);
+        migrated |= loadHourHistoryMigratingV4(prefs, "h_dew", g_dew_hour_hist);
+        migrated |= loadHourHistoryMigratingV4(prefs, "h_pm25", g_pm25_hour_hist);
+        migrated |= loadHourHistoryMigratingV4(prefs, "h_co2", g_co2_hour_hist);
+        migrated |= loadHourHistoryMigratingV4(prefs, "h_noise", g_noise_hour_hist);
+    }
     prefs.end();
 
+    if (migrated) {
+        g_hist_dirty = true;
+        saveRollingHistoryIfNeeded(true);
+#if defined(ALTRUIST_BUILD_DEBUG)
+        debug_outln_info(F("[ANALYTICS] migrated hour history v4→v5"));
+#endif
+    }
 }
 
 static void saveRollingHistoryIfNeeded(bool force) {
@@ -304,7 +365,7 @@ static void appendHourlyDump(String &out, const char *name, const RollingHourHis
     out += "\n[hourly:";
     out += name;
     out += "]\n";
-    out += "hour_key,day_key,hour,avg,count\n";
+    out += "hour_key,day_key,hour,avg,max,count\n";
     for (int i = 0; i < 48; i++) {
         const RollingHourBucket &b = hist.buckets[i];
         if (b.count == 0) continue;
@@ -317,6 +378,8 @@ static void appendHourlyDump(String &out, const char *name, const RollingHourHis
         out += String((uint32_t)hour);
         out += ",";
         out += String((b.count > 0) ? (b.sum_v / (float)b.count) : 0.0f, 3);
+        out += ",";
+        out += String(b.max_v, 3);
         out += ",";
         out += String((uint32_t)b.count);
         out += "\n";
@@ -364,10 +427,14 @@ static void updateRollingHourMetric(RollingHourHistory &hist, float value, uint3
     if (b.count == 0 || b.hour_key != hour_key) {
         b.hour_key = hour_key;
         b.sum_v = value;
+        b.max_v = value;
         b.count = 1;
         return;
     }
     b.sum_v += value;
+    if (value > b.max_v) {
+        b.max_v = value;
+    }
     b.count++;
 }
 
@@ -414,6 +481,25 @@ static bool readHourlyDayValuesFromHistory(const RollingHourHistory &hist, uint3
         if ((b.hour_key / 24U) != day_key) continue;
         const uint8_t h = (uint8_t)(b.hour_key % 24U);
         vals[h] = b.sum_v / (float)b.count;
+        has[h] = true;
+        any = true;
+    }
+    return any;
+}
+
+/** Per-hour peak (max_v) for the given local day — used for noise peak counting. */
+static bool readHourlyDayMaxFromHistory(const RollingHourHistory &hist, uint32_t day_key, float vals[24], bool has[24]) {
+    for (int i = 0; i < 24; i++) {
+        vals[i] = 0.0f;
+        has[i] = false;
+    }
+    bool any = false;
+    for (int i = 0; i < 48; i++) {
+        const RollingHourBucket &b = hist.buckets[i];
+        if (b.count == 0) continue;
+        if ((b.hour_key / 24U) != day_key) continue;
+        const uint8_t h = (uint8_t)(b.hour_key % 24U);
+        vals[h] = b.max_v;
         has[h] = true;
         any = true;
     }
@@ -701,6 +787,13 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
                     values.noise_avg.has_current = true;
                 }
             }
+            if (urban.containsKey("PCBA_noiseMax")) {
+                float noise_max = urban["PCBA_noiseMax"]["value"].as<float>();
+                if (isValidNoise(noise_max)) {
+                    values.noise_max.current = noise_max;
+                    values.noise_max.has_current = true;
+                }
+            }
         }
     }
 
@@ -765,7 +858,12 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
                     updated = true;
                     updated_metrics++;
                 }
-                if (values.noise_avg.has_current) {
+                if (values.noise_max.has_current) {
+                    // Peak model uses hourly max of Urban noiseMax samples.
+                    updateRollingHourMetric(g_noise_hour_hist, values.noise_max.current, hour_key);
+                    updated = true;
+                    updated_metrics++;
+                } else if (values.noise_avg.has_current) {
                     updateRollingHourMetric(g_noise_hour_hist, values.noise_avg.current, hour_key);
                     updated = true;
                     updated_metrics++;
@@ -917,16 +1015,23 @@ static float nightImpactPM25(float pm25, bool bio) {
         : impactAbove(pm25, 5.0f, 10.0f, 0.3f);
 }
 
-static float nightImpactNoise(float noise, bool bio) {
-    return bio
-        ? impactAbove(noise, 30.0f, 10.0f, 3.5f)
-        : impactAbove(noise, 35.0f, 10.0f, 2.5f);
+static float nightImpactNoisePeaks(uint16_t peaks, bool bio) {
+    const uint16_t allowance = bio ? 1U : 5U;
+    if (peaks <= allowance) return 0.0f;
+    const float excess = (float)(peaks - allowance);
+    const float pct_per_peak = bio ? 3.0f : 2.0f;
+    return -pct_per_peak * excess;
 }
 
 static float nightImpactTemp(float temp, bool bio) {
-    return bio
-        ? impactAbove(temp, 20.0f, 1.0f, 1.5f)
-        : impactAbove(temp, 25.0f, 1.0f, 1.5f);
+    // Comfort bands for score 100 :
+    // General 19–22°C, Biohacking 17–20°C. Penalize distance outside the band.
+    float lo = bio ? 17.0f : 19.0f;
+    float hi = bio ? 20.0f : 22.0f;
+    float outside = 0.0f;
+    if (temp < lo) outside = lo - temp;
+    else if (temp > hi) outside = temp - hi;
+    return -1.5f * outside; // −1.5% per °C outside band
 }
 
 static float nightImpactHum(float hum, bool bio) {
@@ -954,8 +1059,8 @@ static int nightScorePM25(float pm25, bool bio) {
     return clampScore((int)lroundf(100.0f + impact * 2.0f));
 }
 
-static int nightScoreNoise(float noise, bool bio) {
-    const float impact = nightImpactNoise(noise, bio);
+static int nightScoreNoisePeaks(uint16_t peaks, bool bio) {
+    const float impact = nightImpactNoisePeaks(peaks, bio);
     return clampScore((int)lroundf(100.0f + impact * 2.0f));
 }
 
@@ -1300,7 +1405,8 @@ static void drawAnalyticsBlogQrSmall(int x, int y) {
 
 static void drawNightSinglePage(int content_left, int content_top, int content_width,
                                 const analytics_screen_values_t &values) {
-    float co2 = 0.0f, pm25 = 0.0f, noise = 0.0f, temp = 0.0f, hum = 0.0f;
+    float co2 = 0.0f, pm25 = 0.0f, temp = 0.0f, hum = 0.0f;
+    uint16_t noise_peaks = 0;
     bool has_co2 = false, has_pm25 = false, has_noise = false, has_temp = false, has_hum = false;
 
     const int content_bottom = DISPLAY_HEIGHT - 6;
@@ -1327,9 +1433,9 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     const bool full_day_window = (night_start_m == night_end_m);
     const bool cross_midnight = !full_day_window && (night_start_m > night_end_m);
 
-    float co2_day[24] = {0}, pm25_day[24] = {0}, noise_day[24] = {0}, temp_day[24] = {0}, hum_day[24] = {0};
+    float co2_day[24] = {0}, pm25_day[24] = {0}, noise_max_day[24] = {0}, temp_day[24] = {0}, hum_day[24] = {0};
     bool co2_has_day[24] = {false}, pm25_has_day[24] = {false}, noise_has_day[24] = {false}, temp_has_day[24] = {false}, hum_has_day[24] = {false};
-    float co2_prev[24] = {0}, pm25_prev[24] = {0}, noise_prev[24] = {0}, temp_prev[24] = {0}, hum_prev[24] = {0};
+    float co2_prev[24] = {0}, pm25_prev[24] = {0}, noise_max_prev[24] = {0}, temp_prev[24] = {0}, hum_prev[24] = {0};
     bool co2_has_prev[24] = {false}, pm25_has_prev[24] = {false}, noise_has_prev[24] = {false}, temp_has_prev[24] = {false}, hum_has_prev[24] = {false};
     readHourlyDayValuesFromHistory(g_co2_hour_hist, end_day, co2_day, co2_has_day);
     const bool sleep_include_pm25 = cfg::standalone || cfg::analytics_sleep_add_urban;
@@ -1338,7 +1444,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day, pm25_day, pm25_has_day);
     }
     if (sleep_use_urban_pm_noise) {
-        readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day, noise_day, noise_has_day);
+        readHourlyDayMaxFromHistory(g_noise_hour_hist, end_day, noise_max_day, noise_has_day);
     }
     readHourlyDayValuesFromHistory(g_temp_hour_hist, end_day, temp_day, temp_has_day);
     readHourlyDayValuesFromHistory(g_hum_hour_hist, end_day, hum_day, hum_has_day);
@@ -1348,15 +1454,15 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
             readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day - 1U, pm25_prev, pm25_has_prev);
         }
         if (sleep_use_urban_pm_noise) {
-            readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day - 1U, noise_prev, noise_has_prev);
+            readHourlyDayMaxFromHistory(g_noise_hour_hist, end_day - 1U, noise_max_prev, noise_has_prev);
         }
         readHourlyDayValuesFromHistory(g_temp_hour_hist, end_day - 1U, temp_prev, temp_has_prev);
         readHourlyDayValuesFromHistory(g_hum_hour_hist, end_day - 1U, hum_prev, hum_has_prev);
     }
 
     uint16_t hours_with_any_data = 0;
-    float co2_sum = 0.0f, pm25_sum = 0.0f, noise_sum = 0.0f, temp_sum = 0.0f, hum_sum = 0.0f;
-    uint16_t co2_count = 0, pm25_count = 0, noise_count = 0, temp_count = 0, hum_count = 0;
+    float co2_sum = 0.0f, pm25_sum = 0.0f, temp_sum = 0.0f, hum_sum = 0.0f;
+    uint16_t co2_count = 0, pm25_count = 0, noise_hour_count = 0, temp_count = 0, hum_count = 0;
     for (uint16_t i = 0; i < n_hours; i++) {
         const uint8_t h = night_hours[i];
         const bool use_prev = !full_day_window && cross_midnight && (h >= night_first_hour);
@@ -1371,30 +1477,34 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
         if (c_has) { co2_sum += use_prev ? co2_prev[h] : co2_day[h]; co2_count++; }
         if (p_has) { pm25_sum += use_prev ? pm25_prev[h] : pm25_day[h]; pm25_count++; }
-        if (n_has) { noise_sum += use_prev ? noise_prev[h] : noise_day[h]; noise_count++; }
+        if (n_has) {
+            noise_hour_count++;
+            const float hour_max = use_prev ? noise_max_prev[h] : noise_max_day[h];
+            if (hour_max > kNoisePeakThresholdDb) {
+                noise_peaks++;
+            }
+        }
         if (t_has) { temp_sum += use_prev ? temp_prev[h] : temp_day[h]; temp_count++; }
         if (hum_has) { hum_sum += use_prev ? hum_prev[h] : hum_day[h]; hum_count++; }
     }
     has_co2 = (co2_count > 0U);
     has_pm25 = (pm25_count > 0U);
-    has_noise = (noise_count > 0U);
+    has_noise = (noise_hour_count > 0U);
     has_temp = (temp_count > 0U);
     has_hum = (hum_count > 0U);
     if (has_co2) co2 = co2_sum / (float)co2_count;
     if (has_pm25) pm25 = pm25_sum / (float)pm25_count;
-    if (has_noise) noise = noise_sum / (float)noise_count;
     if (has_temp) temp = temp_sum / (float)temp_count;
     if (has_hum) hum = hum_sum / (float)hum_count;
 
-    // Until enough Urban night buckets exist, show live outdoor PM/noise when enabled.
-    if (sleep_use_urban_pm_noise) {
-        if (!has_pm25 && values.pm25.has_current) {
-            has_pm25 = true;
-            pm25 = values.pm25.current;
-        }
-        if (!has_noise && values.noise_avg.has_current) {
+    // Until enough Urban night buckets exist, approximate peaks from live noiseMax.
+    if (sleep_use_urban_pm_noise && !has_noise) {
+        if (values.noise_max.has_current) {
             has_noise = true;
-            noise = values.noise_avg.current;
+            noise_peaks = (values.noise_max.current > kNoisePeakThresholdDb) ? 1U : 0U;
+        } else if (values.noise_avg.has_current) {
+            has_noise = true;
+            noise_peaks = (values.noise_avg.current > kNoisePeakThresholdDb) ? 1U : 0U;
         }
     }
 
@@ -1429,8 +1539,8 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         s_cons_pm25 = nightScorePM25(pm25, false); s_bio_pm25 = nightScorePM25(pm25, true);
     }
     if (has_noise) {
-        i_cons_noise = nightImpactNoise(noise, false); i_bio_noise = nightImpactNoise(noise, true);
-        s_cons_noise = nightScoreNoise(noise, false); s_bio_noise = nightScoreNoise(noise, true);
+        i_cons_noise = nightImpactNoisePeaks(noise_peaks, false); i_bio_noise = nightImpactNoisePeaks(noise_peaks, true);
+        s_cons_noise = nightScoreNoisePeaks(noise_peaks, false); s_bio_noise = nightScoreNoisePeaks(noise_peaks, true);
     }
     if (has_temp) {
         i_cons_temp = nightImpactTemp(temp, false); i_bio_temp = nightImpactTemp(temp, true);
@@ -1498,9 +1608,9 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     // ================= OUTER METRIC CARDS =================
     // Card style close to reference: title, value, and bottom fill bar.
-    auto drawMetricCard = [&](int x, int y, int w, int h, const char *title, const char *value, const char *unit, float fill, int value_y_shift, bool small_title, int sep_shift, bool draw_border, bool /*draw_bar_border*/) {
+    auto drawMetricCard = [&](int x, int y, int w, int h, const char *title, const char *value, const char *unit, float fill, int value_y_shift, bool small_title, int sep_shift, bool draw_border, bool /*draw_bar_border*/, const char *bottom_tag = nullptr) {
         if (w < 40 || h < 28) return;
-        (void)fill; // value shown on card is already the night average
+        (void)fill; // value shown on card is already the night summary
         const bool is_temp_card = (strcmp(title, "T°") == 0);
 
         // Outer card.
@@ -1531,22 +1641,21 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         const int gap = (uw > 0) ? 3 : 0;
         const int total_w = (int)vw + (int)uw + gap;
         const int vx = x + (w - total_w) / 2;
-        // Lift the value a bit to open space above the "night avg" tag (except T°).
+        // Lift the value a bit to open space above the bottom tag (except T°).
         const int vy = y + (is_temp_card ? 24 : 21) + value_y_shift;
         Paint_DrawString_Display(vx, vy, value, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
         if (uw > 0) {
             Paint_DrawString_Display(vx + (int)vw + gap, vy + 5, unit, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         }
 
-        // Bottom label where the old scale lived: makes the "average" semantics explicit.
-        // RU looks cramped at Font8, so use a bigger font + a tighter label.
+        // Bottom label: night average by default; noise uses peaks wording.
 #if defined(INTL_RU)
-        const char *avg_tag = "ср. за ночь";
+        const char *avg_tag = bottom_tag ? bottom_tag : "ср. за ночь";
         uint16_t aw = Paint_GetStringWidth_Display(avg_tag, &Font12, &font_12_cyrillic, &font_12_ascii);
         Paint_DrawString_Display(x + (w - (int)aw) / 2, y + h - Font12.Height - 2,
                                  avg_tag, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 #else
-        const char *avg_tag = "night avg";
+        const char *avg_tag = bottom_tag ? bottom_tag : "night avg";
         uint16_t aw = Paint_GetStringWidth_Display(avg_tag, &Font8, &font_8_cyrillic, &font_8_ascii);
         Paint_DrawString_Display(x + (w - (int)aw) / 2, y + h - Font8.Height - 2,
                                  avg_tag, &Font8, &font_8_cyrillic, &font_8_ascii, WHITE, BLACK);
@@ -1691,7 +1800,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     if (has_co2)   snprintf(co2v, sizeof(co2v), "%.0f", co2);
     if (has_pm25)  snprintf(pmv,  sizeof(pmv),  "%.0f", pm25);
-    if (has_noise) snprintf(nv,   sizeof(nv),   "%.0f", noise);
+    if (has_noise) snprintf(nv,   sizeof(nv),   "%u", (unsigned)noise_peaks);
     if (has_temp)  snprintf(tv,   sizeof(tv),   "%.0f", temp);
     if (has_hum)   snprintf(hv,   sizeof(hv),   "%.0f%%", hum);
 
@@ -1721,7 +1830,9 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         metric_row++;
     }
     if (has_noise) {
-        drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, A_TXT("Noise", "Шум"), nv, "dB", f_noise, -1, false, 4, true, true);
+        drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h,
+                       A_TXT("Noise", "Шум"), nv, A_TXT("peaks", "пиков"), f_noise, -1, false, 4, true, true,
+                       A_TXT(">45 dB/night", ">45 дБ/ночь"));
         metric_row++;
     }
     drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, "RH", hv, "", f_hum, -1, false, 4, true, true);

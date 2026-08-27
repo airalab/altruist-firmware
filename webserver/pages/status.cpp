@@ -118,8 +118,20 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus,
 	add_data_section_end(page_content);
 	web_page_flush_chunk(page_content, &server);
 
-	add_data_section_start(page_content, FPSTR(INTL_DATA_SECTION_TECHNICAL), "data-block--technical");
-	add_data_block_intro(page_content, F(INTL_STATUS_SECTION_TECH_INTRO));
+	page_content += F("<div class='data-block data-block--technical'>"
+		"<div class='data-block__head'>"
+		"<h3 class='data-block__title'>");
+	page_content += FPSTR(INTL_DATA_SECTION_TECHNICAL);
+	page_content += F("</h3>"
+		"<button type='button' id='tech-details-copy' class='encrypt-key-btn encrypt-key-btn--ghost'"
+		" data-copied='");
+	page_content += FPSTR(INTL_COPIED);
+	page_content += F("'>");
+	page_content += FPSTR(INTL_COPY_ALL);
+	page_content += F("</button></div>"
+		"<p class='data-block__intro'>");
+	page_content += F(INTL_STATUS_SECTION_TECH_INTRO);
+	page_content += F("</p><div class='data-block__rows' id='tech-details-rows'>");
 	add_data_row_from_value(page_content, "Firmware channel", ALTRUIST_BUILD_CHANNEL);
 	add_data_row_from_value(page_content, "Source commit", ALTRUIST_BUILD_COMMIT);
 	add_data_row_from_value(page_content, "Device model", ALTRUIST_BUILD_MODEL);
@@ -133,6 +145,33 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus,
 	add_data_row_from_value(page_content, FPSTR(INTL_CHIP_TYPE), "esp32c3");
 #endif
 	add_data_section_end(page_content);
+	page_content += F("<script>(function(){"
+		"var btn=document.getElementById('tech-details-copy');"
+		"var rows=document.getElementById('tech-details-rows');"
+		"if(!btn||!rows)return;"
+		"function copyText(t){"
+		"if(navigator.clipboard&&navigator.clipboard.writeText){"
+		"return navigator.clipboard.writeText(t);}"
+		"return new Promise(function(resolve,reject){"
+		"try{var o=document.createElement('textarea');o.value=t;"
+		"o.style.position='fixed';o.style.opacity='0';document.body.appendChild(o);"
+		"o.select();document.execCommand('copy');document.body.removeChild(o);resolve();}"
+		"catch(e){reject(e);}});}"
+		"function gather(){"
+		"var lines=[],items=rows.querySelectorAll('.data-line');"
+		"for(var i=0;i<items.length;i++){"
+		"var n=items[i].querySelector('.data-line__name');"
+		"var v=items[i].querySelector('.data-line__val');"
+		"if(!n||!v)continue;"
+		"lines.push(((n.textContent||'').trim())+': '+((v.textContent||'').trim()));}"
+		"return lines.join('\\n');}"
+		"btn.addEventListener('click',function(){"
+		"var label=btn.getAttribute('data-copied')||'Copied';"
+		"var prev=btn.textContent;"
+		"copyText(gather()).then(function(){"
+		"btn.textContent=label;setTimeout(function(){btn.textContent=prev;},1500);}"
+		").catch(function(){});});"
+		"})();</script>");
 	web_page_flush_chunk(page_content, &server);
 
 #ifdef ALTRUIST_INSIDE

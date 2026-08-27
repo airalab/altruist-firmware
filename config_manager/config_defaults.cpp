@@ -33,6 +33,9 @@ namespace cfg {
 	char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE] = ROBONOMICS_PUBLIC_NODE;
 	char robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST] = "";
 	char robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS] = "";
+	char robonomics_proto_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST] = "";
+	bool map_send_csv = true;
+	bool map_send_proto = true;
 	bool rws_auto_register = true;
 	unsigned rws_group_mode = RWS_GROUP_STANDALONE;
 	char rws_group_id[LEN_RWS_GROUP_ID] = "";
@@ -47,6 +50,7 @@ namespace cfg {
 	bool send2custom = SEND2CUSTOM;
 	bool send2influx = SEND2INFLUX;
 	bool send2csv = SEND2CSV;
+	bool lora_uart_enabled = false;
 
 	bool auto_update = AUTO_UPDATE;
 	bool use_beta = USE_BETA;  // Retained so existing config files remain readable.

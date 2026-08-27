@@ -2,6 +2,7 @@
 #include "../defines.h"
 #include "../utils.h"
 #include "helpers/message_formatter.h"
+#include "helpers/proto_envelope.h"
 #include "../config_manager/config_helpers.h"
 #include <WiFi.h>
 
@@ -113,6 +114,80 @@ namespace
 			hosts += FPSTR(HOST_ROBONOMICS[i][0]);
 		}
 		return hosts;
+	}
+
+	struct ProtoHttpTarget {
+		String host;
+		uint16_t port;
+		String path;
+		bool tls;
+	};
+
+	/** Bare hostname → Map-style :65/. http(s)://host[:port]/path keeps scheme defaults. */
+	bool parseProtoHttpTarget(const String &raw, ProtoHttpTarget *out)
+	{
+		if (!out)
+		{
+			return false;
+		}
+		String s = raw;
+		s.trim();
+		if (s.length() == 0)
+		{
+			return false;
+		}
+
+		out->tls = false;
+		bool had_scheme = false;
+		if (s.startsWith("https://"))
+		{
+			out->tls = true;
+			had_scheme = true;
+			s.remove(0, 8);
+		}
+		else if (s.startsWith("http://"))
+		{
+			had_scheme = true;
+			s.remove(0, 7);
+		}
+
+		const int slash = s.indexOf('/');
+		String hostport = (slash >= 0) ? s.substring(0, slash) : s;
+		out->path = (slash >= 0) ? s.substring(slash) : String(F("/"));
+		if (out->path.length() == 0)
+		{
+			out->path = F("/");
+		}
+
+		const int colon = hostport.indexOf(':');
+		if (colon >= 0)
+		{
+			out->host = hostport.substring(0, colon);
+			const int p = hostport.substring(colon + 1).toInt();
+			if (p <= 0 || p > 65535)
+			{
+				return false;
+			}
+			out->port = static_cast<uint16_t>(p);
+		}
+		else
+		{
+			out->host = hostport;
+			if (had_scheme)
+			{
+				out->port = out->tls ? 443 : 80;
+			}
+			else if (slash >= 0)
+			{
+				out->port = 80;
+			}
+			else
+			{
+				out->port = PORT_ROBONOMICS;
+			}
+		}
+		out->host.trim();
+		return out->host.length() > 0;
 	}
 
 } // namespace
@@ -270,20 +345,89 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 		return;
 	}
 
-	if (!formatDataToSend(data_to_send, data))
+	static uint8_t proto_envelope[PROTO_ENVELOPE_BUF_BYTES];
+	size_t proto_len = 0;
+	const bool can_proto = protoProtocolEnabled();
+	String proto_host_override = String(cfg::robonomics_proto_connectivity_host);
+	proto_host_override.trim();
+	// Proto Map POST only when a URL is set (test ingest / future zone host).
+	// Empty URL must not spray protobuf at the legacy :65/ JSON servers.
+	bool want_proto = can_proto && cfg::map_send_proto && proto_host_override.length() > 0;
+	bool want_csv = cfg::map_send_csv || !want_proto;
+
+	if (want_proto)
+	{
+		const ProtoBuildStatus proto_status =
+			protoBuildSignedEnvelope(data, robonomics, proto_envelope, sizeof(proto_envelope), &proto_len);
+		if (proto_status != PROTO_BUILD_OK)
+		{
+			logConnectivityFailure(map_send_seq_active, String(protoBuildStatusReason(proto_status)));
+			debug_outln_error(F("[Map] Proto envelope failed"));
+			want_proto = false;
+			proto_len = 0;
+			if (!want_csv)
+			{
+				is_ok = false;
+				return;
+			}
+		}
+	}
+	if (want_csv && !formatDataToSend(data_to_send, data))
 	{
 		logConnectivityFailure(map_send_seq_active, F("encryption_failed"));
-		debug_outln_error(F("[Map] Payload encryption failed; send aborted"));
+		debug_outln_error(F("[Map] Payload encryption failed"));
+		want_csv = false;
+		if (!want_proto)
+		{
+			is_ok = false;
+			return;
+		}
+	}
+	if (want_csv)
+	{
+		debug_outln_verbose(F("[Map] Payload: "), data_to_send);
+	}
+	debug_outln_verbose(String(F("[Map] send csv=")) + String(want_csv ? 1 : 0) + F(" proto=") +
+			    String(want_proto ? 1 : 0) +
+			    (proto_host_override.length() > 0 ? (String(F(" proto_host=")) + proto_host_override) : String()));
+	is_ok = false;
+	bool any_ok = false;
+
+	// Own proto URL must not wait for Map :65/ host selection (that GET can timeout).
+	if (want_proto && proto_host_override.length() > 0)
+	{
 		is_ok = false;
+		POSTRequest(proto_envelope, proto_len, proto_host_override);
+		any_ok = is_ok;
+	}
+
+	const bool need_map_host = want_csv || (want_proto && proto_host_override.length() == 0);
+	if (!need_map_host)
+	{
+		is_ok = any_ok;
 		return;
 	}
-	debug_outln_verbose(F("[Map] Payload: "), data_to_send);
-	is_ok = false;
+
+	auto postToMapHost = [&](const String &host) {
+		if (want_csv)
+		{
+			is_ok = false;
+			POSTRequest(data_to_send, host);
+			any_ok = any_ok || is_ok;
+		}
+		if (want_proto && proto_host_override.length() == 0)
+		{
+			is_ok = false;
+			POSTRequest(proto_envelope, proto_len, host);
+			any_ok = any_ok || is_ok;
+		}
+		is_ok = any_ok;
+	};
 
 	// 1) Pinned single host
 	if (connectivity_host_override.length() > 0)
 	{
-		POSTRequest(data_to_send, connectivity_host_override);
+		postToMapHost(connectivity_host_override);
 		return;
 	}
 
@@ -293,7 +437,7 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 		const int sel = chooseRobonomicsServerFromPool(connectivity_hosts_pool);
 		if (sel != 255 && connectivity_host_override.length() > 0)
 		{
-			POSTRequest(data_to_send, connectivity_host_override);
+			postToMapHost(connectivity_host_override);
 			return;
 		}
 		// fall back to built-in pool if selection failed
@@ -308,22 +452,22 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 	}
 	if (num_of_host != 255)
 	{
-		POSTRequest(data_to_send, String(FPSTR(HOST_ROBONOMICS[num_of_host][0])));
+		postToMapHost(String(FPSTR(HOST_ROBONOMICS[num_of_host][0])));
+		return;
 	}
-	else
+
+	if (WiFi.status() != WL_CONNECTED)
 	{
-		if (WiFi.status() != WL_CONNECTED)
-		{
-			logConnectivityFailure(map_send_seq_active, F("wifi_disconnected"));
-		}
-		else
-		{
-			logConnectivityNoServer(map_send_seq_active, current_reg,
-				builtInHostsForSelection(current_reg, false));
-		}
-		debug_outln_verbose(F("[Map] FAILED: No server available (all hosts unreachable or returned errors)"));
+		logConnectivityFailure(map_send_seq_active, F("wifi_disconnected"));
+	}
+	else if (want_csv)
+	{
+		logConnectivityNoServer(map_send_seq_active, current_reg,
+			builtInHostsForSelection(current_reg, false));
+		debug_outln_verbose(F("[Map] CSV host selection failed (proto URL is independent)"));
 		debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] selection failed"));
 	}
+	is_ok = any_ok;
 }
 
 bool RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &data)
@@ -429,6 +573,78 @@ void RobonomicsHTTPAPI::POSTRequest(const String &data, const String &host)
 		logConnectivityFailure(map_send_seq_active, F("http_begin_failed"), s_Host, result);
 		debug_outln_verbose(F("[Map] FAILED: could not begin HTTP connection"));
 		debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] Host: ") + s_Host);
+	}
+}
+
+void RobonomicsHTTPAPI::POSTRequest(const uint8_t *data, size_t len, const String &host)
+{
+	HTTPClient _http;
+	String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
+	int result = 0;
+	if (!data || len == 0)
+	{
+		logConnectivityFailure(map_send_seq_active, F("payload_empty"));
+		return;
+	}
+	if (WiFi.status() != WL_CONNECTED)
+	{
+		logConnectivityFailure(map_send_seq_active, F("wifi_disconnected"));
+		debug_outln_verbose(F("[Map] POST skipped: WiFi disconnected"));
+		return;
+	}
+	ProtoHttpTarget target;
+	if (!parseProtoHttpTarget(host, &target))
+	{
+		logConnectivityFailure(map_send_seq_active, F("bad_proto_url"));
+		debug_outln_verbose(F("[Map] Proto URL parse failed: "), host);
+		return;
+	}
+	if (target.tls)
+	{
+		logConnectivityFailure(map_send_seq_active, F("https_not_supported"));
+		debug_outln_error(F("[Map] Proto HTTPS is not supported; use http://"));
+		return;
+	}
+	const String target_log = target.host + ':' + String(target.port) + target.path;
+	logConnectivityAttempt(map_send_seq_active, current_reg, target_log);
+	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] PROTO POST ") + target_log +
+			    F(" bytes=") + String(len));
+	_http.setTimeout(20 * 1000);
+	_http.setUserAgent(SOFTWARE_VERSION + '/' + esp_chipid);
+	_http.setReuse(false);
+	if (_http.begin(*_client, target.host, target.port, target.path))
+	{
+		_http.addHeader(F("Content-Type"), "application/x-protobuf");
+		_http.addHeader(F("X-Sensor"), String(F(SENSOR_BASENAME)) + esp_chipid);
+		result = _http.POST(const_cast<uint8_t *>(data), len);
+		if (result >= HTTP_CODE_OK && result <= HTTP_CODE_ALREADY_REPORTED)
+		{
+			logConnectivitySuccess(map_send_seq_active, target_log, result, current_reg);
+			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] OK, PROTO POST -> ") + target_log);
+			is_ok = true;
+		}
+		else if (result >= HTTP_CODE_BAD_REQUEST)
+		{
+			String response_body = _http.getString();
+			logConnectivityFailure(map_send_seq_active, F("http_error"), target_log, result, response_body.length());
+			debug_outln_verbose(F("[Map] FAILED: server returned HTTP error"));
+			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] HTTP code: ") + String(result));
+			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] Response body: ") + response_body);
+		}
+		else
+		{
+			logConnectivityFailure(map_send_seq_active, F("http_connection_error"), target_log, result);
+			debug_outln_verbose(F("[Map] FAILED: HTTP error (connection/timeout)"));
+			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] Error code: ") + String(result));
+			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] Details: ") + HTTPClient::errorToString(result));
+		}
+		_http.end();
+	}
+	else
+	{
+		logConnectivityFailure(map_send_seq_active, F("http_begin_failed"), target_log, result);
+		debug_outln_verbose(F("[Map] FAILED: could not begin HTTP connection"));
+		debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] Host: ") + target_log);
 	}
 }
 

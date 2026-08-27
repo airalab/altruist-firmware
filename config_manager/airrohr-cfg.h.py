@@ -14,6 +14,9 @@ String		rws_owner
 String      robonomics_public_node
 String		robonomics_connectivity_host
 String		robonomics_connectivity_hosts
+String		robonomics_proto_connectivity_host
+Bool		map_send_csv
+Bool		map_send_proto
 Bool		rws_auto_register
 UInt		rws_group_mode
 String		rws_group_id
@@ -23,6 +26,7 @@ String		private_key
 String		coords_gps
 Bool		send2robonomics
 Bool		send2csv
+Bool		lora_uart_enabled
 Bool		auto_update
 Bool		use_beta
 Bool		has_display

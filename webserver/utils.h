@@ -48,6 +48,10 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 String buildLocalAccessLabel();
 /** Real device hostname for mDNS/URLs (may include model + short id). */
 String buildDeviceAccessHost();
+struct device_status_t;
+/** Fill {device_chip}/{send_chip}/{tags}/{host}/{ip}/{device}/{addr} in WEB_PAGE_APP_TOPBAR_BODY. */
+void fill_app_topbar_placeholders(String& topbar, const device_status_t& deviceStatus,
+                                  const String& chipid, const String& robonomics_addr);
 /**
  * Guest setup success: show IP + sensor address inline, plus a download button
  * that saves JSON without navigating away from the page.

@@ -30,6 +30,23 @@ String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_
  */
 String valueCryptoEncryptValue(const String &plain);
 
+constexpr size_t VALUE_CRYPTO_KEY_LEN = 32;
+constexpr size_t VALUE_CRYPTO_GCM_NONCE_LEN = 12;
+
+bool valueCryptoParseHex32(const char *hex, uint8_t out[VALUE_CRYPTO_KEY_LEN]);
+bool valueCryptoDeviceKeys(uint8_t secret_key[VALUE_CRYPTO_KEY_LEN], uint8_t public_key[VALUE_CRYPTO_KEY_LEN]);
+bool valueCryptoOwnerPublicKey(const uint8_t sender_pk[VALUE_CRYPTO_KEY_LEN],
+			       uint8_t owner_pk[VALUE_CRYPTO_KEY_LEN]);
+
+/**
+ * AES-256-GCM for proto `crypto.v1.Encrypted`.
+ * Ciphertext is AEAD payload with the 16-byte GCM tag appended (same as CPS).
+ * On success `cipher_out` is malloc'd; caller must free().
+ */
+bool valueCryptoEncryptBytesForOwner(const uint8_t *plain, size_t plain_len, uint8_t from_pk[VALUE_CRYPTO_KEY_LEN],
+				     uint8_t nonce[VALUE_CRYPTO_GCM_NONCE_LEN], uint8_t **cipher_out,
+				     size_t *cipher_len);
+
 /**
  * Self-test: ECDH + encrypt vectors to Serial.
  * Reference vectors: libcps_TEST_VECTORS.md.

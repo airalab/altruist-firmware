@@ -26,8 +26,6 @@
 #include <driver/i2s.h>
 #include "arduinoFFT.h"
 
-#define FACTOR 30.0        /// \todo to be cheked why this 10.0 ?
-
 // size of noise sample
 #define SAMPLES 2048  //1024       ///< at sample frequency of 22,627 kHz with 2048 samples, duration is 90 ms.
 #define SAMPLE_FREQ 22627          ///< this makes a bin bandwith of 22627 / 2048 = 11 Hz
@@ -52,7 +50,6 @@ class SoundSensor {
     // Read multiple samples at once and calculate the sound pressure
     // returns energy in octave bands
     float* readSamples();
-    void offset( float dB);       ///< mic. correction in dB
 
   private:
     arduinoFFT   *_fft;               ///< FFT class
@@ -63,7 +60,6 @@ class SoundSensor {
     int32_t       _samples[BLOCK_SIZE];
     float         _runningDC = 0.0;   // compensate MEMS DC offset
     int           _runningN = 0;      // running DSC offset average count
-    float         _factor;            ///< mic. correction factor
     esp_err_t     _err;               ///< Variable to store errors from ESP32
     boolean       _i2s;
 

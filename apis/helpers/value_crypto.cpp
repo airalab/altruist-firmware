@@ -626,6 +626,46 @@ String encryptValue(const String &plain) {
 	return String();
 }
 
+bool encryptBytesForOwner(const uint8_t *plain, size_t plain_len, uint8_t from_pk[KEY_LEN],
+			  uint8_t nonce[GCM_NONCE_LEN], uint8_t **cipher_out, size_t *cipher_len) {
+	if (!plain || plain_len == 0 || !from_pk || !nonce || !cipher_out || !cipher_len) {
+		return false;
+	}
+	const char *sk = cfg::private_key;
+	if (!sk || strcasecmp(sk, "Not Set") == 0 || strlen(sk) < 64) {
+		debug_outln_error(F("[CPS] Device private key not set; cannot encrypt"));
+		return false;
+	}
+	uint8_t sender_sk[KEY_LEN];
+	if (!parseHex32(sk, sender_sk)) {
+		debug_outln_error(F("[CPS] Invalid device private key hex"));
+		return false;
+	}
+	uint8_t sender_pk[KEY_LEN];
+	Ed25519::derivePublicKey(sender_pk, sender_sk);
+	memcpy(from_pk, sender_pk, KEY_LEN);
+
+	uint8_t receiver_pk[KEY_LEN];
+	if (!resolveReceiverPublic(cfg::rws_owner, sender_pk, receiver_pk)) {
+		return false;
+	}
+	uint8_t shared[KEY_LEN];
+	if (!deriveSharedSecretEd25519(sender_sk, receiver_pk, shared)) {
+		debug_outln_error(F("[CPS] ECDH shared secret failed"));
+		return false;
+	}
+	uint8_t enc_key[KEY_LEN];
+	if (!hkdfAesGcmKey(shared, enc_key)) {
+		debug_outln_error(F("[CPS] HKDF failed"));
+		return false;
+	}
+	if (!aesGcmEncrypt(enc_key, plain, plain_len, nonce, cipher_out, cipher_len)) {
+		debug_outln_error(F("[CPS] AES-GCM encrypt failed"));
+		return false;
+	}
+	return true;
+}
+
 }  // namespace cps
 
 String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_hex, const char *receiver_ss58) {
@@ -634,6 +674,36 @@ String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_
 
 String valueCryptoEncryptValue(const String &plain) {
 	return cps::encryptValue(plain);
+}
+
+bool valueCryptoParseHex32(const char *hex, uint8_t out[VALUE_CRYPTO_KEY_LEN]) {
+	return cps::parseHex32(hex, out);
+}
+
+bool valueCryptoDeviceKeys(uint8_t secret_key[VALUE_CRYPTO_KEY_LEN], uint8_t public_key[VALUE_CRYPTO_KEY_LEN]) {
+	const char *sk = cfg::private_key;
+	if (!secret_key || !public_key || !sk || strcasecmp(sk, "Not Set") == 0) {
+		return false;
+	}
+	if (!cps::parseHex32(sk, secret_key)) {
+		return false;
+	}
+	Ed25519::derivePublicKey(public_key, secret_key);
+	return true;
+}
+
+bool valueCryptoOwnerPublicKey(const uint8_t sender_pk[VALUE_CRYPTO_KEY_LEN],
+			       uint8_t owner_pk[VALUE_CRYPTO_KEY_LEN]) {
+	if (!sender_pk || !owner_pk) {
+		return false;
+	}
+	return cps::resolveReceiverPublic(cfg::rws_owner, sender_pk, owner_pk);
+}
+
+bool valueCryptoEncryptBytesForOwner(const uint8_t *plain, size_t plain_len, uint8_t from_pk[VALUE_CRYPTO_KEY_LEN],
+				     uint8_t nonce[VALUE_CRYPTO_GCM_NONCE_LEN], uint8_t **cipher_out,
+				     size_t *cipher_len) {
+	return cps::encryptBytesForOwner(plain, plain_len, from_pk, nonce, cipher_out, cipher_len);
 }
 
 bool valueCryptoSelfTest() {

@@ -32,6 +32,7 @@ private:
     Robonomics* robonomics;
     void _send(JsonDocument &data) override;
     void POSTRequest(const String& data, const String& host);
+    void POSTRequest(const uint8_t *data, size_t len, const String &host);
     int chooseRobonomicsServer(bool onlyGlobal);
     int chooseRobonomicsServerFromPool(const String& pool);
     static int parseHostPool(const String& pool, String* out_hosts, int max_hosts);

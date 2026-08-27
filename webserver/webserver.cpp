@@ -1521,8 +1521,7 @@ void SensorWebServer::stream_html_page_head(const String& title, bool guest_page
 		yield();
 
 		s = FPSTR(WEB_PAGE_APP_TOPBAR_BODY);
-		s.replace(F("{device}"), esp_chipid);
-		s.replace(F("{addr}"), robonomics_address);
+		fill_app_topbar_placeholders(s, deviceStatus, esp_chipid, robonomics_address);
 		server.sendContent(s);
 		yield();
 
@@ -1617,9 +1616,51 @@ void SensorWebServer::end_html_page_app(String& page_content) {
 		server.sendContent(page_content);
 		page_content = emptyString;
 	}
+	// Sidebar TOC scroll-spy (#152): highlight the in-view hub card (before </body>).
+	server.sendContent(F(
+		"<script>(function(){"
+		"var page=document.body&&document.body.getAttribute('data-page');"
+		"var root=page?document.querySelector('.app-sidebar__sub--'+page):null;"
+		"var links=[].slice.call((root||document).querySelectorAll('.app-sidebar__subitem[href*=\"#\"]'));"
+		"if(!links.length)return;"
+		"var map=[];"
+		"for(var i=0;i<links.length;i++){"
+		"var h=links[i].getAttribute('href')||'';"
+		"var p=h.indexOf('#');"
+		"if(p<0)continue;"
+		"var id=h.slice(p+1);"
+		"if(!id)continue;"
+		"var el=document.getElementById(id);"
+		"if(el)map.push({a:links[i],el:el,id:id});"
+		"}"
+		"if(!map.length)return;"
+		"function setActive(id){"
+		"for(var i=0;i<map.length;i++){"
+		"var on=map[i].id===id;"
+		"map[i].a.classList.toggle('is-active',on);"
+		"if(on)map[i].a.setAttribute('aria-current','true');"
+		"else map[i].a.removeAttribute('aria-current');"
+		"}"
+		"}"
+		"function onScroll(){"
+		"var cur=map[0].id;"
+		"var probe=96;"
+		"for(var i=0;i<map.length;i++){"
+		"if(map[i].el.getBoundingClientRect().top<=probe)cur=map[i].id;"
+		"}"
+		"setActive(cur);"
+		"}"
+		"var hash=(location.hash||'').replace(/^#/,'');"
+		"if(hash){for(var i=0;i<map.length;i++){if(map[i].id===hash){setActive(hash);break;}}}"
+		"window.addEventListener('scroll',onScroll,{passive:true});"
+		"window.addEventListener('hashchange',function(){"
+		"var h=(location.hash||'').replace(/^#/,'');"
+		"if(h)setActive(h);"
+		"});"
+		"onScroll();"
+		"})();</script>"));
 	RESERVE_STRING(footer, XLARGE_STR);
 	footer = FPSTR(WEB_PAGE_APP_FOOTER);
-	footer.replace(F("{local}"), buildLocalAccessLabel());
 	server.sendContent(footer);
 	web_page_finish_chunked(&server);
 }

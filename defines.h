@@ -327,6 +327,12 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 #ifdef ALTRUIST_URBAN
 #define PM_SERIAL_RX 5
 #define PM_SERIAL_TX 4
+// CN4 service expansion connector: TX GPIO22 (pin 6), RX GPIO20 (pin 8).
+// UART0 is remapped here only when structured LoRa output is enabled;
+// USB CDC remains available for logs.
+#define LORA_UART_TX_PIN 22
+#define LORA_UART_RX_PIN 20
+#define LORA_UART_BAUD 115200
 #endif
 
 

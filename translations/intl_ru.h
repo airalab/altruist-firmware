@@ -58,14 +58,14 @@ const char INTL_CONFIGURATION[] PROGMEM = "Конфигурация";
 #define INTL_HUB_DIV_DIAGNOSTICS "Диагностика"
 #define INTL_HUB_DIV_DANGER "Опасная зона"
 #define INTL_DASH_GROUP_LOCAL_INTRO "Показания, настройки и обслуживание в вашей домашней сети."
-#define INTL_DASH_GROUP_SOCIAL_TITLE "sensors.social"
+#define INTL_DASH_GROUP_SOCIAL_TITLE "Карта"
 #define INTL_DASH_GROUP_SOCIAL_INTRO "Публичная карта, сеть Robonomics и публикация данных."
 #define INTL_DASH_GROUP_CUSTOM_TITLE "Custom"
 #define INTL_DASH_GROUP_CUSTOM_INTRO "Home Assistant, свой API, InfluxDB и экспорт CSV."
 #define INTL_DASH_CAT_DATA "Данные"
 #define INTL_DASH_CAT_SETTINGS "Настройки"
 #define INTL_DASH_CAT_MAINTENANCE "Обслуживание"
-#define INTL_DASH_CAT_MAP "sensors.social"
+#define INTL_DASH_CAT_MAP "Карта"
 #define INTL_DASH_CAT_NETWORK "Robonomics"
 #define INTL_DASH_CAT_INTEGRATIONS "Интеграции"
 #define INTL_DASH_CONFIG_MAP_DESC "Какие измерения показывать на публичной карте."
@@ -254,6 +254,12 @@ const char INTL_ROBONOMICS_CONNECTIVITY_MODE_CUSTOM[] PROGMEM = "Свой хос
 const char INTL_ROBONOMICS_CONNECTIVITY_MODE_POOL[] PROGMEM = "Свой пул";
 const char INTL_ROBONOMICS_CONNECTIVITY_PRESET_LABEL[] PROGMEM = "Закреплённый хост";
 const char INTL_ROBONOMICS_CONNECTIVITY_CUSTOM_LABEL[] PROGMEM = "Свой хост";
+const char INTL_MAP_SEND_CSV[] PROGMEM = "Отправлять JSON/CSV на карту (текущий connectivity)";
+const char INTL_MAP_SEND_PROTO[] PROGMEM = "Отправлять protobuf (новый протокол)";
+const char INTL_MAP_PROTO_HOST[] PROGMEM = "URL protobuf (пусто = тот же хост карты :65/)";
+const char INTL_MAP_DUAL_HINT[] PROGMEM = "Можно включить оба. JSON держит живую карту. Для тестового connectivity вставь ниже http://128.140.46.75/v1/telemetry. Datalog не дублируется.";
+const char INTL_LORA_UART_ENABLED[] PROGMEM = "Отправлять компактный JSON в LoRa UART";
+const char INTL_LORA_UART_HINT[] PROGMEM = "Urban C6: TX GPIO22 (контакт 6 CN4), RX GPIO20 (контакт 8). Serial Module Meshtastic: включён, TEXTMSG, 115200 (baud 11), timeout 1 с. Перекрёстно подключите TX/RX и объедините GND.";
 const char INTL_ROBONOMICS_PUBLIC_NODE_CUSTOM[] PROGMEM = "Своя публичная нода Robonomics";
 const char INTL_GUEST_CONNECTED_SENSORS[] PROGMEM = "Подключённые датчики";
 const char INTL_COORD_LAT[] PROGMEM = "Широта";
@@ -269,6 +275,9 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_PANEL_TITLE_DEBUG "Уровень отладки"
 #define INTL_PANEL_TITLE_LEDS "Светодиоды"
 #define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Аналитика сна"
+#define INTL_ANALYTICS_GROUP_NIGHT "Окно ночи"
+#define INTL_ANALYTICS_GROUP_MORNING "Утренний экран"
+#define INTL_ANALYTICS_GROUP_DATA "Данные"
 #define INTL_ANALYTICS_MORNING_AUTOSWITCH "Показывать аналитику сна на экране по утрам (06:00–конец)"
 #define INTL_ANALYTICS_NIGHT_START_TIME "Начало ночи для аналитики сна (местное, ЧЧ:ММ)"
 #define INTL_ANALYTICS_NIGHT_END_TIME "Конец ночи для аналитики сна (местное, ЧЧ:ММ)"
@@ -456,6 +465,30 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DATA_SECTION_NETWORK "Сеть"
 #define INTL_DATA_SECTION_EXPORT "Экспорт данных"
 #define INTL_DATA_SECTION_TECHNICAL "Технические сведения"
+#define INTL_COPY_ALL "Скопировать всё"
+#define INTL_COPIED "Скопировано"
+#define INTL_TOPBAR_ONLINE "В сети"
+#define INTL_TOPBAR_OFFLINE "Нет сети"
+#define INTL_TOPBAR_SEND_ISSUE "Ошибка отправки"
+#define INTL_TOPBAR_SEND_OK "ОК"
+#define INTL_TOPBAR_SEND_ERR "Не отправлено"
+#define INTL_TOPBAR_LAST_SEND "Последняя отправка"
+#define INTL_TOPBAR_NO_SENDS "Пока без отправок"
+#define INTL_TOPBAR_MAP "Map"
+#define INTL_TOPBAR_DATALOG "Datalog"
+#define INTL_TOPBAR_JUST_NOW "только что"
+#define INTL_TOPBAR_WIFI "Wi‑Fi"
+#define INTL_TOPBAR_HOST "Имя хоста"
+#define INTL_TOPBAR_DEVICE "Устройство"
+#define INTL_TOPBAR_SEND "Отправка"
+#define INTL_TOPBAR_STANDALONE "Standalone"
+#define INTL_TOPBAR_PAIRED "Urban paired"
+#define INTL_TOPBAR_UPDATE "Обновление"
+#define INTL_TOPBAR_FW_CURRENT "Актуальная"
+#define INTL_TOPBAR_ROBONOMICS "Адрес Robonomics"
+#define INTL_TOPBAR_Q_ACCESS "Открыть в браузере"
+#define INTL_TOPBAR_TAP_COPY "Нажмите, чтобы скопировать"
+#define INTL_TOPBAR_MORE "Об устройстве"
 #define INTL_VALUE_YES "Да"
 #define INTL_VALUE_NO "Нет"
 #define INTL_READINGS_SECTION_NETWORK_INTRO "Уровень сигнала Wi-Fi на датчике."

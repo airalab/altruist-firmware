@@ -270,38 +270,11 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 }
             } 
             else if (currentScreenID == ScreenPage::ANALYTICS) {
-                bool analytics_has_sd = false;
-#if defined(USE_SD_CARD)
-                analytics_has_sd = deviceStatus.sd_card_connected && sdCardLogger.checkInserted();
-#endif
-                // If analytics storage is unavailable, behave like Graphs:
-                // skip internal pages and navigate screens directly on short presses.
-                if (!analytics_has_sd && btn_press.press_type == PressType::SHORT) {
-                    if (btn_press.button_num == ButtonNum::UP) {
-                        ScreenPage target = getPrevScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-
-                    } else if (btn_press.button_num == ButtonNum::SET) {
-                        ScreenPage target = getNextScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-
-                    }
-                }
-                if (btn_press.press_type == PressType::LONG) {
-                    if (btn_press.button_num == ButtonNum::UP) {
-                        ScreenPage target = getPrevScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-
-                    } else if (btn_press.button_num == ButtonNum::SET) {
-                        ScreenPage target = getNextScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-
-                    }
-                } else if (btn_press.press_type == PressType::SHORT) {
+                // Night analytics uses NVS (not SD). Do not call checkInserted() here:
+                // a failed remount used to set analytics_has_sd=false and then the old
+                // "no SD" + SHORT handlers both ran → double setScreen (e.g. Analytics→Main→Settings).
+                if (btn_press.press_type == PressType::LONG ||
+                    btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);

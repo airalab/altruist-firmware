@@ -1,7 +1,10 @@
 #include "robonomics_datalog_api.h"
 #include "../config_manager/config_helpers.h"
 #include "helpers/message_formatter.h"
+#include "helpers/proto_envelope.h"
 #include "../utils.h"
+
+#include <string>
 
 namespace
 {
@@ -169,6 +172,53 @@ void RobonomicsDatalogAPI::_send(JsonDocument &data)
         rws_owner = String(robonomics->getSs58Address());
         using_self_owner = true;
     }
+
+    if (protoDatalogEnabled())
+    {
+        static uint8_t proto_envelope[PROTO_ENVELOPE_BUF_BYTES];
+        size_t proto_len = 0;
+        const ProtoBuildStatus proto_status =
+            protoBuildSignedEnvelope(data, robonomics, proto_envelope, sizeof(proto_envelope), &proto_len);
+        if (proto_status != PROTO_BUILD_OK)
+        {
+            logDatalogLocalFailure(protoBuildStatusReason(proto_status));
+            is_ok = false;
+            return;
+        }
+        if (proto_len > DATALOG_CHAIN_SAFE_BYTES)
+        {
+            Serial.print(F("[DATALOG] failed reason=payload_too_large encoding=proto payload_len="));
+            Serial.println(proto_len);
+            is_ok = false;
+            return;
+        }
+        logDatalogAttempt(proto_len, "proto", using_self_owner);
+        const std::string record(reinterpret_cast<const char *>(proto_envelope), proto_len);
+        const char *res = robonomics->sendRWSDatalogRecord(record, rws_owner.c_str());
+        const String res_s = String(res ? res : "");
+        const bool lib_level_error = (res_s == "error");
+        const bool json_error_object = (res_s.startsWith("{") && (res_s.indexOf("\"code\"") >= 0 || res_s.indexOf("\"message\"") >= 0));
+        is_ok = (!lib_level_error && !json_error_object);
+        if (is_ok)
+        {
+            logDatalogSuccess(res_s.length());
+            debug_outln_verbose(F("[Datalog] OK, proto result: "), res_s);
+        }
+        else
+        {
+            int rpc_code = 0;
+            String rpc_message = F("unknown");
+            const bool parsed_rpc_error = parseRpcError(res_s, rpc_code, rpc_message);
+            logDatalogFailure(
+                lib_level_error ? String(F("client_error")) : String(F("rpc_error")),
+                parsed_rpc_error ? rpc_code : 0,
+                parsed_rpc_error ? rpc_message : datalogToken(res_s),
+                res_s.length());
+            debug_outln_verbose(F("[Datalog] Error response: "), res_s);
+        }
+        return;
+    }
+
     String datalog_data;
     const DatalogFormatStatus format_status = formatRobonomicsDatalogString(data, datalog_data);
     if (

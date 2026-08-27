@@ -60,6 +60,9 @@ void guestSuccessClearRestartPending(void);
 /** Immediate restart after success (Finish setup). Does not return. */
 void guestSuccessRestartNow(void);
 void guestSuccessProcessPendingRestart(void);
+/** After Improv Wi-Fi succeeds, reboot like the guest portal (call after sending PROVISIONED). */
+void wifiRequestImprovProvisionRestart(void);
+void wifiProcessImprovProvisionRestart(void);
 
 #if defined(ALTRUIST_INSIDE)
 /** Insight guest WiFi OK but setup step 2 (Continue) not done yet — server-side auto-finish deadline. */

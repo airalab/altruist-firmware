@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package device.v1;
+
+import "crypto/v1/encrypted.proto";
+import "sensor/v1/sensor.proto";
+
+// Insight (indoor) sensor telemetry.
+// Designed for indoor environmental monitoring, focusing on
+// climate comfort and air quality parameters.
+
+// Insight board sensors.
+// Each event carries one sensor-specific payload.
+message InsightSensor {
+  oneof sensor {
+    sensor.v1.GPS gps = 1;
+    sensor.v1.BME680 bme680 = 2;
+    sensor.v1.SCD41 scd41 = 3;
+  }
+}
+
+// Protected measurements, encrypted data serialized using this message
+message EncryptedInsight {
+  // Measurements for encryption
+  repeated InsightSensor sensors = 1;
+}
+
+// Insight payload with public/private data sharing.
+message Insight {
+  // Public measurements visible to everyone
+  repeated InsightSensor public = 1;
+
+  // Encrypted measurement sections, each for a different recipient
+  // Allows sharing different subsets of measurements with different users
+  repeated crypto.v1.Encrypted private = 2;
+}
