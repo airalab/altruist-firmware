@@ -51,6 +51,8 @@ namespace cfg {
 	extern bool send2csv;
 	/** Urban C6: compact JSON Lines UART on CN4, TX GPIO22 / RX GPIO20, 115200 baud. */
 	extern bool lora_uart_enabled;
+	/** Urban C6 LoRa JSONL period; UI stores seconds, persisted as ms. Default 3 min. */
+	extern unsigned lora_uart_sending_intervall_ms;
 
 	extern bool auto_update;
 	extern bool use_beta;  // Legacy persisted key; ignored by channel-aware OTA.

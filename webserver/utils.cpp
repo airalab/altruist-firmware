@@ -418,7 +418,11 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 		t_value = String((*c.cfg_val.as_uint) / 1000);
 		s.replace("{t}", F("number"));
 		cls = F(" class='input-narrow'");
-		attrs = F(" min='0' step='1'");
+		if (cfgid == Config_lora_uart_sending_intervall_ms) {
+			attrs = F(" min='30' step='1'");
+		} else {
+			attrs = F(" min='0' step='1'");
+		}
 		break;
 	default:
 		if (c.cfg_type == Config_Type_Password) {

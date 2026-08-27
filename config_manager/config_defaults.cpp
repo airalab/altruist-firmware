@@ -51,6 +51,7 @@ namespace cfg {
 	bool send2influx = SEND2INFLUX;
 	bool send2csv = SEND2CSV;
 	bool lora_uart_enabled = false;
+	unsigned lora_uart_sending_intervall_ms = 180000;
 
 	bool auto_update = AUTO_UPDATE;
 	bool use_beta = USE_BETA;  // Retained so existing config files remain readable.

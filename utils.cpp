@@ -21,7 +21,9 @@
  */
 
 #include <WString.h>
-
+#include <string.h>
+#include <stdio.h>
+#include <sys/stat.h>
 #include "./intl.h"
 #include "./utils.h"
 #include "./defines.h"
@@ -30,6 +32,8 @@
 #include <Preferences.h>
 #include <esp_system.h>
 #include <esp_attr.h>
+#include "esp32-hal-uart.h"
+#include "esp_vfs.h"
 
 #define RESTART_REASON_MAGIC 0xA5C6F012
 RTC_NOINIT_ATTR static uint32_t rtc_restart_magic;
@@ -197,6 +201,65 @@ float readCorrectionOffset(const char* correction) {
 
 LoggingSerial Debug;
 
+static volatile bool s_usb_log_quiet = false;
+
+static ssize_t usb_vfs_write(int fd, const void *data, size_t size)
+{
+	(void)fd;
+	if (!data || size == 0) {
+		return 0;
+	}
+	if (s_usb_log_quiet) {
+		return static_cast<ssize_t>(size);
+	}
+	return static_cast<ssize_t>(Serial.write(static_cast<const uint8_t *>(data), size));
+}
+
+static int usb_vfs_open(const char *path, int flags, int mode)
+{
+	(void)path;
+	(void)flags;
+	(void)mode;
+	return 0;
+}
+
+static int usb_vfs_close(int fd)
+{
+	(void)fd;
+	return 0;
+}
+
+static int usb_vfs_fstat(int fd, struct stat *st)
+{
+	(void)fd;
+	if (st) {
+		memset(st, 0, sizeof(*st));
+		st->st_mode = S_IFCHR;
+	}
+	return 0;
+}
+
+static void redirectLibcConsoleToUsb()
+{
+	static bool registered = false;
+	static esp_vfs_t vfs;
+	if (!registered) {
+		memset(&vfs, 0, sizeof(vfs));
+		vfs.flags = ESP_VFS_FLAG_DEFAULT | ESP_VFS_FLAG_STATIC;
+		vfs.write = &usb_vfs_write;
+		vfs.open = &usb_vfs_open;
+		vfs.close = &usb_vfs_close;
+		vfs.fstat = &usb_vfs_fstat;
+		if (esp_vfs_register("/dev/usbout", &vfs, nullptr) != ESP_OK) {
+			Serial.println(F("[LoRa UART] console redirect failed; printf may still hit GPIO22"));
+			return;
+		}
+		registered = true;
+	}
+	freopen("/dev/usbout", "w", stdout);
+	freopen("/dev/usbout", "w", stderr);
+}
+
 LoggingSerial::LoggingSerial()
     : HardwareSerial(0)
 {
@@ -237,12 +300,19 @@ void LoggingSerial::beginStructuredOutput(unsigned long baud, int8_t rx_pin, int
 	if (m_write_mutex) {
 		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
 	}
+	if (uartGetDebug() == 0) {
+		uartSetDebug(NULL);
+	}
 	HardwareSerial::end();
 	HardwareSerial::begin(baud, SERIAL_8N1, rx_pin, tx_pin);
+	setDebugOutput(false);
 	m_structured_output = true;
 	if (m_write_mutex) {
 		xSemaphoreGive(m_write_mutex);
 	}
+	Serial.setDebugOutput(true);
+	redirectLibcConsoleToUsb();
+	Serial.printf("[LoRa UART] console on USB, JSONL on GPIO%d\r\n", static_cast<int>(tx_pin));
 }
 
 bool LoggingSerial::writeStructuredLine(const String& line)
@@ -287,8 +357,6 @@ String LoggingSerial::popLines()
 unsigned int effectiveRuntimeLogLevel() {
 	return max(static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL), cfg::debug);
 }
-
-static volatile bool s_usb_log_quiet = false;
 
 void debugSetUsbQuiet(bool quiet) {
 	s_usb_log_quiet = quiet;

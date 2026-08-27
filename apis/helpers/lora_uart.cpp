@@ -59,11 +59,12 @@ void setupLoRaUart()
 	Debug.beginStructuredOutput(LORA_UART_BAUD, LORA_UART_RX_PIN, LORA_UART_TX_PIN);
 	uart_ready = true;
 	Serial.printf(
-	    "[LoRa UART] JSONL enabled: TX=GPIO%d RX=GPIO%d baud=%d max=%u\r\n",
+	    "[LoRa UART] JSONL enabled: TX=GPIO%d RX=GPIO%d baud=%d max=%u interval=%lus\r\n",
 	    LORA_UART_TX_PIN,
 	    LORA_UART_RX_PIN,
 	    LORA_UART_BAUD,
-	    static_cast<unsigned int>(LORA_UART_MAX_LINE_BYTES)
+	    static_cast<unsigned int>(LORA_UART_MAX_LINE_BYTES),
+	    static_cast<unsigned long>(cfg::lora_uart_sending_intervall_ms) / 1000UL
 	);
 }
 
@@ -74,9 +75,9 @@ void sendLoRaTelemetryIfDue(const JsonDocument& data, const char* sensor_id)
 	}
 
 	const unsigned long interval =
-	    cfg::sending_intervall_ms < LORA_UART_MIN_INTERVAL_MS
+	    cfg::lora_uart_sending_intervall_ms < LORA_UART_MIN_INTERVAL_MS
 	        ? LORA_UART_MIN_INTERVAL_MS
-	        : cfg::sending_intervall_ms;
+	        : cfg::lora_uart_sending_intervall_ms;
 	if (last_send_ms != 0 && msSince(last_send_ms) < interval) {
 		return;
 	}
