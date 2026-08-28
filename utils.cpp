@@ -23,6 +23,7 @@
 #include <WString.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 #include "./intl.h"
 #include "./utils.h"
@@ -32,8 +33,11 @@
 #include <Preferences.h>
 #include <esp_system.h>
 #include <esp_attr.h>
+#include <esp_log.h>
 #include "esp32-hal-uart.h"
 #include "esp_vfs.h"
+
+extern "C" void ets_install_putc1(void (*p)(char));
 
 #define RESTART_REASON_MAGIC 0xA5C6F012
 RTC_NOINIT_ATTR static uint32_t rtc_restart_magic;
@@ -239,6 +243,48 @@ static int usb_vfs_fstat(int fd, struct stat *st)
 	return 0;
 }
 
+static int usb_esp_log_vprintf(const char *fmt, va_list args)
+{
+	char buf[192];
+	const int n = vsnprintf(buf, sizeof(buf), fmt, args);
+	if (n <= 0) {
+		return n;
+	}
+	if (!s_usb_log_quiet) {
+		const size_t w = static_cast<size_t>(n) < (sizeof(buf) - 1) ? static_cast<size_t>(n) : (sizeof(buf) - 1);
+		Serial.write(reinterpret_cast<const uint8_t *>(buf), w);
+	}
+	return n;
+}
+
+#if defined(ALTRUIST_WRAP_LIBC_PRINTF)
+extern "C" int __wrap_printf(const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	char buf[256];
+	const int n = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+	if (n > 0 && !s_usb_log_quiet) {
+		const size_t w = static_cast<size_t>(n) < (sizeof(buf) - 1) ? static_cast<size_t>(n) : (sizeof(buf) - 1);
+		Serial.write(reinterpret_cast<const uint8_t *>(buf), w);
+	}
+	return n;
+}
+
+extern "C" int __wrap_puts(const char *s)
+{
+	if (!s) {
+		return EOF;
+	}
+	if (!s_usb_log_quiet) {
+		Serial.write(reinterpret_cast<const uint8_t *>(s), strlen(s));
+		Serial.write(static_cast<uint8_t>('\n'));
+	}
+	return 0;
+}
+#endif
+
 static void redirectLibcConsoleToUsb()
 {
 	static bool registered = false;
@@ -256,8 +302,23 @@ static void redirectLibcConsoleToUsb()
 		}
 		registered = true;
 	}
-	freopen("/dev/usbout", "w", stdout);
-	freopen("/dev/usbout", "w", stderr);
+
+	FILE *out = fopen("/dev/usbout", "w");
+	if (out) {
+		setvbuf(out, nullptr, _IONBF, 0);
+		stdout = out;
+		stderr = out;
+	} else if (!freopen("/dev/usbout", "w", stdout) || !freopen("/dev/usbout", "w", stderr)) {
+		Serial.println(F("[LoRa UART] stdout rebind failed; printf may still hit GPIO22"));
+	} else {
+		setvbuf(stdout, nullptr, _IONBF, 0);
+		setvbuf(stderr, nullptr, _IONBF, 0);
+	}
+
+	uartSetDebug(NULL);
+	ets_install_putc1(nullptr);
+	esp_log_set_vprintf(usb_esp_log_vprintf);
+	(void)esp_vfs_unregister("/dev/console");
 }
 
 LoggingSerial::LoggingSerial()
@@ -306,6 +367,7 @@ void LoggingSerial::beginStructuredOutput(unsigned long baud, int8_t rx_pin, int
 	HardwareSerial::end();
 	HardwareSerial::begin(baud, SERIAL_8N1, rx_pin, tx_pin);
 	setDebugOutput(false);
+	uartSetDebug(NULL);
 	m_structured_output = true;
 	if (m_write_mutex) {
 		xSemaphoreGive(m_write_mutex);
@@ -323,14 +385,15 @@ bool LoggingSerial::writeStructuredLine(const String& line)
 	if (m_write_mutex) {
 		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
 	}
+	static const uint8_t kLineEnd[] = {'\r', '\n'};
 	const size_t payload_written =
 	    HardwareSerial::write(reinterpret_cast<const uint8_t *>(line.c_str()), line.length());
-	const size_t newline_written = HardwareSerial::write(static_cast<uint8_t>('\n'));
+	const size_t newline_written = HardwareSerial::write(kLineEnd, sizeof(kLineEnd));
 	HardwareSerial::flush();
 	if (m_write_mutex) {
 		xSemaphoreGive(m_write_mutex);
 	}
-	return payload_written == line.length() && newline_written == 1;
+	return payload_written == line.length() && newline_written == sizeof(kLineEnd);
 }
 
 String LoggingSerial::popLines()
