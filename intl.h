@@ -939,7 +939,7 @@
 #define INTL_LORA_UART_INTERVAL "LoRa sending interval (sec)"
 #endif
 #ifndef INTL_LORA_UART_HINT
-#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8). Default 180 s (3 min); 120–300 s is typical for Meshtastic. Serial Module: enabled, TEXTMSG, 115200 (baud 11), timeout 1 s. Cross TX/RX and share GND."
+#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8). Default 180 s (3 min); 120–300 s is typical for Meshtastic. Serial Module: enabled, TEXTMSG, 115200 (baud 11), timeout 1 s. Cross TX/RX and share GND. Compact JSON is Ed25519-signed (field s); verify by stripping s."
 #endif
 
 #endif

@@ -722,7 +722,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_checkbox(Config_lora_uart_enabled, FPSTR(INTL_LORA_UART_ENABLED), true);
 	add_form_input(page_content, Config_lora_uart_sending_intervall_ms, FPSTR(INTL_LORA_UART_INTERVAL), 5);
 	page_content += F("<p class='form-hint'>");
-	page_content += FPSTR(INTL_LORA_UART_HINT);
+	// page_content += FPSTR(INTL_LORA_UART_HINT);
 	page_content += F("</p>");
 #endif
 #ifdef ALTRUIST_INSIGHT

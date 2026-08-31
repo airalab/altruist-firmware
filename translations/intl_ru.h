@@ -260,7 +260,7 @@ const char INTL_MAP_PROTO_HOST[] PROGMEM = "URL protobuf (пусто = тот ж
 const char INTL_MAP_DUAL_HINT[] PROGMEM = "Можно включить оба. JSON держит живую карту. Для тестового connectivity вставь ниже http://128.140.46.75/v1/telemetry. Datalog не дублируется.";
 const char INTL_LORA_UART_ENABLED[] PROGMEM = "Отправлять компактный JSON в LoRa UART";
 const char INTL_LORA_UART_INTERVAL[] PROGMEM = "Интервал отправки в LoRa (с)";
-const char INTL_LORA_UART_HINT[] PROGMEM = "Urban C6: TX GPIO22 (контакт 6 CN4), RX GPIO20 (контакт 8). По умолчанию 180 с (3 мин); для Meshtastic обычно 120–300 с. Serial Module: включён, TEXTMSG, 115200 (baud 11), timeout 1 с. Перекрёстно подключите TX/RX и объедините GND.";
+const char INTL_LORA_UART_HINT[] PROGMEM = "Urban C6: TX GPIO22 (контакт 6 CN4), RX GPIO20 (контакт 8). По умолчанию 180 с (3 мин); для Meshtastic обычно 120–300 с. Serial Module: включён, TEXTMSG, 115200 (baud 11), timeout 1 с. Перекрёстно подключите TX/RX и объедините GND. Компактный JSON подписан Ed25519 (поле s); для проверки уберите s.";
 const char INTL_ROBONOMICS_PUBLIC_NODE_CUSTOM[] PROGMEM = "Своя публичная нода Robonomics";
 const char INTL_GUEST_CONNECTED_SENSORS[] PROGMEM = "Подключённые датчики";
 const char INTL_COORD_LAT[] PROGMEM = "Широта";
