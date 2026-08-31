@@ -163,6 +163,7 @@ public:
     size_t write(const uint8_t *buffer, size_t size) override;
 	void beginStructuredOutput(unsigned long baud, int8_t rx_pin, int8_t tx_pin);
 	bool writeStructuredLine(const String& line);
+	bool structuredOutputEnabled() const { return m_structured_output; }
 	String popLines();
 
 private:
@@ -173,6 +174,8 @@ private:
 
 extern class LoggingSerial Debug;
 
+/** After LoRa owns UART0, send libc/ROM/IDF console to USB CDC (not GPIO22). */
+extern void debugRedirectConsoleToUsb();
 extern unsigned int effectiveRuntimeLogLevel();
 /** Mute USB CDC logs while Improv Serial owns the port (webflasher). */
 extern void debugSetUsbQuiet(bool quiet);

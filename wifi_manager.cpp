@@ -344,7 +344,16 @@ bool wifiStaRuntimeRecovery(bool deep_radio_off) {
 		wifiApplyStaHostname();
 		WiFi.mode(WIFI_STA);
 		WiFi.setSleep(false);
-		WiFi.reconnect();
+#if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
+		if (cfg::lora_uart_enabled) {
+			// IDF auto-reconnect is already running. A second esp_wifi_connect()
+			// logs "sta is connecting, return error" on UART0 (LoRa GPIO22).
+			debugRedirectConsoleToUsb();
+		} else
+#endif
+		{
+			WiFi.reconnect();
+		}
 	}
 	s_last_recover_ms = millis();
 	return true;

@@ -17,13 +17,13 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIGHT)
-#define SOFTWARE_VERSION_BASE "R-INS_2026-07-08"
+#define SOFTWARE_VERSION_BASE "R-INS_2026-09"
 #define PM_SENSOR_NAME "Altruist Insight"
 #define DEVICE_MODEL DEVICE_MODEL_INSIGHT
 void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_BASE "R-URB_2026-07-08"
+#define SOFTWARE_VERSION_BASE "R-URB_2026-09"
 #define PM_SENSOR_NAME "Altruist Urban"
 #define DEVICE_MODEL DEVICE_MODEL_URBAN
 #endif

@@ -36,8 +36,12 @@
 #include <esp_log.h>
 #include "esp32-hal-uart.h"
 #include "esp_vfs.h"
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#include "esp_rom_sys.h"
+#endif
 
 extern "C" void ets_install_putc1(void (*p)(char));
+extern "C" void ets_install_putc2(void (*p)(char));
 
 #define RESTART_REASON_MAGIC 0xA5C6F012
 RTC_NOINIT_ATTR static uint32_t rtc_restart_magic;
@@ -207,6 +211,14 @@ LoggingSerial Debug;
 
 static volatile bool s_usb_log_quiet = false;
 
+static void rom_putc_to_usb(char c)
+{
+	if (!c || s_usb_log_quiet) {
+		return;
+	}
+	Serial.write(static_cast<uint8_t>(c));
+}
+
 static ssize_t usb_vfs_write(int fd, const void *data, size_t size)
 {
 	(void)fd;
@@ -316,9 +328,18 @@ static void redirectLibcConsoleToUsb()
 	}
 
 	uartSetDebug(NULL);
-	ets_install_putc1(nullptr);
+	ets_install_putc1(rom_putc_to_usb);
+	ets_install_putc2(rom_putc_to_usb);
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+	esp_rom_install_channel_putc(1, rom_putc_to_usb);
+#endif
 	esp_log_set_vprintf(usb_esp_log_vprintf);
 	(void)esp_vfs_unregister("/dev/console");
+}
+
+void debugRedirectConsoleToUsb()
+{
+	redirectLibcConsoleToUsb();
 }
 
 LoggingSerial::LoggingSerial()
