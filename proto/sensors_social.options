@@ -1,8 +1,6 @@
 # nanopb static allocation for ESP32.
 # Keep counts tight: flash/RAM grow with max_count * nested message size.
 
-core.v1.Meta.owner max_size:32 fixed_length:true
-
 crypto.v1.Encrypted.algorithm max_size:16
 crypto.v1.Encrypted.from max_size:32 fixed_length:true
 crypto.v1.Encrypted.nonce max_size:24

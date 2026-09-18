@@ -80,8 +80,8 @@ X(a, STATIC,   REPEATED, MESSAGE,  sensors,           1)
 #define device_v1_EncryptedInsight_sensors_MSGTYPE device_v1_InsightSensor
 
 #define device_v1_Insight_FIELDLIST(X, a) \
-X(a, STATIC,   REPEATED, MESSAGE,  public_items,      1) \
-X(a, STATIC,   REPEATED, MESSAGE,  private_items,     2)
+X(a, STATIC,   REPEATED, MESSAGE,  public_items,            1) \
+X(a, STATIC,   REPEATED, MESSAGE,  private_items,           2)
 #define device_v1_Insight_CALLBACK NULL
 #define device_v1_Insight_DEFAULT NULL
 #define device_v1_Insight_public_items_MSGTYPE device_v1_InsightSensor

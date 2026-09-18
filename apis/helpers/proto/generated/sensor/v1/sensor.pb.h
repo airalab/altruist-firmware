@@ -189,12 +189,12 @@ extern const pb_msgdesc_t sensor_v1_GPS_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define SENSOR_V1_SENSOR_V1_SENSOR_PB_H_MAX_SIZE sensor_v1_GPS_size
-#define sensor_v1_BME280_size                    11
-#define sensor_v1_BME680_size                    11
+#define sensor_v1_BME280_size                    8
+#define sensor_v1_BME680_size                    8
 #define sensor_v1_GPS_size                       27
-#define sensor_v1_ICS43434_size                  11
-#define sensor_v1_SCD41_size                     11
-#define sensor_v1_SDS011_size                    11
+#define sensor_v1_ICS43434_size                  8
+#define sensor_v1_SCD41_size                     8
+#define sensor_v1_SDS011_size                    8
 
 #ifdef __cplusplus
 } /* extern "C" */

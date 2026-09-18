@@ -3,85 +3,55 @@ syntax = "proto3";
 package sensor.v1;
 
 // Ambient or surface temperature.
-// Unit: degrees Celsius (°C).
+// Unit: 0.01 degrees Celsius (°C).
 message Temperature {
-  // Temperature in degrees Celsius.
-  double celsius = 1;
+  // Temperature in 0.01 °C.
+  // Example:
+  // 2347 = 23.47 °C
+  // -523 = -5.23 °C
+  sint32 centi_celsius = 1;
 }
 
 // Atmospheric pressure.
-// Unit: pascal (Pa).
+// Unit: 0.1 pascal (Pa).
 message Pressure {
-  // Pressure in pascals.
-  double pascal = 1;
+  // Pressure in 0.1 Pa.
+  // Example: 1013250 = 101325.0 Pa
+  uint32 deci_pascal = 1;
 }
 
 // Relative humidity.
-// Unit: percent (%RH), expected range 0..100.
+// Unit: 0.01 percent (%RH), expected range 0..10000.
 message Humidity {
-  // Relative humidity in percent.
-  double percent = 1;
+  // Relative humidity in 0.01 %RH.
+  // Example: 5342 = 53.42 %RH
+  uint32 centi_percent = 1;
 }
 
 // Carbon dioxide concentration.
 // Unit: parts per million (ppm).
 message CO2 {
   // CO₂ concentration in ppm.
-  double ppm = 1;
+  uint32 ppm = 1;
 }
 
 // Particulate matter with diameter ≤ 2.5 µm.
-// Unit: micrograms per cubic meter (µg/m³).
+// Unit: 0.1 micrograms per cubic meter (µg/m³).
 message PM25 {
-  // PM2.5 concentration in µg/m³.
-  double ug_m3 = 1;
+  // PM2.5 concentration in 0.1 µg/m³.
+  uint32 deci_ug_m3 = 1;
 }
 
 // Particulate matter with diameter ≤ 10 µm.
-// Unit: micrograms per cubic meter (µg/m³).
+// Unit: 0.1 micrograms per cubic meter (µg/m³).
 message PM10 {
-  // PM10 concentration in µg/m³.
-  double ug_m3 = 1;
+  // PM10 concentration in 0.1 µg/m³.
+  uint32 deci_ug_m3 = 1;
 }
 
 // Acoustic noise level.
 // Unit: decibel (dB).
 message NoiseLevel {
-  // Noise level in decibels.
-  double db = 1;
-}
-
-// Ionizing radiation dose rate.
-// Unit: microroentgen per hour (µR/h).
-message Radiation {
-  // Radiation dose rate in µR/h.
-  double ur_h = 1;
-}
-
-// Carbon monoxide concentration.
-// Unit: parts per million (ppm).
-message CarbonMonoxide {
-  // CO concentration in ppm.
-  double ppm = 1;
-}
-
-// Ozone concentration.
-// Unit: parts per billion (ppb).
-message Ozone {
-  // O₃ concentration in ppb.
-  double ppb = 1;
-}
-
-// Nitrogen dioxide concentration.
-// Unit: parts per billion (ppb).
-message NitrogenDioxide {
-  // NO₂ concentration in ppb.
-  double ppb = 1;
-}
-
-// Air quality index value.
-// Unit: index (dimensionless).
-message AirQualityIndex {
-  // AQI numeric index.
-  double index = 1;
+  // Noise level in whole decibels.
+  uint32 db = 1;
 }

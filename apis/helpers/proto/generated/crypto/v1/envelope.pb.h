@@ -17,9 +17,6 @@ typedef struct _crypto_v1_SignedEnvelope {
     /* Sensor's public key (for Ed25519 it's 32 bytes).
  Used as unique device identifier. */
     pb_byte_t sensor_id[32];
-    /* Unix timestamp in milliseconds (UTC).
- When the measurement was taken. */
-    uint64_t timestamp;
     /* Random nonce to prevent replay attacks (16-32 bytes recommended).
  Should be unique for each request (e.g., random bytes or UUID bytes). */
     crypto_v1_SignedEnvelope_nonce_t nonce;
@@ -27,7 +24,7 @@ typedef struct _crypto_v1_SignedEnvelope {
  Connectivity layer can pass this through without decoding. */
     crypto_v1_SignedEnvelope_message_t message;
     /* Measurement signature (for Ed25519 it's 64 bytes).
- Signs: sensor_id + timestamp + nonce + message. */
+ Signs: sensor_id + nonce + message. */
     pb_byte_t signature[64];
 } crypto_v1_SignedEnvelope;
 
@@ -44,26 +41,24 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define crypto_v1_SignedEnvelope_init_default    {{0}, 0, {0, {0}}, {0, {0}}, {0}}
+#define crypto_v1_SignedEnvelope_init_default    {{0}, {0, {0}}, {0, {0}}, {0}}
 #define crypto_v1_SignedEnvelopeBatch_init_default {0, {crypto_v1_SignedEnvelope_init_default}}
-#define crypto_v1_SignedEnvelope_init_zero       {{0}, 0, {0, {0}}, {0, {0}}, {0}}
+#define crypto_v1_SignedEnvelope_init_zero       {{0}, {0, {0}}, {0, {0}}, {0}}
 #define crypto_v1_SignedEnvelopeBatch_init_zero  {0, {crypto_v1_SignedEnvelope_init_zero}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define crypto_v1_SignedEnvelope_sensor_id_tag   1
-#define crypto_v1_SignedEnvelope_timestamp_tag   2
-#define crypto_v1_SignedEnvelope_nonce_tag       3
-#define crypto_v1_SignedEnvelope_message_tag     4
-#define crypto_v1_SignedEnvelope_signature_tag   5
+#define crypto_v1_SignedEnvelope_nonce_tag       2
+#define crypto_v1_SignedEnvelope_message_tag     3
+#define crypto_v1_SignedEnvelope_signature_tag   4
 #define crypto_v1_SignedEnvelopeBatch_batch_tag  1
 
 /* Struct field encoding specification for nanopb */
 #define crypto_v1_SignedEnvelope_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, FIXED_LENGTH_BYTES, sensor_id,         1) \
-X(a, STATIC,   SINGULAR, UINT64,   timestamp,         2) \
-X(a, STATIC,   SINGULAR, BYTES,    nonce,             3) \
-X(a, STATIC,   SINGULAR, BYTES,    message,           4) \
-X(a, STATIC,   SINGULAR, FIXED_LENGTH_BYTES, signature,         5)
+X(a, STATIC,   SINGULAR, BYTES,    nonce,             2) \
+X(a, STATIC,   SINGULAR, BYTES,    message,           3) \
+X(a, STATIC,   SINGULAR, FIXED_LENGTH_BYTES, signature,         4)
 #define crypto_v1_SignedEnvelope_CALLBACK NULL
 #define crypto_v1_SignedEnvelope_DEFAULT NULL
 
@@ -82,8 +77,8 @@ extern const pb_msgdesc_t crypto_v1_SignedEnvelopeBatch_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define CRYPTO_V1_CRYPTO_V1_ENVELOPE_PB_H_MAX_SIZE crypto_v1_SignedEnvelopeBatch_size
-#define crypto_v1_SignedEnvelopeBatch_size       1432
-#define crypto_v1_SignedEnvelope_size            1428
+#define crypto_v1_SignedEnvelopeBatch_size       1421
+#define crypto_v1_SignedEnvelope_size            1417
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -14,9 +14,12 @@
 /* Struct definitions */
 /* Non-measurement metadata. */
 typedef struct _core_v1_Meta {
-    /* Sensor owner public key (32 bytes).
- Used on the map for grouping sensors by owner. */
-    pb_byte_t owner[32];
+    /* Robonomics CPS node identifier.
+ Omitted value is interpreted as node_id = 0. */
+    uint64_t node_id;
+    /* Unix timestamp in milliseconds (UTC).
+ Time associated with the measurement set in this Message. */
+    uint64_t timestamp;
 } core_v1_Meta;
 
 /* Root telemetry message.
@@ -40,20 +43,22 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define core_v1_Meta_init_default                {{0}}
+#define core_v1_Meta_init_default                {0, 0}
 #define core_v1_Message_init_default             {false, core_v1_Meta_init_default, 0, {device_v1_Urban_init_default}}
-#define core_v1_Meta_init_zero                   {{0}}
+#define core_v1_Meta_init_zero                   {0, 0}
 #define core_v1_Message_init_zero                {false, core_v1_Meta_init_zero, 0, {device_v1_Urban_init_zero}}
 
 /* Field tags (for use in manual encoding/decoding) */
-#define core_v1_Meta_owner_tag                   1
+#define core_v1_Meta_node_id_tag                 1
+#define core_v1_Meta_timestamp_tag               2
 #define core_v1_Message_metadata_tag             1
 #define core_v1_Message_urban_tag                2
 #define core_v1_Message_insight_tag              3
 
 /* Struct field encoding specification for nanopb */
 #define core_v1_Meta_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, FIXED_LENGTH_BYTES, owner,             1)
+X(a, STATIC,   SINGULAR, UINT64,   node_id,           1) \
+X(a, STATIC,   SINGULAR, UINT64,   timestamp,         2)
 #define core_v1_Meta_CALLBACK NULL
 #define core_v1_Meta_DEFAULT NULL
 
@@ -76,8 +81,8 @@ extern const pb_msgdesc_t core_v1_Message_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define CORE_V1_CORE_V1_MESSAGE_PB_H_MAX_SIZE    core_v1_Message_size
-#define core_v1_Message_size                     2125
-#define core_v1_Meta_size                        34
+#define core_v1_Message_size                     2113
+#define core_v1_Meta_size                        22
 
 #ifdef __cplusplus
 } /* extern "C" */

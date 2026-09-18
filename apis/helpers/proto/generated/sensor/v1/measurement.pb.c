@@ -27,27 +27,4 @@ PB_BIND(sensor_v1_PM10, sensor_v1_PM10, AUTO)
 PB_BIND(sensor_v1_NoiseLevel, sensor_v1_NoiseLevel, AUTO)
 
 
-PB_BIND(sensor_v1_Radiation, sensor_v1_Radiation, AUTO)
-
-
-PB_BIND(sensor_v1_CarbonMonoxide, sensor_v1_CarbonMonoxide, AUTO)
-
-
-PB_BIND(sensor_v1_Ozone, sensor_v1_Ozone, AUTO)
-
-
-PB_BIND(sensor_v1_NitrogenDioxide, sensor_v1_NitrogenDioxide, AUTO)
-
-
-PB_BIND(sensor_v1_AirQualityIndex, sensor_v1_AirQualityIndex, AUTO)
-
-
-
-#ifndef PB_CONVERT_DOUBLE_FLOAT
-/* On some platforms (such as AVR), double is really float.
- * To be able to encode/decode double on these platforms, you need.
- * to define PB_CONVERT_DOUBLE_FLOAT in pb.h or compiler command line.
- */
-PB_STATIC_ASSERT(sizeof(double) == 8, DOUBLE_MUST_BE_8_BYTES)
-#endif
 

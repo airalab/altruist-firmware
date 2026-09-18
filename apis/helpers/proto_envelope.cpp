@@ -172,25 +172,25 @@ ProtoBuildStatus protoBuildSignedEnvelope(JsonDocument &data, Robonomics *robono
 	}
 
 	fill_sample(data, &sample);
-	if (!valueCryptoOwnerPublicKey(keys.pk, sample.owner)) {
-		return PROTO_BUILD_KEY_FAILED;
-	}
-
-	st = proto_encode_message(&sample, aead_cps, message, sizeof(message), &message_len);
-	if (st != PROTO_BUILD_OK) {
-		return st;
-	}
 
 	now = time(NULL);
 	if (now < 1600000000) {
 		/* NTP not ready: unix ms would be wrong and signature would not verify. */
 		return PROTO_BUILD_SIGN_FAILED;
 	}
-	timestamp_ms = (uint64_t)now * 1000ULL;
+	sample.timestamp_ms = (uint64_t)now * 1000ULL;
+	sample.node_id = 0;
+	timestamp_ms = sample.timestamp_ms;
+
+	st = proto_encode_message(&sample, aead_cps, message, sizeof(message), &message_len);
+	if (st != PROTO_BUILD_OK) {
+		return st;
+	}
+
 	esp_fill_random(nonce, sizeof(nonce));
 
-	st = proto_encode_envelope(message, message_len, keys.pk, timestamp_ms, nonce, sizeof(nonce), sign_ed25519,
-				   &keys, out, out_cap, out_len);
+	st = proto_encode_envelope(message, message_len, keys.pk, nonce, sizeof(nonce), sign_ed25519, &keys, out,
+				   out_cap, out_len);
 	if (st == PROTO_BUILD_OK) {
 		log_envelope(*out_len, message_len, timestamp_ms, keys.pk);
 	}

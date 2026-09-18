@@ -22,12 +22,11 @@ ProtoBuildStatus proto_encode_message(const struct ProtoSample *sample, ProtoAea
 }
 
 ProtoBuildStatus proto_encode_envelope(const uint8_t *message, size_t message_len, const uint8_t sensor_id[32],
-				       uint64_t timestamp_ms, const uint8_t *nonce, size_t nonce_len, ProtoSignFn sign,
-				       void *sign_ctx, uint8_t *out, size_t out_cap, size_t *out_len) {
+				       const uint8_t *nonce, size_t nonce_len, ProtoSignFn sign, void *sign_ctx,
+				       uint8_t *out, size_t out_cap, size_t *out_len) {
 	(void)message;
 	(void)message_len;
 	(void)sensor_id;
-	(void)timestamp_ms;
 	(void)nonce;
 	(void)nonce_len;
 	(void)sign;
@@ -42,6 +41,8 @@ ProtoBuildStatus proto_encode_envelope(const uint8_t *message, size_t message_le
 
 #else
 
+#include <limits.h>
+#include <math.h>
 #include <pb_encode.h>
 #include <stdlib.h>
 
@@ -120,6 +121,33 @@ static int seal_private(crypto_v1_Encrypted *slot, const pb_msgdesc_t *fields, c
 
 #define ARR_MAX(field) ((pb_size_t)(sizeof((field)) / sizeof((field)[0])))
 
+static int32_t proto_centi_celsius(double celsius) {
+	long v = lround(celsius * 100.0);
+	if (v > INT32_MAX) {
+		return INT32_MAX;
+	}
+	if (v < INT32_MIN) {
+		return INT32_MIN;
+	}
+	return (int32_t)v;
+}
+
+static uint32_t proto_scaled_u32(double value, double scale) {
+	double scaled;
+	if (value <= 0.0) {
+		return 0;
+	}
+	scaled = value * scale;
+	if (scaled >= (double)UINT32_MAX) {
+		return UINT32_MAX;
+	}
+	return (uint32_t)lround(scaled);
+}
+
+static uint32_t proto_deci_pascal(double value, int pressure_hpa) {
+	return proto_scaled_u32(pressure_hpa ? value * 100.0 : value, 10.0);
+}
+
 static int add_urban(device_v1_Urban *urban, device_v1_EncryptedUrban *enc, enum ProtoDest dest,
 		     const device_v1_UrbanSensor *item) {
 	return route_item(urban->public_items, &urban->public_items_count, ARR_MAX(urban->public_items), enc->sensors,
@@ -145,11 +173,11 @@ static device_v1_UrbanSensor urban_bme(pb_size_t tag, double value, int pressure
 	item.which_sensor = device_v1_UrbanSensor_bme280_tag;
 	item.sensor.bme280.which_measurement = tag;
 	if (tag == sensor_v1_BME280_temperature_tag) {
-		item.sensor.bme280.measurement.temperature.celsius = value;
+		item.sensor.bme280.measurement.temperature.centi_celsius = proto_centi_celsius(value);
 	} else if (tag == sensor_v1_BME280_humidity_tag) {
-		item.sensor.bme280.measurement.humidity.percent = value;
+		item.sensor.bme280.measurement.humidity.centi_percent = proto_scaled_u32(value, 100.0);
 	} else {
-		item.sensor.bme280.measurement.pressure.pascal = pressure_hpa ? value * 100.0 : value;
+		item.sensor.bme280.measurement.pressure.deci_pascal = proto_deci_pascal(value, pressure_hpa);
 	}
 	return item;
 }
@@ -159,9 +187,9 @@ static device_v1_UrbanSensor urban_sds(pb_size_t tag, double value) {
 	item.which_sensor = device_v1_UrbanSensor_sds011_tag;
 	item.sensor.sds011.which_measurement = tag;
 	if (tag == sensor_v1_SDS011_pm25_tag) {
-		item.sensor.sds011.measurement.pm25.ug_m3 = value;
+		item.sensor.sds011.measurement.pm25.deci_ug_m3 = proto_scaled_u32(value, 10.0);
 	} else {
-		item.sensor.sds011.measurement.pm10.ug_m3 = value;
+		item.sensor.sds011.measurement.pm10.deci_ug_m3 = proto_scaled_u32(value, 10.0);
 	}
 	return item;
 }
@@ -171,9 +199,9 @@ static device_v1_UrbanSensor urban_noise(pb_size_t tag, double value) {
 	item.which_sensor = device_v1_UrbanSensor_ics43434_tag;
 	item.sensor.ics43434.which_measurement = tag;
 	if (tag == sensor_v1_ICS43434_noise_max_tag) {
-		item.sensor.ics43434.measurement.noise_max.db = value;
+		item.sensor.ics43434.measurement.noise_max.db = proto_scaled_u32(value, 1.0);
 	} else {
-		item.sensor.ics43434.measurement.noise_avg.db = value;
+		item.sensor.ics43434.measurement.noise_avg.db = proto_scaled_u32(value, 1.0);
 	}
 	return item;
 }
@@ -191,11 +219,11 @@ static device_v1_InsightSensor insight_bme(pb_size_t tag, double value) {
 	item.which_sensor = device_v1_InsightSensor_bme680_tag;
 	item.sensor.bme680.which_measurement = tag;
 	if (tag == sensor_v1_BME680_temperature_tag) {
-		item.sensor.bme680.measurement.temperature.celsius = value;
+		item.sensor.bme680.measurement.temperature.centi_celsius = proto_centi_celsius(value);
 	} else if (tag == sensor_v1_BME680_humidity_tag) {
-		item.sensor.bme680.measurement.humidity.percent = value;
+		item.sensor.bme680.measurement.humidity.centi_percent = proto_scaled_u32(value, 100.0);
 	} else {
-		item.sensor.bme680.measurement.pressure.pascal = value;
+		item.sensor.bme680.measurement.pressure.deci_pascal = proto_deci_pascal(value, 0);
 	}
 	return item;
 }
@@ -205,11 +233,11 @@ static device_v1_InsightSensor insight_scd(pb_size_t tag, double value) {
 	item.which_sensor = device_v1_InsightSensor_scd41_tag;
 	item.sensor.scd41.which_measurement = tag;
 	if (tag == sensor_v1_SCD41_co2_tag) {
-		item.sensor.scd41.measurement.co2.ppm = value;
+		item.sensor.scd41.measurement.co2.ppm = proto_scaled_u32(value, 1.0);
 	} else if (tag == sensor_v1_SCD41_temperature_tag) {
-		item.sensor.scd41.measurement.temperature.celsius = value;
+		item.sensor.scd41.measurement.temperature.centi_celsius = proto_centi_celsius(value);
 	} else {
-		item.sensor.scd41.measurement.humidity.percent = value;
+		item.sensor.scd41.measurement.humidity.centi_percent = proto_scaled_u32(value, 100.0);
 	}
 	return item;
 }
@@ -359,7 +387,8 @@ ProtoBuildStatus proto_encode_message(const struct ProtoSample *sample, ProtoAea
 
 	msg = core_v1_Message_init_zero;
 	msg.has_metadata = true;
-	memcpy(msg.metadata.owner, sample->owner, 32);
+	msg.metadata.node_id = sample->node_id;
+	msg.metadata.timestamp = sample->timestamp_ms;
 
 	st = sample->insight ? fill_insight(sample, &msg, aead) : fill_urban(sample, &msg, aead);
 	if (st != PROTO_BUILD_OK) {
@@ -371,23 +400,15 @@ ProtoBuildStatus proto_encode_message(const struct ProtoSample *sample, ProtoAea
 	return PROTO_BUILD_OK;
 }
 
-static void write_u64_le(uint8_t out[8], uint64_t value) {
-	int i;
-	for (i = 0; i < 8; i++) {
-		out[i] = (uint8_t)(value >> (8 * i));
-	}
-}
-
 /*
- * Sign preimage = sensor_id (32) || timestamp as little-endian uint64 || nonce || message.
- * Confirm LE64 with connectivity before #20. Envelope timestamp field is still uint64 unix ms.
+ * Sign preimage = sensor_id (32) || nonce || message.
+ * Timestamp is inside core.v1.Meta, not the envelope.
  */
 ProtoBuildStatus proto_encode_envelope(const uint8_t *message, size_t message_len, const uint8_t sensor_id[32],
-				       uint64_t timestamp_ms, const uint8_t *nonce, size_t nonce_len, ProtoSignFn sign,
-				       void *sign_ctx, uint8_t *out, size_t out_cap, size_t *out_len) {
-	static uint8_t preimage[32 + 8 + 32 + PROTO_MESSAGE_BUF_BYTES];
+				       const uint8_t *nonce, size_t nonce_len, ProtoSignFn sign, void *sign_ctx,
+				       uint8_t *out, size_t out_cap, size_t *out_len) {
+	static uint8_t preimage[32 + 32 + PROTO_MESSAGE_BUF_BYTES];
 	crypto_v1_SignedEnvelope envelope;
-	uint8_t ts_le[8];
 	uint8_t signature[64];
 	size_t preimage_len;
 	pb_ostream_t stream;
@@ -402,20 +423,17 @@ ProtoBuildStatus proto_encode_envelope(const uint8_t *message, size_t message_le
 		return PROTO_BUILD_BUFFER_TOO_SMALL;
 	}
 
-	write_u64_le(ts_le, timestamp_ms);
-	preimage_len = 32 + 8 + nonce_len + message_len;
+	preimage_len = 32 + nonce_len + message_len;
 	if (preimage_len > sizeof(preimage)) {
 		return PROTO_BUILD_BUFFER_TOO_SMALL;
 	}
 	memcpy(preimage, sensor_id, 32);
-	memcpy(preimage + 32, ts_le, 8);
-	memcpy(preimage + 40, nonce, nonce_len);
-	memcpy(preimage + 40 + nonce_len, message, message_len);
+	memcpy(preimage + 32, nonce, nonce_len);
+	memcpy(preimage + 32 + nonce_len, message, message_len);
 	sign(sign_ctx, preimage, preimage_len, signature);
 
 	envelope = crypto_v1_SignedEnvelope_init_zero;
 	memcpy(envelope.sensor_id, sensor_id, 32);
-	envelope.timestamp = timestamp_ms;
 	envelope.nonce.size = (pb_size_t)nonce_len;
 	memcpy(envelope.nonce.bytes, nonce, nonce_len);
 	envelope.message.size = (pb_size_t)message_len;

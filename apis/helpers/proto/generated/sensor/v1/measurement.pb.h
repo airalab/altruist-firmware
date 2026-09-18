@@ -11,88 +11,58 @@
 
 /* Struct definitions */
 /* Ambient or surface temperature.
- Unit: degrees Celsius (°C). */
+ Unit: 0.01 degrees Celsius (°C). */
 typedef struct _sensor_v1_Temperature {
-    /* Temperature in degrees Celsius. */
-    double celsius;
+    /* Temperature in 0.01 °C.
+ Example:
+ 2347 = 23.47 °C
+ -523 = -5.23 °C */
+    int32_t centi_celsius;
 } sensor_v1_Temperature;
 
 /* Atmospheric pressure.
- Unit: pascal (Pa). */
+ Unit: 0.1 pascal (Pa). */
 typedef struct _sensor_v1_Pressure {
-    /* Pressure in pascals. */
-    double pascal;
+    /* Pressure in 0.1 Pa.
+ Example: 1013250 = 101325.0 Pa */
+    uint32_t deci_pascal;
 } sensor_v1_Pressure;
 
 /* Relative humidity.
- Unit: percent (%RH), expected range 0..100. */
+ Unit: 0.01 percent (%RH), expected range 0..10000. */
 typedef struct _sensor_v1_Humidity {
-    /* Relative humidity in percent. */
-    double percent;
+    /* Relative humidity in 0.01 %RH.
+ Example: 5342 = 53.42 %RH */
+    uint32_t centi_percent;
 } sensor_v1_Humidity;
 
 /* Carbon dioxide concentration.
  Unit: parts per million (ppm). */
 typedef struct _sensor_v1_CO2 {
     /* CO₂ concentration in ppm. */
-    double ppm;
+    uint32_t ppm;
 } sensor_v1_CO2;
 
 /* Particulate matter with diameter ≤ 2.5 µm.
- Unit: micrograms per cubic meter (µg/m³). */
+ Unit: 0.1 micrograms per cubic meter (µg/m³). */
 typedef struct _sensor_v1_PM25 {
-    /* PM2.5 concentration in µg/m³. */
-    double ug_m3;
+    /* PM2.5 concentration in 0.1 µg/m³. */
+    uint32_t deci_ug_m3;
 } sensor_v1_PM25;
 
 /* Particulate matter with diameter ≤ 10 µm.
- Unit: micrograms per cubic meter (µg/m³). */
+ Unit: 0.1 micrograms per cubic meter (µg/m³). */
 typedef struct _sensor_v1_PM10 {
-    /* PM10 concentration in µg/m³. */
-    double ug_m3;
+    /* PM10 concentration in 0.1 µg/m³. */
+    uint32_t deci_ug_m3;
 } sensor_v1_PM10;
 
 /* Acoustic noise level.
  Unit: decibel (dB). */
 typedef struct _sensor_v1_NoiseLevel {
-    /* Noise level in decibels. */
-    double db;
+    /* Noise level in whole decibels. */
+    uint32_t db;
 } sensor_v1_NoiseLevel;
-
-/* Ionizing radiation dose rate.
- Unit: microroentgen per hour (µR/h). */
-typedef struct _sensor_v1_Radiation {
-    /* Radiation dose rate in µR/h. */
-    double ur_h;
-} sensor_v1_Radiation;
-
-/* Carbon monoxide concentration.
- Unit: parts per million (ppm). */
-typedef struct _sensor_v1_CarbonMonoxide {
-    /* CO concentration in ppm. */
-    double ppm;
-} sensor_v1_CarbonMonoxide;
-
-/* Ozone concentration.
- Unit: parts per billion (ppb). */
-typedef struct _sensor_v1_Ozone {
-    /* O₃ concentration in ppb. */
-    double ppb;
-} sensor_v1_Ozone;
-
-/* Nitrogen dioxide concentration.
- Unit: parts per billion (ppb). */
-typedef struct _sensor_v1_NitrogenDioxide {
-    /* NO₂ concentration in ppb. */
-    double ppb;
-} sensor_v1_NitrogenDioxide;
-
-/* Air quality index value.
- Unit: index (dimensionless). */
-typedef struct _sensor_v1_AirQualityIndex {
-    /* AQI numeric index. */
-    double index;
-} sensor_v1_AirQualityIndex;
 
 
 #ifdef __cplusplus
@@ -107,11 +77,6 @@ extern "C" {
 #define sensor_v1_PM25_init_default              {0}
 #define sensor_v1_PM10_init_default              {0}
 #define sensor_v1_NoiseLevel_init_default        {0}
-#define sensor_v1_Radiation_init_default         {0}
-#define sensor_v1_CarbonMonoxide_init_default    {0}
-#define sensor_v1_Ozone_init_default             {0}
-#define sensor_v1_NitrogenDioxide_init_default   {0}
-#define sensor_v1_AirQualityIndex_init_default   {0}
 #define sensor_v1_Temperature_init_zero          {0}
 #define sensor_v1_Pressure_init_zero             {0}
 #define sensor_v1_Humidity_init_zero             {0}
@@ -119,86 +84,51 @@ extern "C" {
 #define sensor_v1_PM25_init_zero                 {0}
 #define sensor_v1_PM10_init_zero                 {0}
 #define sensor_v1_NoiseLevel_init_zero           {0}
-#define sensor_v1_Radiation_init_zero            {0}
-#define sensor_v1_CarbonMonoxide_init_zero       {0}
-#define sensor_v1_Ozone_init_zero                {0}
-#define sensor_v1_NitrogenDioxide_init_zero      {0}
-#define sensor_v1_AirQualityIndex_init_zero      {0}
 
 /* Field tags (for use in manual encoding/decoding) */
-#define sensor_v1_Temperature_celsius_tag        1
-#define sensor_v1_Pressure_pascal_tag            1
-#define sensor_v1_Humidity_percent_tag           1
+#define sensor_v1_Temperature_centi_celsius_tag  1
+#define sensor_v1_Pressure_deci_pascal_tag       1
+#define sensor_v1_Humidity_centi_percent_tag     1
 #define sensor_v1_CO2_ppm_tag                    1
-#define sensor_v1_PM25_ug_m3_tag                 1
-#define sensor_v1_PM10_ug_m3_tag                 1
+#define sensor_v1_PM25_deci_ug_m3_tag            1
+#define sensor_v1_PM10_deci_ug_m3_tag            1
 #define sensor_v1_NoiseLevel_db_tag              1
-#define sensor_v1_Radiation_ur_h_tag             1
-#define sensor_v1_CarbonMonoxide_ppm_tag         1
-#define sensor_v1_Ozone_ppb_tag                  1
-#define sensor_v1_NitrogenDioxide_ppb_tag        1
-#define sensor_v1_AirQualityIndex_index_tag      1
 
 /* Struct field encoding specification for nanopb */
 #define sensor_v1_Temperature_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   celsius,           1)
+X(a, STATIC,   SINGULAR, SINT32,   centi_celsius,     1)
 #define sensor_v1_Temperature_CALLBACK NULL
 #define sensor_v1_Temperature_DEFAULT NULL
 
 #define sensor_v1_Pressure_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   pascal,            1)
+X(a, STATIC,   SINGULAR, UINT32,   deci_pascal,       1)
 #define sensor_v1_Pressure_CALLBACK NULL
 #define sensor_v1_Pressure_DEFAULT NULL
 
 #define sensor_v1_Humidity_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   percent,           1)
+X(a, STATIC,   SINGULAR, UINT32,   centi_percent,     1)
 #define sensor_v1_Humidity_CALLBACK NULL
 #define sensor_v1_Humidity_DEFAULT NULL
 
 #define sensor_v1_CO2_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   ppm,               1)
+X(a, STATIC,   SINGULAR, UINT32,   ppm,               1)
 #define sensor_v1_CO2_CALLBACK NULL
 #define sensor_v1_CO2_DEFAULT NULL
 
 #define sensor_v1_PM25_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   ug_m3,             1)
+X(a, STATIC,   SINGULAR, UINT32,   deci_ug_m3,        1)
 #define sensor_v1_PM25_CALLBACK NULL
 #define sensor_v1_PM25_DEFAULT NULL
 
 #define sensor_v1_PM10_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   ug_m3,             1)
+X(a, STATIC,   SINGULAR, UINT32,   deci_ug_m3,        1)
 #define sensor_v1_PM10_CALLBACK NULL
 #define sensor_v1_PM10_DEFAULT NULL
 
 #define sensor_v1_NoiseLevel_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   db,                1)
+X(a, STATIC,   SINGULAR, UINT32,   db,                1)
 #define sensor_v1_NoiseLevel_CALLBACK NULL
 #define sensor_v1_NoiseLevel_DEFAULT NULL
-
-#define sensor_v1_Radiation_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   ur_h,              1)
-#define sensor_v1_Radiation_CALLBACK NULL
-#define sensor_v1_Radiation_DEFAULT NULL
-
-#define sensor_v1_CarbonMonoxide_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   ppm,               1)
-#define sensor_v1_CarbonMonoxide_CALLBACK NULL
-#define sensor_v1_CarbonMonoxide_DEFAULT NULL
-
-#define sensor_v1_Ozone_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   ppb,               1)
-#define sensor_v1_Ozone_CALLBACK NULL
-#define sensor_v1_Ozone_DEFAULT NULL
-
-#define sensor_v1_NitrogenDioxide_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   ppb,               1)
-#define sensor_v1_NitrogenDioxide_CALLBACK NULL
-#define sensor_v1_NitrogenDioxide_DEFAULT NULL
-
-#define sensor_v1_AirQualityIndex_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   index,             1)
-#define sensor_v1_AirQualityIndex_CALLBACK NULL
-#define sensor_v1_AirQualityIndex_DEFAULT NULL
 
 extern const pb_msgdesc_t sensor_v1_Temperature_msg;
 extern const pb_msgdesc_t sensor_v1_Pressure_msg;
@@ -207,11 +137,6 @@ extern const pb_msgdesc_t sensor_v1_CO2_msg;
 extern const pb_msgdesc_t sensor_v1_PM25_msg;
 extern const pb_msgdesc_t sensor_v1_PM10_msg;
 extern const pb_msgdesc_t sensor_v1_NoiseLevel_msg;
-extern const pb_msgdesc_t sensor_v1_Radiation_msg;
-extern const pb_msgdesc_t sensor_v1_CarbonMonoxide_msg;
-extern const pb_msgdesc_t sensor_v1_Ozone_msg;
-extern const pb_msgdesc_t sensor_v1_NitrogenDioxide_msg;
-extern const pb_msgdesc_t sensor_v1_AirQualityIndex_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define sensor_v1_Temperature_fields &sensor_v1_Temperature_msg
@@ -221,26 +146,16 @@ extern const pb_msgdesc_t sensor_v1_AirQualityIndex_msg;
 #define sensor_v1_PM25_fields &sensor_v1_PM25_msg
 #define sensor_v1_PM10_fields &sensor_v1_PM10_msg
 #define sensor_v1_NoiseLevel_fields &sensor_v1_NoiseLevel_msg
-#define sensor_v1_Radiation_fields &sensor_v1_Radiation_msg
-#define sensor_v1_CarbonMonoxide_fields &sensor_v1_CarbonMonoxide_msg
-#define sensor_v1_Ozone_fields &sensor_v1_Ozone_msg
-#define sensor_v1_NitrogenDioxide_fields &sensor_v1_NitrogenDioxide_msg
-#define sensor_v1_AirQualityIndex_fields &sensor_v1_AirQualityIndex_msg
 
 /* Maximum encoded size of messages (where known) */
 #define SENSOR_V1_SENSOR_V1_MEASUREMENT_PB_H_MAX_SIZE sensor_v1_Temperature_size
-#define sensor_v1_AirQualityIndex_size           9
-#define sensor_v1_CO2_size                       9
-#define sensor_v1_CarbonMonoxide_size            9
-#define sensor_v1_Humidity_size                  9
-#define sensor_v1_NitrogenDioxide_size           9
-#define sensor_v1_NoiseLevel_size                9
-#define sensor_v1_Ozone_size                     9
-#define sensor_v1_PM10_size                      9
-#define sensor_v1_PM25_size                      9
-#define sensor_v1_Pressure_size                  9
-#define sensor_v1_Radiation_size                 9
-#define sensor_v1_Temperature_size               9
+#define sensor_v1_CO2_size                       6
+#define sensor_v1_Humidity_size                  6
+#define sensor_v1_NoiseLevel_size                6
+#define sensor_v1_PM10_size                      6
+#define sensor_v1_PM25_size                      6
+#define sensor_v1_Pressure_size                  6
+#define sensor_v1_Temperature_size               6
 
 #ifdef __cplusplus
 } /* extern "C" */
