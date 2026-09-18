@@ -268,9 +268,10 @@ const char INTL_MAP_SEND_CSV[] PROGMEM = "Send JSON/CSV to Map (current connecti
 const char INTL_MAP_SEND_PROTO[] PROGMEM = "Send protobuf (new protocol)";
 const char INTL_MAP_PROTO_HOST[] PROGMEM = "Protobuf URL (empty = same Map host:65/)";
 const char INTL_MAP_DUAL_HINT[] PROGMEM = "Both can be on at once. JSON keeps the live map. For the test connectivity paste http://128.140.46.75/v1/telemetry below. Datalog is not duplicated.";
-const char INTL_LORA_UART_ENABLED[] PROGMEM = "Send compact JSON to LoRa UART";
+const char INTL_LORA_UART_ENABLED[] PROGMEM = "Send to Meshtastic (LoRa UART)";
 const char INTL_LORA_UART_INTERVAL[] PROGMEM = "LoRa sending interval (sec)";
-const char INTL_LORA_UART_HINT[] PROGMEM = "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8). Default 180 s (3 min); 120–300 s is typical for Meshtastic. Serial Module: enabled, TEXTMSG, 115200 (baud 11), timeout 1 s. Cross TX/RX and share GND. Compact JSON is Ed25519-signed (field s); verify by stripping s.";
+const char INTL_LORA_DEST_NODE[] PROGMEM = "Meshtastic destination (!xxxxxxxx)";
+const char INTL_LORA_UART_HINT[] PROGMEM = "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8), 115200. Serial Module: PROTO (not TEXTMSG). Sends core.v1.Message in a Meshtastic DM, PortNum 256. Prefix 0x01, or fragmented 0x41 if over 220 bytes. Destination is the gateway radio node id.";
 const char INTL_ROBONOMICS_PUBLIC_NODE_CUSTOM[] PROGMEM = "Custom Robonomics Public Node";
 const char INTL_GUEST_CONNECTED_SENSORS[] PROGMEM = "Connected Sensors";
 const char INTL_COORD_LAT[] PROGMEM = "Latitude";

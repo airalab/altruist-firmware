@@ -395,26 +395,53 @@ void LoggingSerial::beginStructuredOutput(unsigned long baud, int8_t rx_pin, int
 	}
 	Serial.setDebugOutput(true);
 	redirectLibcConsoleToUsb();
-	Serial.printf("[LoRa UART] console on USB, JSONL on GPIO%d\r\n", static_cast<int>(tx_pin));
+	Serial.printf("[LoRa UART] console on USB, Meshtastic PROTO on GPIO%d\r\n", static_cast<int>(tx_pin));
 }
 
-bool LoggingSerial::writeStructuredLine(const String& line)
+bool LoggingSerial::writeStructuredBytes(const uint8_t *data, size_t len)
 {
-	if (!m_structured_output || line.isEmpty()) {
+	if (!m_structured_output || !data || len == 0) {
 		return false;
 	}
 	if (m_write_mutex) {
 		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
 	}
-	static const uint8_t kLineEnd[] = {'\r', '\n'};
-	const size_t payload_written =
-	    HardwareSerial::write(reinterpret_cast<const uint8_t *>(line.c_str()), line.length());
-	const size_t newline_written = HardwareSerial::write(kLineEnd, sizeof(kLineEnd));
+	const size_t written = HardwareSerial::write(data, len);
 	HardwareSerial::flush();
 	if (m_write_mutex) {
 		xSemaphoreGive(m_write_mutex);
 	}
-	return payload_written == line.length() && newline_written == sizeof(kLineEnd);
+	return written == len;
+}
+
+int LoggingSerial::structuredAvailable()
+{
+	if (!m_structured_output) {
+		return 0;
+	}
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	const int n = HardwareSerial::available();
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return n;
+}
+
+int LoggingSerial::readStructured()
+{
+	if (!m_structured_output) {
+		return -1;
+	}
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	const int b = HardwareSerial::read();
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return b;
 }
 
 String LoggingSerial::popLines()

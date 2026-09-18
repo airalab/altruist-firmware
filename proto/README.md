@@ -1,7 +1,8 @@
-# Vendored sensors.social protobufs
+# Vendored connectivity-protocol protobufs
 
-Copied from [airalab/sensors-social-proto](https://github.com/airalab/sensors-social-proto)
-(`buf.build/airalab/sensors-social-proto`), commit `9ccdeed`.
+Copied from [airalab/connectivity-protocol](https://github.com/airalab/connectivity-protocol)
+tag [`v1-beta.2`](https://github.com/airalab/connectivity-protocol/releases/tag/v1-beta.2)
+(`buf.build/airalab/connectivity-protocol`).
 
 Do not edit field types by hand. Refresh from upstream, then regenerate C:
 

@@ -26,8 +26,9 @@ enum ProtoDest {
 };
 
 struct ProtoSample {
-	uint8_t owner[32]; /* Meta.owner: 32-byte pubkey, not SS58 */
-	int insight;       /* 1 = device.v1.Insight, 0 = device.v1.Urban */
+	uint64_t node_id;      /* Meta.node_id: CPS node filter, 0 = omit/default */
+	uint64_t timestamp_ms; /* Meta.timestamp: unix ms, signed inside Message */
+	int insight;           /* 1 = device.v1.Insight, 0 = device.v1.Urban */
 
 	int has_gps;
 	double lat;
@@ -65,15 +66,15 @@ struct ProtoSample {
 typedef int (*ProtoAeadFn)(const uint8_t *plain, size_t plain_len, uint8_t from_pk[32], uint8_t nonce[12],
 			   uint8_t **cipher, size_t *cipher_len);
 
-/* Ed25519 over preimage: sensor_id || le64(timestamp_ms) || nonce || message. */
+/* Ed25519 over preimage: sensor_id || nonce || message (timestamp lives in Meta). */
 typedef void (*ProtoSignFn)(void *ctx, const uint8_t *msg, size_t len, uint8_t sig[64]);
 
 ProtoBuildStatus proto_encode_message(const struct ProtoSample *sample, ProtoAeadFn aead, uint8_t *out, size_t out_cap,
 				      size_t *out_len);
 
 ProtoBuildStatus proto_encode_envelope(const uint8_t *message, size_t message_len, const uint8_t sensor_id[32],
-				       uint64_t timestamp_ms, const uint8_t *nonce, size_t nonce_len, ProtoSignFn sign,
-				       void *sign_ctx, uint8_t *out, size_t out_cap, size_t *out_len);
+				       const uint8_t *nonce, size_t nonce_len, ProtoSignFn sign, void *sign_ctx,
+				       uint8_t *out, size_t out_cap, size_t *out_len);
 
 #ifdef __cplusplus
 }

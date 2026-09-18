@@ -7,8 +7,7 @@
 #include <ArduinoJson.h>
 
 void setupLoRaUart();
-// Compact JSONL: {"id","ts","p1","p2","t","h","p","n","nm","s"}.
-// `s` is standard base64(Ed25519(body without s)). Unsigned lines are not sent.
-void sendLoRaTelemetryIfDue(const JsonDocument& data, const char* sensor_id);
+/* Prototype: core.v1.Message in a Meshtastic DM. SINGLE 0x01, or FRAGMENT 0x41 if >220 bytes. */
+void sendLoRaTelemetryIfDue(JsonDocument &data);
 
 #endif

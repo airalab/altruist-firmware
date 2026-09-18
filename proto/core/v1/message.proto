@@ -13,9 +13,13 @@ import "device/v1/insight.proto";
 
 // Non-measurement metadata.
 message Meta {
-  // Sensor owner public key (32 bytes).
-  // Used on the map for grouping sensors by owner.
-  bytes owner = 1;
+  // Robonomics CPS node identifier.
+  // Omitted value is interpreted as node_id = 0.
+  uint64 node_id = 1;
+
+  // Unix timestamp in milliseconds (UTC).
+  // Time associated with the measurement set in this Message.
+  uint64 timestamp = 2;
 }
 
 // Root telemetry message.

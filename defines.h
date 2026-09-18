@@ -109,6 +109,7 @@ void firmwareBlockingYieldHook(void);
 #define LEN_FS_SSID 33				// credentials for sensor access point mode
 
 #define LEN_RWS_OWNER 70
+#define LEN_LORA_DEST_NODE 12
 #define LEN_RWS_DEVICES_EXTRA 512
 #define LEN_RWS_DEVICES_REGISTERED_HASH 512
 #define LEN_RWS_GROUP_ID 24

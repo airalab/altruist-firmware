@@ -84,8 +84,8 @@ X(a, STATIC,   REPEATED, MESSAGE,  sensors,           1)
 #define device_v1_EncryptedUrban_sensors_MSGTYPE device_v1_UrbanSensor
 
 #define device_v1_Urban_FIELDLIST(X, a) \
-X(a, STATIC,   REPEATED, MESSAGE,  public_items,      1) \
-X(a, STATIC,   REPEATED, MESSAGE,  private_items,     2)
+X(a, STATIC,   REPEATED, MESSAGE,  public_items,            1) \
+X(a, STATIC,   REPEATED, MESSAGE,  private_items,           2)
 #define device_v1_Urban_CALLBACK NULL
 #define device_v1_Urban_DEFAULT NULL
 #define device_v1_Urban_public_items_MSGTYPE device_v1_UrbanSensor

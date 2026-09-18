@@ -52,6 +52,7 @@ namespace cfg {
 	bool send2csv = SEND2CSV;
 	bool lora_uart_enabled = false;
 	unsigned lora_uart_sending_intervall_ms = 180000;
+	char lora_dest_node[LEN_LORA_DEST_NODE] = "";
 
 	bool auto_update = AUTO_UPDATE;
 	bool use_beta = USE_BETA;  // Retained so existing config files remain readable.

@@ -1,127 +1,218 @@
-#include <Arduino.h>
-
 #include "lora_uart.h"
 
 #if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
 
 #include "../../config_manager/config_defaults.h"
 #include "../../defines.h"
-#include "../../sensors/sensor_names.h"
 #include "../../utils.h"
-#include "value_crypto.h"
+#include "meshtastic_frame.h"
+#include "meshtastic_toradio.h"
+#include "proto_envelope.h"
 
-#include <Ed25519.h>
-#include <cstdlib>
-#include <cstring>
-#include <math.h>
-#include <mbedtls/base64.h>
-#include <stdio.h>
-#include <time.h>
+#include <Arduino.h>
+#include <ctype.h>
+#include <esp_random.h>
+#include <stdlib.h>
+#include <string.h>
 
 namespace {
 
-// Meshtastic Data.payload is 237 bytes. Typical signed JSON is ~232; CRLF is extra.
-constexpr size_t LORA_UART_MAX_LINE_BYTES = 237;
 constexpr unsigned long LORA_UART_MIN_INTERVAL_MS = 30000UL;
-constexpr time_t LORA_UART_MIN_UNIX_TS = 1609459200; // 2021-01-01
+constexpr unsigned long LORA_HEARTBEAT_MS = 15000UL;
+constexpr unsigned LORA_HANDSHAKE_BOOT_MS = 2500;
+constexpr unsigned long LORA_HANDSHAKE_RETRY_MS = 15000UL;
+constexpr size_t LORA_RX_MAX = 512;
 
 unsigned long last_send_ms = 0;
+unsigned long last_heartbeat_ms = 0;
+unsigned long last_handshake_ms = 0;
 bool uart_ready = false;
+bool session_up = false;
+uint32_t want_config_id = 0;
 
-bool readMeasurementNumber(
-    const JsonDocument& source,
-    const char* sensor,
-    const char* measurement,
-    double& number
-) {
-	const JsonVariantConst value = source[sensor][measurement]["value"];
-	if (value.isNull()) {
-		return false;
-	}
-	if (value.is<const char*>()) {
-		const char* text = value.as<const char*>();
-		if (!text || !*text) {
-			return false;
-		}
-		char* end = nullptr;
-		number = strtod(text, &end);
-		if (!end || *end != '\0') {
-			return false;
-		}
-	} else {
-		number = value.as<double>();
-	}
-	return isfinite(number);
-}
+enum RxState : uint8_t { RxMagic1, RxMagic2, RxLenHi, RxLenLo, RxPayload };
+RxState rx_state = RxMagic1;
+uint16_t rx_len = 0;
+size_t rx_got = 0;
+uint8_t rx_buf[LORA_RX_MAX];
 
-void appendJsonKey(String& body, bool& first, const char* key)
+bool parseDestNode(uint32_t *dest)
 {
-	if (!first) {
-		body += ',';
-	}
-	first = false;
-	body += '"';
-	body += key;
-	body += "\":";
-}
-
-bool appendMeasurement(
-    const JsonDocument& source,
-    String& body,
-    bool& first,
-    const char* sensor,
-    const char* measurement,
-    const char* alias,
-    const char* fmt
-) {
-	double number = 0;
-	if (!readMeasurementNumber(source, sensor, measurement, number)) {
+	if (!dest) {
 		return false;
 	}
-	char buf[24];
-	if (snprintf(buf, sizeof(buf), fmt, number) <= 0) {
+	String raw = String(cfg::lora_dest_node);
+	raw.trim();
+	if (raw.length() == 0 || raw.equalsIgnoreCase(F("not set"))) {
 		return false;
 	}
-	appendJsonKey(body, first, alias);
-	body += buf;
+	if (raw.charAt(0) == '!') {
+		raw.remove(0, 1);
+	}
+	if (raw.length() == 0 || raw.length() > 8) {
+		return false;
+	}
+	for (unsigned i = 0; i < raw.length(); ++i) {
+		if (!isxdigit(static_cast<unsigned char>(raw.charAt(i)))) {
+			return false;
+		}
+	}
+	char *end = nullptr;
+	const unsigned long value = strtoul(raw.c_str(), &end, 16);
+	if (!end || *end != '\0' || value == 0 || value == MESHTASTIC_BROADCAST_NODE) {
+		return false;
+	}
+	*dest = static_cast<uint32_t>(value);
 	return true;
 }
 
-bool appendSignature(const String& body, String& line)
+uint32_t nextNonzeroRandom()
 {
-	if (body.length() < 2 || body[body.length() - 1] != '}') {
+	uint32_t value = 0;
+	while (value == 0) {
+		value = esp_random();
+	}
+	return value;
+}
+
+void handleFromRadio(const uint8_t *pb, size_t pb_len)
+{
+	uint32_t complete_id = 0;
+	if (meshtasticFromRadioConfigComplete(pb, pb_len, &complete_id) && complete_id == want_config_id &&
+	    want_config_id != 0) {
+		session_up = true;
+		debug_outln_info(F("[LoRa UART] Meshtastic session up"));
+	}
+}
+
+void pumpRx()
+{
+	while (Debug.structuredAvailable() > 0) {
+		const int raw = Debug.readStructured();
+		if (raw < 0) {
+			break;
+		}
+		const uint8_t byte = static_cast<uint8_t>(raw);
+		switch (rx_state) {
+		case RxMagic1:
+			if (byte == MESHTASTIC_SERIAL_START1) {
+				rx_state = RxMagic2;
+			}
+			break;
+		case RxMagic2:
+			rx_state = (byte == MESHTASTIC_SERIAL_START2) ? RxLenHi : RxMagic1;
+			break;
+		case RxLenHi:
+			rx_len = static_cast<uint16_t>(byte) << 8;
+			rx_state = RxLenLo;
+			break;
+		case RxLenLo:
+			rx_len |= byte;
+			if (rx_len == 0 || rx_len > LORA_RX_MAX) {
+				rx_state = RxMagic1;
+				break;
+			}
+			rx_got = 0;
+			rx_state = RxPayload;
+			break;
+		case RxPayload:
+			rx_buf[rx_got++] = byte;
+			if (rx_got >= rx_len) {
+				handleFromRadio(rx_buf, rx_len);
+				rx_state = RxMagic1;
+			}
+			break;
+		}
+	}
+}
+
+bool writeSerial(const uint8_t *packet, size_t len)
+{
+	return Debug.writeStructuredBytes(packet, len);
+}
+
+bool writeWantConfig()
+{
+	want_config_id = nextNonzeroRandom();
+	uint8_t packet[32];
+	const size_t n = meshtasticEncodeWantConfig(want_config_id, packet, sizeof(packet));
+	if (n == 0 || !writeSerial(packet, n)) {
+		debug_outln_error(F("[LoRa UART] want_config_id write failed"));
+		want_config_id = 0;
 		return false;
 	}
+	last_handshake_ms = millis();
+	if (last_handshake_ms == 0) {
+		last_handshake_ms = 1;
+	}
+	return true;
+}
 
-	uint8_t sk[VALUE_CRYPTO_KEY_LEN];
-	uint8_t pk[VALUE_CRYPTO_KEY_LEN];
-	if (!valueCryptoDeviceKeys(sk, pk)) {
-		debug_outln_error(F("[LoRa UART] no device key; unsigned JSONL skipped"));
+bool handshakeBlocking(unsigned timeout_ms)
+{
+	session_up = false;
+	if (!writeWantConfig()) {
 		return false;
 	}
+	const unsigned long start = millis();
+	while (msSince(start) < timeout_ms) {
+		pumpRx();
+		if (session_up) {
+			return true;
+		}
+		delay(10);
+	}
+	pumpRx();
+	if (!session_up) {
+		debug_outln_error(F("[LoRa UART] Meshtastic handshake timeout"));
+	}
+	return session_up;
+}
 
-	uint8_t sig[64];
-	Ed25519::sign(
-	    sig,
-	    sk,
-	    pk,
-	    reinterpret_cast<const uint8_t*>(body.c_str()),
-	    body.length()
-	);
+void maintainSession()
+{
+	pumpRx();
+	if (session_up) {
+		return;
+	}
+	if (last_handshake_ms != 0 && msSince(last_handshake_ms) < LORA_HANDSHAKE_RETRY_MS) {
+		return;
+	}
+	if (want_config_id != 0) {
+		debug_outln_error(F("[LoRa UART] Meshtastic handshake timeout"));
+	}
+	session_up = false;
+	writeWantConfig();
+}
 
-	unsigned char b64[96];
-	size_t olen = 0;
-	if (mbedtls_base64_encode(b64, sizeof(b64), &olen, sig, sizeof(sig)) != 0 || olen == 0) {
-		debug_outln_error(F("[LoRa UART] signature base64 failed"));
+void maybeHeartbeat()
+{
+	if (!session_up) {
+		return;
+	}
+	if (last_heartbeat_ms != 0 && msSince(last_heartbeat_ms) < LORA_HEARTBEAT_MS) {
+		return;
+	}
+	uint8_t packet[32];
+	const size_t n = meshtasticEncodeHeartbeat(nextNonzeroRandom(), packet, sizeof(packet));
+	if (n != 0 && writeSerial(packet, n)) {
+		last_heartbeat_ms = millis();
+	}
+}
+
+bool writeToRadio(const uint8_t *frame, size_t frame_len, uint32_t dest)
+{
+	uint8_t packet[4 + 32 + MESHTASTIC_TRANSPORT_MTU + 96];
+	const size_t n = meshtasticEncodeToRadioUnicast(dest, MESHTASTIC_PORTNUM_PRIVATE_APP, nextNonzeroRandom(), frame,
+							frame_len, packet, sizeof(packet));
+	if (n == 0) {
+		debug_outln_error(F("[LoRa UART] ToRadio encode failed"));
 		return false;
 	}
-	b64[olen] = '\0';
-
-	line = body;
-	line.remove(line.length() - 1);
-	line += F(",\"s\":\"");
-	line += reinterpret_cast<const char*>(b64);
-	line += F("\"}");
+	if (!writeSerial(packet, n)) {
+		debug_outln_error(F("[LoRa UART] UART write failed"));
+		return false;
+	}
 	return true;
 }
 
@@ -135,18 +226,25 @@ void setupLoRaUart()
 	Debug.beginStructuredOutput(LORA_UART_BAUD, LORA_UART_RX_PIN, LORA_UART_TX_PIN);
 	uart_ready = true;
 	Serial.printf(
-	    "[LoRa UART] JSONL enabled: TX=GPIO%d RX=GPIO%d baud=%d max=%u interval=%lus signed=ed25519\r\n",
+	    "[LoRa UART] Meshtastic v1: TX=GPIO%d RX=GPIO%d baud=%d port=%u interval=%lus\r\n",
 	    LORA_UART_TX_PIN,
 	    LORA_UART_RX_PIN,
 	    LORA_UART_BAUD,
-	    static_cast<unsigned int>(LORA_UART_MAX_LINE_BYTES),
+	    static_cast<unsigned int>(MESHTASTIC_PORTNUM_PRIVATE_APP),
 	    static_cast<unsigned long>(cfg::lora_uart_sending_intervall_ms) / 1000UL
 	);
+	handshakeBlocking(LORA_HANDSHAKE_BOOT_MS);
 }
 
-void sendLoRaTelemetryIfDue(const JsonDocument& data, const char* sensor_id)
+void sendLoRaTelemetryIfDue(JsonDocument &data)
 {
 	if (!uart_ready || !cfg::lora_uart_enabled) {
+		return;
+	}
+
+	maintainSession();
+	maybeHeartbeat();
+	if (!session_up) {
 		return;
 	}
 
@@ -158,73 +256,70 @@ void sendLoRaTelemetryIfDue(const JsonDocument& data, const char* sensor_id)
 		return;
 	}
 
-	if (!sensor_id || !*sensor_id || strcmp(sensor_id, "Not Set") == 0) {
-		debug_outln_error(F("[LoRa UART] no SS58 id; unsigned JSONL skipped"));
+	uint32_t dest = 0;
+	if (!parseDestNode(&dest)) {
+		debug_outln_error(F("[LoRa UART] dest node unset or broadcast; PKI unicast required"));
 		last_send_ms = millis();
 		return;
 	}
 
-	const time_t now = time(nullptr);
-	if (now < LORA_UART_MIN_UNIX_TS) {
-		debug_outln_error(F("[LoRa UART] no valid ts; waiting for time"));
-		return;
-	}
-
-	String body;
-	body.reserve(160);
-	body += '{';
-	bool first = true;
-	appendJsonKey(body, first, "id");
-	body += '"';
-	body += sensor_id;
-	body += '"';
-	appendJsonKey(body, first, "ts");
-	body += String(static_cast<uint32_t>(now));
-
-	unsigned int measurements = 0;
-	measurements += appendMeasurement(data, body, first, SDS_SENSOR_NAME, "P1", "p1", "%.1f");
-	measurements += appendMeasurement(data, body, first, SDS_SENSOR_NAME, "P2", "p2", "%.1f");
-	measurements += appendMeasurement(data, body, first, BME_SENSOR_NAME, "temperature", "t", "%.1f");
-	measurements += appendMeasurement(data, body, first, BME_SENSOR_NAME, "humidity", "h", "%.1f");
-	measurements += appendMeasurement(data, body, first, BME_SENSOR_NAME, "pressure", "p", "%.0f");
-	measurements += appendMeasurement(data, body, first, I2S_NOISE_SENSOR_NAME, "noiseAvg", "n", "%.0f");
-	measurements += appendMeasurement(data, body, first, I2S_NOISE_SENSOR_NAME, "noiseMax", "nm", "%.0f");
-	if (measurements == 0) {
-		return;
-	}
-	body += '}';
-
-	String line;
-	if (!appendSignature(body, line)) {
-		last_send_ms = millis();
-		return;
-	}
-	if (line.length() > LORA_UART_MAX_LINE_BYTES) {
-		Serial.printf(
-		    "[LoRa UART] JSONL payload exceeds %u bytes (%u); skipped\r\n",
-		    static_cast<unsigned int>(LORA_UART_MAX_LINE_BYTES),
-		    static_cast<unsigned int>(line.length())
-		);
+	static uint8_t message[PROTO_MESSAGE_BUF_BYTES];
+	size_t message_len = 0;
+	const ProtoBuildStatus st = protoBuildMessage(&data, message, sizeof(message), &message_len);
+	if (st != PROTO_BUILD_OK || message_len == 0) {
+		debug_outln_info(F("[LoRa UART] message skipped: "), String(protoBuildStatusReason(st)));
+		if (st == PROTO_BUILD_SIGN_FAILED) {
+			return;
+		}
 		last_send_ms = millis();
 		return;
 	}
 
-	if (Debug.writeStructuredLine(line)) {
+	const uint8_t count = meshtasticFragmentCount(message_len);
+	if (count == 0) {
+		debug_outln_error(F("[LoRa UART] Message exceeds Meshtastic v1 size"));
 		last_send_ms = millis();
-		debug_outln_info(F("[LoRa UART] JSONL sent, bytes="), String(line.length()));
-	} else {
-		debug_outln_error(F("[LoRa UART] write failed"));
+		return;
 	}
+
+	static uint8_t frame[MESHTASTIC_TRANSPORT_MTU];
+	if (count == 1) {
+		const size_t frame_len = meshtasticEncodeSingle(message, message_len, frame, sizeof(frame));
+		if (frame_len == 0 || !writeToRadio(frame, frame_len, dest)) {
+			return;
+		}
+		last_send_ms = millis();
+		debug_outln_info(F("[LoRa UART] SINGLE Message sent, bytes="), String(static_cast<unsigned>(message_len)));
+		return;
+	}
+
+	uint8_t message_id[MESHTASTIC_MESSAGE_ID_LEN];
+	if (!meshtasticMessageId(message, message_len, message_id)) {
+		debug_outln_error(F("[LoRa UART] message_id failed"));
+		last_send_ms = millis();
+		return;
+	}
+
+	for (uint8_t i = 0; i < count; ++i) {
+		const size_t frame_len =
+		    meshtasticEncodeFragment(message, message_len, message_id, i, count, frame, sizeof(frame));
+		if (frame_len == 0 || !writeToRadio(frame, frame_len, dest)) {
+			debug_outln_error(F("[LoRa UART] fragment send failed"));
+			return;
+		}
+		pumpRx();
+	}
+	last_send_ms = millis();
+	debug_outln_info(F("[LoRa UART] FRAGMENT Message sent, bytes="), String(static_cast<unsigned>(message_len)));
 }
 
 #else
 
 void setupLoRaUart() {}
 
-void sendLoRaTelemetryIfDue(const JsonDocument& data, const char* sensor_id)
+void sendLoRaTelemetryIfDue(JsonDocument &data)
 {
 	(void)data;
-	(void)sensor_id;
 }
 
 #endif
