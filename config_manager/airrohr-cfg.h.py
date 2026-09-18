@@ -28,6 +28,7 @@ Bool		send2robonomics
 Bool		send2csv
 Bool		lora_uart_enabled
 Time		lora_uart_sending_intervall_ms
+String		lora_dest_node
 Bool		auto_update
 Bool		use_beta
 Bool		has_display

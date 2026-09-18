@@ -144,6 +144,42 @@ static void log_envelope(size_t envelope_len, size_t message_len, uint64_t times
 	debug_outln_info(F("[PROTO] "), String(line));
 }
 
+static ProtoBuildStatus prepare_sample(JsonDocument &data, struct ProtoSample *sample) {
+	time_t now;
+
+	if (!sample) {
+		return PROTO_BUILD_ENCODE_FAILED;
+	}
+	if (!protoProtocolEnabled()) {
+		return PROTO_BUILD_DISABLED;
+	}
+	now = time(NULL);
+	if (now < 1600000000) {
+		return PROTO_BUILD_SIGN_FAILED;
+	}
+	fill_sample(data, sample);
+	sample->timestamp_ms = (uint64_t)now * 1000ULL;
+	sample->node_id = 0;
+	return PROTO_BUILD_OK;
+}
+
+ProtoBuildStatus protoBuildMessage(void *sensor_json, uint8_t *out, size_t out_cap, size_t *out_len) {
+	struct ProtoSample sample;
+	ProtoBuildStatus st;
+
+	if (out_len) {
+		*out_len = 0;
+	}
+	if (!sensor_json || !out || !out_len || out_cap < 16) {
+		return PROTO_BUILD_BUFFER_TOO_SMALL;
+	}
+	st = prepare_sample(*static_cast<JsonDocument *>(sensor_json), &sample);
+	if (st != PROTO_BUILD_OK) {
+		return st;
+	}
+	return proto_encode_message(&sample, aead_cps, out, out_cap, out_len);
+}
+
 ProtoBuildStatus protoBuildSignedEnvelope(JsonDocument &data, Robonomics *robonomics, uint8_t *out, size_t out_cap,
 					  size_t *out_len) {
 	struct ProtoSample sample;
@@ -151,15 +187,11 @@ ProtoBuildStatus protoBuildSignedEnvelope(JsonDocument &data, Robonomics *robono
 	static uint8_t message[PROTO_MESSAGE_BUF_BYTES];
 	size_t message_len = 0;
 	uint8_t nonce[PROTO_ENVELOPE_NONCE_LEN];
-	time_t now;
 	uint64_t timestamp_ms;
 	ProtoBuildStatus st;
 
 	if (out_len) {
 		*out_len = 0;
-	}
-	if (!protoProtocolEnabled()) {
-		return PROTO_BUILD_DISABLED;
 	}
 	if (!out || !out_len || out_cap < 64) {
 		return PROTO_BUILD_BUFFER_TOO_SMALL;
@@ -171,15 +203,10 @@ ProtoBuildStatus protoBuildSignedEnvelope(JsonDocument &data, Robonomics *robono
 		return PROTO_BUILD_KEY_FAILED;
 	}
 
-	fill_sample(data, &sample);
-
-	now = time(NULL);
-	if (now < 1600000000) {
-		/* NTP not ready: unix ms would be wrong and signature would not verify. */
-		return PROTO_BUILD_SIGN_FAILED;
+	st = prepare_sample(data, &sample);
+	if (st != PROTO_BUILD_OK) {
+		return st;
 	}
-	sample.timestamp_ms = (uint64_t)now * 1000ULL;
-	sample.node_id = 0;
 	timestamp_ms = sample.timestamp_ms;
 
 	st = proto_encode_message(&sample, aead_cps, message, sizeof(message), &message_len);

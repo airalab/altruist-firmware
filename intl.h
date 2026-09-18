@@ -933,13 +933,16 @@
 #define INTL_MAP_DUAL_HINT "Both can be on at once. JSON keeps the live map. For the test connectivity paste http://128.140.46.75/v1/telemetry below. Datalog is not duplicated."
 #endif
 #ifndef INTL_LORA_UART_ENABLED
-#define INTL_LORA_UART_ENABLED "Send compact JSON to LoRa UART"
+#define INTL_LORA_UART_ENABLED "Send to Meshtastic (LoRa UART)"
 #endif
 #ifndef INTL_LORA_UART_INTERVAL
 #define INTL_LORA_UART_INTERVAL "LoRa sending interval (sec)"
 #endif
+#ifndef INTL_LORA_DEST_NODE
+#define INTL_LORA_DEST_NODE "Meshtastic destination (!xxxxxxxx)"
+#endif
 #ifndef INTL_LORA_UART_HINT
-#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8). Default 180 s (3 min); 120–300 s is typical for Meshtastic. Serial Module: enabled, TEXTMSG, 115200 (baud 11), timeout 1 s. Cross TX/RX and share GND. Compact JSON is Ed25519-signed (field s); verify by stripping s."
+#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8), 115200. Serial Module: PROTO (not TEXTMSG). Sends core.v1.Message in a Meshtastic DM, PortNum 256. Prefix 0x01, or fragmented 0x41 if over 220 bytes. Destination is the gateway radio node id."
 #endif
 
 #endif

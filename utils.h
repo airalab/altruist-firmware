@@ -162,7 +162,9 @@ public:
     size_t write(uint8_t c) override;
     size_t write(const uint8_t *buffer, size_t size) override;
 	void beginStructuredOutput(unsigned long baud, int8_t rx_pin, int8_t tx_pin);
-	bool writeStructuredLine(const String& line);
+	bool writeStructuredBytes(const uint8_t *data, size_t len);
+	int structuredAvailable();
+	int readStructured();
 	bool structuredOutputEnabled() const { return m_structured_output; }
 	String popLines();
 

@@ -923,7 +923,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 		const bool sensors_updated = fetchSensors();
 #if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
 		if (sensors_updated && xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
-			sendLoRaTelemetryIfDue(sensors_data, robonomics.getSs58Address());
+			sendLoRaTelemetryIfDue(sensors_data);
 			xSemaphoreGive(mutex);
 		}
 #endif

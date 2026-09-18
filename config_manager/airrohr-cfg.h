@@ -56,6 +56,7 @@ enum ConfigShapeId {
 	Config_send2csv,
 	Config_lora_uart_enabled,
 	Config_lora_uart_sending_intervall_ms,
+	Config_lora_dest_node,
 	Config_auto_update,
 	Config_use_beta,
 	Config_has_display,
@@ -153,6 +154,7 @@ static constexpr char CFG_KEY_SEND2ROBONOMICS[] PROGMEM = "send2robonomics";
 static constexpr char CFG_KEY_SEND2CSV[] PROGMEM = "send2csv";
 static constexpr char CFG_KEY_LORA_UART_ENABLED[] PROGMEM = "lora_uart_enabled";
 static constexpr char CFG_KEY_LORA_UART_SENDING_INTERVALL_MS[] PROGMEM = "lora_uart_sending_intervall_ms";
+static constexpr char CFG_KEY_LORA_DEST_NODE[] PROGMEM = "lora_dest_node";
 static constexpr char CFG_KEY_AUTO_UPDATE[] PROGMEM = "auto_update";
 static constexpr char CFG_KEY_USE_BETA[] PROGMEM = "use_beta";
 static constexpr char CFG_KEY_HAS_DISPLAY[] PROGMEM = "has_display";
@@ -250,6 +252,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2CSV, &cfg::send2csv },
 	{ Config_Type_Bool, 0, CFG_KEY_LORA_UART_ENABLED, &cfg::lora_uart_enabled },
 	{ Config_Type_Time, 0, CFG_KEY_LORA_UART_SENDING_INTERVALL_MS, &cfg::lora_uart_sending_intervall_ms },
+	{ Config_Type_String, sizeof(cfg::lora_dest_node)-1, CFG_KEY_LORA_DEST_NODE, cfg::lora_dest_node },
 	{ Config_Type_Bool, 0, CFG_KEY_AUTO_UPDATE, &cfg::auto_update },
 	{ Config_Type_Bool, 0, CFG_KEY_USE_BETA, &cfg::use_beta },
 	{ Config_Type_Bool, 0, CFG_KEY_HAS_DISPLAY, &cfg::has_display },
