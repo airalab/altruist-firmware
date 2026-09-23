@@ -7,7 +7,7 @@
 #include <ArduinoJson.h>
 
 void setupLoRaUart();
-/* Prototype: core.v1.Message in a Meshtastic DM. SINGLE 0x01, or FRAGMENT 0x41 if >220 bytes. */
+/* Prototype: core.v1.Message in a Meshtastic DM. SINGLE 0x01, or FRAGMENT 0x41 if >218 bytes. */
 void sendLoRaTelemetryIfDue(JsonDocument &data);
 
 #endif

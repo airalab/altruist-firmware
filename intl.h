@@ -942,7 +942,7 @@
 #define INTL_LORA_DEST_NODE "Meshtastic destination (!xxxxxxxx)"
 #endif
 #ifndef INTL_LORA_UART_HINT
-#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8), 115200. Serial Module: PROTO (not TEXTMSG). Sends core.v1.Message in a Meshtastic DM, PortNum 256. Prefix 0x01, or fragmented 0x41 if over 220 bytes. Destination is the gateway radio node id."
+#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8), 115200. Serial Module: PROTO (not TEXTMSG). Sends core.v1.Message in a Meshtastic DM, PortNum 256. Prefix 0x01, or fragmented 0x41 if over 218 bytes. Destination is the gateway radio node id."
 #endif
 
 #endif
