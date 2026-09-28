@@ -942,7 +942,7 @@
 #define INTL_LORA_DEST_NODE "Meshtastic destination (!xxxxxxxx)"
 #endif
 #ifndef INTL_LORA_UART_HINT
-#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 / RX GPIO20, 115200. Serial Module: PROTO. Destination set: unicast protobuf Port 256 to that node (not chat). Empty dest: nothing is sent."
+#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 / RX GPIO20, 115200. Serial Module: PROTO. Destination set: unicast SignedEnvelope Port 256 to that node (not chat). Empty dest: nothing is sent."
 #endif
 
 #endif

@@ -266,7 +266,7 @@ void setupLoRaUart()
 	);
 }
 
-void sendLoRaTelemetryIfDue(JsonDocument &data)
+void sendLoRaTelemetryIfDue(JsonDocument &data, Robonomics *robonomics)
 {
 	if (!uart_ready || !cfg::lora_uart_enabled) {
 		return;
@@ -290,11 +290,12 @@ void sendLoRaTelemetryIfDue(JsonDocument &data)
 		return;
 	}
 
-	static uint8_t message[PROTO_MESSAGE_BUF_BYTES];
-	size_t message_len = 0;
-	const ProtoBuildStatus st = protoBuildMessage(&data, message, sizeof(message), &message_len);
-	if (st != PROTO_BUILD_OK || message_len == 0) {
-		debug_outln_info(F("[LoRa UART] message skipped: "), String(protoBuildStatusReason(st)));
+	static uint8_t envelope[PROTO_ENVELOPE_BUF_BYTES];
+	size_t envelope_len = 0;
+	const ProtoBuildStatus st =
+	    protoBuildSignedEnvelope(static_cast<void *>(&data), robonomics, envelope, sizeof(envelope), &envelope_len);
+	if (st != PROTO_BUILD_OK || envelope_len == 0) {
+		debug_outln_info(F("[LoRa UART] envelope skipped: "), String(protoBuildStatusReason(st)));
 		if (st == PROTO_BUILD_SIGN_FAILED) {
 			return;
 		}
@@ -302,29 +303,29 @@ void sendLoRaTelemetryIfDue(JsonDocument &data)
 		return;
 	}
 
-	const uint8_t count = meshtasticFragmentCount(message_len);
+	const uint8_t count = meshtasticFragmentCount(envelope_len);
 	if (count == 0) {
-		debug_outln_error(F("[LoRa UART] Message exceeds Meshtastic v1 size"));
+		debug_outln_error(F("[LoRa UART] SignedEnvelope exceeds Meshtastic v1 size"));
 		last_send_ms = millis();
 		return;
 	}
 
 	static uint8_t frame[MESHTASTIC_TRANSPORT_MTU];
 	if (count == 1) {
-		const size_t frame_len = meshtasticEncodeSingle(message, message_len, frame, sizeof(frame));
+		const size_t frame_len = meshtasticEncodeSingle(envelope, envelope_len, frame, sizeof(frame));
 		if (frame_len == 0 || !writeToRadio(frame, frame_len, dest)) {
 			return;
 		}
 	} else {
 		uint8_t message_id[MESHTASTIC_MESSAGE_ID_LEN];
-		if (!meshtasticMessageId(message, message_len, message_id)) {
+		if (!meshtasticMessageId(envelope, envelope_len, message_id)) {
 			debug_outln_error(F("[LoRa UART] message_id failed"));
 			last_send_ms = millis();
 			return;
 		}
 		for (uint8_t i = 0; i < count; ++i) {
 			const size_t frame_len =
-			    meshtasticEncodeFragment(message, message_len, message_id, i, count, frame, sizeof(frame));
+			    meshtasticEncodeFragment(envelope, envelope_len, message_id, i, count, frame, sizeof(frame));
 			if (frame_len == 0 || !writeToRadio(frame, frame_len, dest)) {
 				debug_outln_error(F("[LoRa UART] fragment send failed"));
 				return;
@@ -336,17 +337,18 @@ void sendLoRaTelemetryIfDue(JsonDocument &data)
 	last_send_ms = millis();
 	char dest_hex[12];
 	snprintf(dest_hex, sizeof(dest_hex), "!%08x", static_cast<unsigned int>(dest));
-	Serial.printf("[LoRa UART] unicast Message %s port=256 bytes=%u. Serial=PROTO, not chat.\r\n", dest_hex,
-		      static_cast<unsigned int>(message_len));
+	Serial.printf("[LoRa UART] unicast SignedEnvelope %s port=256 bytes=%u. Serial=PROTO, not chat.\r\n", dest_hex,
+		      static_cast<unsigned int>(envelope_len));
 }
 
 #else
 
 void setupLoRaUart() {}
 
-void sendLoRaTelemetryIfDue(JsonDocument &data)
+void sendLoRaTelemetryIfDue(JsonDocument &data, Robonomics *robonomics)
 {
 	(void)data;
+	(void)robonomics;
 }
 
 #endif
