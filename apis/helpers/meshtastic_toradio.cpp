@@ -72,11 +72,12 @@ bool pbGetVarint(const uint8_t *in, size_t len, size_t *off, uint32_t *value)
 
 } // namespace
 
-size_t meshtasticEncodeToRadioUnicast(uint32_t dest_node, uint32_t portnum, uint32_t packet_id, const uint8_t *frame,
-				      size_t frame_len, uint8_t *out, size_t out_cap)
+size_t meshtasticEncodeToRadio(uint32_t dest_node, uint32_t portnum, uint32_t packet_id, const uint8_t *payload,
+			       size_t payload_len, bool want_ack, bool pki, uint8_t hop_limit, uint32_t channel,
+			       uint8_t *out, size_t out_cap)
 {
-	if (!frame || !out || frame_len == 0 || frame_len > MESHTASTIC_TRANSPORT_MTU || packet_id == 0 || dest_node == 0 ||
-	    dest_node == MESHTASTIC_BROADCAST_NODE) {
+	if (!payload || !out || payload_len == 0 || payload_len > MESHTASTIC_TRANSPORT_MTU || packet_id == 0 ||
+	    dest_node == 0) {
 		return 0;
 	}
 
@@ -87,7 +88,7 @@ size_t meshtasticEncodeToRadioUnicast(uint32_t dest_node, uint32_t portnum, uint
 		return 0;
 	}
 	data_len = pbPutVarint(data_msg, sizeof(data_msg), data_len, portnum);
-	data_len = pbPutBytes(data_msg, sizeof(data_msg), data_len, 2, frame, frame_len);
+	data_len = pbPutBytes(data_msg, sizeof(data_msg), data_len, 2, payload, payload_len);
 	if (!data_len) {
 		return 0;
 	}
@@ -102,6 +103,13 @@ size_t meshtasticEncodeToRadioUnicast(uint32_t dest_node, uint32_t portnum, uint
 	packet[packet_len++] = static_cast<uint8_t>(dest_node >> 8);
 	packet[packet_len++] = static_cast<uint8_t>(dest_node >> 16);
 	packet[packet_len++] = static_cast<uint8_t>(dest_node >> 24);
+	if (channel != 0) {
+		packet_len = pbPutTag(packet, sizeof(packet), packet_len, 3, 0);
+		packet_len = pbPutVarint(packet, sizeof(packet), packet_len, channel);
+		if (!packet_len) {
+			return 0;
+		}
+	}
 	packet_len = pbPutBytes(packet, sizeof(packet), packet_len, 4, data_msg, data_len);
 	if (!packet_len) {
 		return 0;
@@ -114,10 +122,18 @@ size_t meshtasticEncodeToRadioUnicast(uint32_t dest_node, uint32_t portnum, uint
 	packet[packet_len++] = static_cast<uint8_t>(packet_id >> 8);
 	packet[packet_len++] = static_cast<uint8_t>(packet_id >> 16);
 	packet[packet_len++] = static_cast<uint8_t>(packet_id >> 24);
-	packet_len = pbPutTag(packet, sizeof(packet), packet_len, 10, 0);
-	packet_len = pbPutVarint(packet, sizeof(packet), packet_len, 1);
-	packet_len = pbPutTag(packet, sizeof(packet), packet_len, 17, 0);
-	packet_len = pbPutVarint(packet, sizeof(packet), packet_len, 1);
+	if (hop_limit != 0) {
+		packet_len = pbPutTag(packet, sizeof(packet), packet_len, 9, 0);
+		packet_len = pbPutVarint(packet, sizeof(packet), packet_len, hop_limit);
+	}
+	if (want_ack) {
+		packet_len = pbPutTag(packet, sizeof(packet), packet_len, 10, 0);
+		packet_len = pbPutVarint(packet, sizeof(packet), packet_len, 1);
+	}
+	if (pki) {
+		packet_len = pbPutTag(packet, sizeof(packet), packet_len, 17, 0);
+		packet_len = pbPutVarint(packet, sizeof(packet), packet_len, 1);
+	}
 	if (!packet_len) {
 		return 0;
 	}
@@ -128,6 +144,15 @@ size_t meshtasticEncodeToRadioUnicast(uint32_t dest_node, uint32_t portnum, uint
 		return 0;
 	}
 	return wrapSerial(toradio, inner, out, out_cap);
+}
+
+size_t meshtasticEncodeToRadioUnicast(uint32_t dest_node, uint32_t portnum, uint32_t packet_id, const uint8_t *frame,
+				      size_t frame_len, uint8_t *out, size_t out_cap)
+{
+	if (dest_node == MESHTASTIC_BROADCAST_NODE) {
+		return 0;
+	}
+	return meshtasticEncodeToRadio(dest_node, portnum, packet_id, frame, frame_len, true, true, 3, 0, out, out_cap);
 }
 
 size_t meshtasticEncodeWantConfig(uint32_t config_id, uint8_t *out, size_t out_cap)

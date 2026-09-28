@@ -6,8 +6,10 @@
 #define ARDUINOJSON_DECODE_UNICODE 0
 #include <ArduinoJson.h>
 
+class Robonomics;
+
 void setupLoRaUart();
-/* Prototype: core.v1.Message in a Meshtastic DM. SINGLE 0x01, or FRAGMENT 0x41 if >218 bytes. */
-void sendLoRaTelemetryIfDue(JsonDocument &data);
+/* Prototype: crypto.v1.SignedEnvelope in a Meshtastic DM. SINGLE 0x01, or FRAGMENT 0x41 if >218 bytes. */
+void sendLoRaTelemetryIfDue(JsonDocument &data, Robonomics *robonomics = nullptr);
 
 #endif

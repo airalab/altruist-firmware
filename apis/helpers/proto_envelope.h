@@ -4,7 +4,7 @@
 /**
  * Firmware adapter around proto_codec.
  * Reads sensor JSON + cfg::share_/encrypt_, resolves keys, then encodes
- * a crypto.v1.SignedEnvelope. Used by Robonomics HTTP (map) and datalog.
+ * a crypto.v1.SignedEnvelope. Used by Robonomics HTTP (map), datalog, and Meshtastic DM.
  */
 
 #include "proto_protocol.h"
@@ -19,9 +19,14 @@ ProtoBuildStatus protoBuildSignedEnvelope(JsonDocument &data, Robonomics *robono
 					  size_t *out_len);
 
 /*
- * core.v1.Message only (no SignedEnvelope). Meshtastic prototype DM payload.
- * `sensor_json` is JsonDocument*. void* avoids ArduinoJson ODR across TUs
- * (firmware.ino sets DECODE_UNICODE=0, this file does not).
+ * Same SignedEnvelope as HTTP. `sensor_json` is JsonDocument*. void* avoids
+ * ArduinoJson ODR across TUs (firmware.ino sets DECODE_UNICODE=0, this file does not).
+ */
+ProtoBuildStatus protoBuildSignedEnvelope(void *sensor_json, Robonomics *robonomics, uint8_t *out, size_t out_cap,
+					  size_t *out_len);
+
+/*
+ * core.v1.Message only (no SignedEnvelope). Kept for callers that need the inner payload.
  */
 ProtoBuildStatus protoBuildMessage(void *sensor_json, uint8_t *out, size_t out_cap, size_t *out_len);
 

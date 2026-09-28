@@ -4,7 +4,7 @@
 /*
  * Connectivity Protocol Meshtastic Transport v1 (sender).
  * Spec: connectivity-protocol/transport/meshtastic/v1.md
- * Opaque payload for the prototype is serialized core.v1.Message (not SignedEnvelope).
+ * Opaque payload is serialized crypto.v1.SignedEnvelope (inner core.v1.Message).
  */
 
 #include <stddef.h>

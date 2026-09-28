@@ -223,3 +223,14 @@ ProtoBuildStatus protoBuildSignedEnvelope(JsonDocument &data, Robonomics *robono
 	}
 	return st;
 }
+
+ProtoBuildStatus protoBuildSignedEnvelope(void *sensor_json, Robonomics *robonomics, uint8_t *out, size_t out_cap,
+					  size_t *out_len) {
+	if (!sensor_json) {
+		if (out_len) {
+			*out_len = 0;
+		}
+		return PROTO_BUILD_EMPTY;
+	}
+	return protoBuildSignedEnvelope(*static_cast<JsonDocument *>(sensor_json), robonomics, out, out_cap, out_len);
+}
