@@ -116,6 +116,19 @@ namespace
 		return hosts;
 	}
 
+	String builtInProtoHost(const String &reg)
+	{
+		const int n = sizeof(HOST_ROBONOMICS_PROTO) / sizeof(HOST_ROBONOMICS_PROTO[0]);
+		for (int i = 0; i < n; ++i)
+		{
+			if (hostRegionMatches(reg, HOST_ROBONOMICS_PROTO[i][1]))
+			{
+				return FPSTR(HOST_ROBONOMICS_PROTO[i][0]);
+			}
+		}
+		return FPSTR(ROBONOMICS_PROTO_CONNECTIVITY_HOST);
+	}
+
 	struct ProtoHttpTarget {
 		String host;
 		uint16_t port;
@@ -350,8 +363,13 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 	const bool can_proto = protoProtocolEnabled();
 	String proto_host_override = String(cfg::robonomics_proto_connectivity_host);
 	proto_host_override.trim();
-	// Proto Map POST only when a URL is set (test ingest / future zone host).
-	// Empty URL must not spray protobuf at the legacy :65/ JSON servers.
+	if (can_proto && cfg::map_send_proto && proto_host_override.length() == 0)
+	{
+		proto_host_override = builtInProtoHost(current_reg);
+		proto_host_override.trim();
+	}
+	// Proto POST uses the firmware default URL, or a custom URL if set.
+	// Empty custom field must not spray protobuf at the legacy :65/ JSON servers.
 	bool want_proto = can_proto && cfg::map_send_proto && proto_host_override.length() > 0;
 	bool want_csv = cfg::map_send_csv || !want_proto;
 
@@ -372,6 +390,29 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 			}
 		}
 	}
+
+	is_ok = false;
+	bool any_ok = false;
+
+	// Own proto URL must not wait for Map :65/ host selection (that GET can timeout).
+	if (want_proto && proto_host_override.length() > 0)
+	{
+		is_ok = false;
+		POSTRequest(proto_envelope, proto_len, proto_host_override);
+		any_ok = is_ok;
+		if (any_ok)
+		{
+			/* Both checkboxes: JSON is backup only. Proto success skips :65/. */
+			is_ok = true;
+			return;
+		}
+		if (!cfg::map_send_csv)
+		{
+			return;
+		}
+		want_csv = true;
+	}
+
 	if (want_csv && !formatDataToSend(data_to_send, data))
 	{
 		logConnectivityFailure(map_send_seq_active, F("encryption_failed"));
@@ -390,16 +431,6 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 	debug_outln_verbose(String(F("[Map] send csv=")) + String(want_csv ? 1 : 0) + F(" proto=") +
 			    String(want_proto ? 1 : 0) +
 			    (proto_host_override.length() > 0 ? (String(F(" proto_host=")) + proto_host_override) : String()));
-	is_ok = false;
-	bool any_ok = false;
-
-	// Own proto URL must not wait for Map :65/ host selection (that GET can timeout).
-	if (want_proto && proto_host_override.length() > 0)
-	{
-		is_ok = false;
-		POSTRequest(proto_envelope, proto_len, proto_host_override);
-		any_ok = is_ok;
-	}
 
 	const bool need_map_host = want_csv || (want_proto && proto_host_override.length() == 0);
 	if (!need_map_host)

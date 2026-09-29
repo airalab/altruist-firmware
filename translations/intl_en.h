@@ -266,8 +266,8 @@ const char INTL_ROBONOMICS_CONNECTIVITY_PRESET_LABEL[] PROGMEM = "Pinned host (p
 const char INTL_ROBONOMICS_CONNECTIVITY_CUSTOM_LABEL[] PROGMEM = "Custom host";
 const char INTL_MAP_SEND_CSV[] PROGMEM = "Send JSON/CSV to Map (current connectivity)";
 const char INTL_MAP_SEND_PROTO[] PROGMEM = "Send protobuf (new protocol)";
-const char INTL_MAP_PROTO_HOST[] PROGMEM = "Protobuf URL (empty = same Map host:65/)";
-const char INTL_MAP_DUAL_HINT[] PROGMEM = "Both can be on at once. JSON keeps the live map. For the test connectivity paste http://128.140.46.75/v1/telemetry below. Datalog is not duplicated.";
+const char INTL_MAP_PROTO_HOST[] PROGMEM = "Protobuf URL (empty = firmware default)";
+const char INTL_MAP_DUAL_HINT[] PROGMEM = "Both can be on at once. Protobuf goes first; JSON is backup if protobuf fails. Datalog is not duplicated.";
 const char INTL_LORA_UART_ENABLED[] PROGMEM = "Send to Meshtastic (LoRa UART)";
 const char INTL_LORA_UART_INTERVAL[] PROGMEM = "LoRa sending interval (sec)";
 const char INTL_LORA_DEST_NODE[] PROGMEM = "Meshtastic destination (!xxxxxxxx)";
