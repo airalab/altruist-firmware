@@ -927,10 +927,10 @@
 #define INTL_MAP_SEND_PROTO "Send protobuf (new protocol)"
 #endif
 #ifndef INTL_MAP_PROTO_HOST
-#define INTL_MAP_PROTO_HOST "Protobuf URL (empty = same Map host:65/)"
+#define INTL_MAP_PROTO_HOST "Protobuf URL (empty = firmware default)"
 #endif
 #ifndef INTL_MAP_DUAL_HINT
-#define INTL_MAP_DUAL_HINT "Both can be on at once. JSON keeps the live map. For the test connectivity paste http://128.140.46.75/v1/telemetry below. Datalog is not duplicated."
+#define INTL_MAP_DUAL_HINT "Both can be on at once. Protobuf goes first; JSON is backup if protobuf fails. Datalog is not duplicated."
 #endif
 #ifndef INTL_LORA_UART_ENABLED
 #define INTL_LORA_UART_ENABLED "Send to Meshtastic (LoRa UART)"

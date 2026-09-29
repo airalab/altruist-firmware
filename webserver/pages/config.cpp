@@ -1,5 +1,6 @@
 #include "pages.h"
 #include "../../config_manager/config_helpers.h"
+#include "../../robonomics_servers.h"
 #include "../../utils.h"
 #include "../html-content.h"
 #include "../utils.h"
@@ -412,6 +413,11 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 				"<option value='2.connectivity.robonomics.network'");
 		if (is_default2) page_content += F(" selected='selected'");
 		page_content += F(">2.connectivity.robonomics.network (Global)</option>"
+#ifdef ALTRUIST_PROTO_PROTOCOL
+				"<option value='' disabled>"
+				ROBONOMICS_PROTO_CONNECTIVITY_HOST_STR
+				" (protobuf)</option>"
+#endif
 			"</select>"
 			"</div>");
 
@@ -439,8 +445,13 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 
 		page_content += F("<div id='robonomics_connectivity_hosts_hint' class='form-hint' style='display:none;'>"
 			"Example pool:<br/>"
-			"<code>connectivity.robonomics.network<br/>1.connectivity.robonomics.network<br/>2.connectivity.robonomics.network</code>"
-			"</div>");
+			"<code>connectivity.robonomics.network<br/>1.connectivity.robonomics.network<br/>2.connectivity.robonomics.network</code>");
+#ifdef ALTRUIST_PROTO_PROTOCOL
+		page_content += F("<br/>Protobuf default:<br/><code>");
+		page_content += F(ROBONOMICS_PROTO_CONNECTIVITY_HOST_STR);
+		page_content += F("</code>");
+#endif
+		page_content += F("</div>");
 #ifdef ALTRUIST_PROTO_PROTOCOL
 		page_content += F("<p class='form-hint'>");
 		page_content += FPSTR(INTL_MAP_DUAL_HINT);

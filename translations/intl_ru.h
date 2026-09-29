@@ -256,8 +256,8 @@ const char INTL_ROBONOMICS_CONNECTIVITY_PRESET_LABEL[] PROGMEM = "Закрепл
 const char INTL_ROBONOMICS_CONNECTIVITY_CUSTOM_LABEL[] PROGMEM = "Свой хост";
 const char INTL_MAP_SEND_CSV[] PROGMEM = "Отправлять JSON/CSV на карту (текущий connectivity)";
 const char INTL_MAP_SEND_PROTO[] PROGMEM = "Отправлять protobuf (новый протокол)";
-const char INTL_MAP_PROTO_HOST[] PROGMEM = "URL protobuf (пусто = тот же хост карты :65/)";
-const char INTL_MAP_DUAL_HINT[] PROGMEM = "Можно включить оба. JSON держит живую карту. Для тестового connectivity вставь ниже http://128.140.46.75/v1/telemetry. Datalog не дублируется.";
+const char INTL_MAP_PROTO_HOST[] PROGMEM = "URL protobuf (пусто = адрес из прошивки)";
+const char INTL_MAP_DUAL_HINT[] PROGMEM = "Можно включить оба. Сначала protobuf; JSON — запасной, если protobuf не ушёл. Datalog не дублируется.";
 const char INTL_LORA_UART_ENABLED[] PROGMEM = "Отправлять в Meshtastic (LoRa UART)";
 const char INTL_LORA_UART_INTERVAL[] PROGMEM = "Интервал отправки в LoRa (с)";
 const char INTL_LORA_DEST_NODE[] PROGMEM = "Meshtastic получатель (!xxxxxxxx)";
