@@ -36,6 +36,7 @@ namespace cfg {
 	char robonomics_proto_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST] = "";
 	bool map_send_csv = true;
 	bool map_send_proto = true;
+	unsigned node_id = 0;
 	bool rws_auto_register = true;
 	unsigned rws_group_mode = RWS_GROUP_STANDALONE;
 	char rws_group_id[LEN_RWS_GROUP_ID] = "";

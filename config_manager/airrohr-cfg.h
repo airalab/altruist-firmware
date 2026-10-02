@@ -45,6 +45,7 @@ enum ConfigShapeId {
 	Config_robonomics_proto_connectivity_host,
 	Config_map_send_csv,
 	Config_map_send_proto,
+	Config_node_id,
 	Config_rws_auto_register,
 	Config_rws_group_mode,
 	Config_rws_group_id,
@@ -143,6 +144,7 @@ static constexpr char CFG_KEY_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "robonom
 static constexpr char CFG_KEY_ROBONOMICS_PROTO_CONNECTIVITY_HOST[] PROGMEM = "robonomics_proto_connectivity_host";
 static constexpr char CFG_KEY_MAP_SEND_CSV[] PROGMEM = "map_send_csv";
 static constexpr char CFG_KEY_MAP_SEND_PROTO[] PROGMEM = "map_send_proto";
+static constexpr char CFG_KEY_NODE_ID[] PROGMEM = "node_id";
 static constexpr char CFG_KEY_RWS_AUTO_REGISTER[] PROGMEM = "rws_auto_register";
 static constexpr char CFG_KEY_RWS_GROUP_MODE[] PROGMEM = "rws_group_mode";
 static constexpr char CFG_KEY_RWS_GROUP_ID[] PROGMEM = "rws_group_id";
@@ -241,6 +243,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::robonomics_proto_connectivity_host)-1, CFG_KEY_ROBONOMICS_PROTO_CONNECTIVITY_HOST, cfg::robonomics_proto_connectivity_host },
 	{ Config_Type_Bool, 0, CFG_KEY_MAP_SEND_CSV, &cfg::map_send_csv },
 	{ Config_Type_Bool, 0, CFG_KEY_MAP_SEND_PROTO, &cfg::map_send_proto },
+	{ Config_Type_UInt, 0, CFG_KEY_NODE_ID, &cfg::node_id },
 	{ Config_Type_Bool, 0, CFG_KEY_RWS_AUTO_REGISTER, &cfg::rws_auto_register },
 	{ Config_Type_UInt, 0, CFG_KEY_RWS_GROUP_MODE, &cfg::rws_group_mode },
 	{ Config_Type_String, sizeof(cfg::rws_group_id)-1, CFG_KEY_RWS_GROUP_ID, cfg::rws_group_id },

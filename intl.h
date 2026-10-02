@@ -920,6 +920,9 @@
 #ifndef INTL_REGION_HINT
 #define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / OTA unless you change it here."
 #endif
+#ifndef INTL_NODE_ID
+#define INTL_NODE_ID "CPS node ID (0 = not set)"
+#endif
 #ifndef INTL_MAP_SEND_CSV
 #define INTL_MAP_SEND_CSV "Send JSON/CSV to Map (current connectivity)"
 #endif

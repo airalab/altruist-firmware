@@ -179,6 +179,8 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
+#define INTL_NODE_ID INTL_NODE_ID
+const char INTL_NODE_ID[] PROGMEM = "CPS node ID (0 = not set)";
 const char INTL_GROUP_MENU[] PROGMEM = "Device group (RWS)";
 const char INTL_GROUP_INTRO[] PROGMEM = "Choose how this device participates in Robonomics Web Services (owner and on-chain device list).";
 const char INTL_GROUP_MODE_TITLE[] PROGMEM = "Operating mode";

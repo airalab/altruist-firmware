@@ -315,6 +315,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("</a></p>");
 	}
 	add_form_input(page_content, Config_rws_owner, FPSTR(INTL_RWS_OWNER), LEN_RWS_OWNER-1);
+	add_form_input(page_content, Config_node_id, FPSTR(INTL_NODE_ID), 10);
 	add_form_input(page_content, Config_datalog_sending_intervall_ms, FPSTR(INTL_DATALOG_SENDING_INTERVAL), 5);
 	{
 		String current_node = String(cfg::robonomics_public_node);

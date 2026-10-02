@@ -36,6 +36,8 @@ namespace cfg {
 	extern char robonomics_proto_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST];
 	extern bool map_send_csv;
 	extern bool map_send_proto;
+	/** CPS NodeId from create_node; 0 = unset (omitted / default in proto Meta). */
+	extern unsigned node_id;
 	extern bool rws_auto_register;
 	extern unsigned rws_group_mode;
 	extern char rws_group_id[LEN_RWS_GROUP_ID];

@@ -179,6 +179,8 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подписки";
+#define INTL_NODE_ID INTL_NODE_ID
+const char INTL_NODE_ID[] PROGMEM = "ID узла CPS (0 = не задан)";
 #define INTL_GROUP_MENU "Группа устройств (RWS)"
 #define INTL_GROUP_INTRO "Выберите режим участия в Robonomics Web Services (owner и on-chain список устройств)."
 #define INTL_GROUP_MODE_TITLE "Режим работы"

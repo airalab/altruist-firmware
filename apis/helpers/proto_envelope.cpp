@@ -138,9 +138,9 @@ static void sign_ed25519(void *ctx, const uint8_t *msg, size_t len, uint8_t sig[
 static void log_envelope(size_t envelope_len, size_t message_len, uint64_t timestamp_ms, const uint8_t sensor_id[32]) {
 	char line[128];
 	snprintf(line, sizeof(line),
-		 "envelope_len=%u message_len=%u timestamp_ms=%" PRIu64 " sensor_id=%02x%02x%02x%02x...",
-		 (unsigned)envelope_len, (unsigned)message_len, timestamp_ms, sensor_id[0], sensor_id[1], sensor_id[2],
-		 sensor_id[3]);
+		 "envelope_len=%u message_len=%u timestamp_ms=%" PRIu64 " node_id=%u sensor_id=%02x%02x%02x%02x...",
+		 (unsigned)envelope_len, (unsigned)message_len, timestamp_ms, cfg::node_id, sensor_id[0], sensor_id[1],
+		 sensor_id[2], sensor_id[3]);
 	debug_outln_info(F("[PROTO] "), String(line));
 }
 
@@ -159,7 +159,7 @@ static ProtoBuildStatus prepare_sample(JsonDocument &data, struct ProtoSample *s
 	}
 	fill_sample(data, sample);
 	sample->timestamp_ms = (uint64_t)now * 1000ULL;
-	sample->node_id = 0;
+	sample->node_id = cfg::node_id;
 	return PROTO_BUILD_OK;
 }
 
