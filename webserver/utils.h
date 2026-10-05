@@ -40,6 +40,9 @@ String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool l
 String form_submit(const String& value);
 String form_select_lang();
 String form_select_altruist(JsonDocument& data);
+#ifdef ALTRUIST_INSIGHT
+String form_extra_urban_pages(JsonDocument& data);
+#endif
 String form_select_timezone();
 String form_select_reg();
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length, bool enabled);

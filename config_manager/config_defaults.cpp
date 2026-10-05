@@ -36,6 +36,7 @@ namespace cfg {
 	char robonomics_proto_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST] = "";
 	bool map_send_csv = true;
 	bool map_send_proto = true;
+	unsigned node_id = 0;
 	bool rws_auto_register = true;
 	unsigned rws_group_mode = RWS_GROUP_STANDALONE;
 	char rws_group_id[LEN_RWS_GROUP_ID] = "";
@@ -79,12 +80,14 @@ namespace cfg {
 	char donated_by[LEN_DONATED_BY];
 
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
+	char pressure_correction[LEN_PRESSURE_CORRECTION] = PRESSURE_CORRECTION;
 	char local_hostname[LEN_LOCAL_HOSTNAME] = "";
 	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	char timezone[LEN_TIMEZONE] = "<+00>0";
 	char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	bool use_custom_urban = false;
 	bool standalone = false;
+	char extra_urbans[LEN_EXTRA_URBANS] = "";
 	unsigned epd_refresh_mode = EPD_REFRESH_SAFE;
 	bool analytics_sleep_add_urban = false;
 

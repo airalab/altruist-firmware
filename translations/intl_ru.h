@@ -121,8 +121,20 @@ const char INTL_CCS811_3F[] PROGMEM = "CCS811 (I2C: 0x5B)";
 const char INTL_DNMS[] PROGMEM = "DNMS ({l_a})";
 const char INTL_DNMS_CORRECTION[] PROGMEM = "поправка в dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Коррекция температуры в °C";
+#define INTL_PRESSURE_CORRECTION INTL_PRESSURE_CORRECTION
+const char INTL_PRESSURE_CORRECTION[] PROGMEM = "Коррекция давления в гПа";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Пользовательский адрес Altruist Urban";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать пользовательский адрес Altruist Urban";
+#define INTL_MAIN_URBAN "Главный Urban (первая страница с Insight)"
+#define INTL_PANEL_TITLE_EXTRA_URBANS "Другие Urban"
+#define INTL_URBAN_PAGES_GROUP "Другие Urban на экране"
+#define INTL_URBAN_PAGES_HINT "Добавьте любые Urban кроме главного. У каждого — своя страница на экране только с его данными. Можно выбрать найденный или ввести IP и дать имя (кухня, балкон…)."
+#define INTL_EXTRA_URBAN "Urban"
+#define INTL_URBAN_NAME "Имя на экране"
+#define INTL_URBAN_NONE "— нет —"
+#define INTL_URBAN_CUSTOM_IP "IP-адрес"
+#define INTL_ADD_EXTRA_URBAN "Добавить Urban"
+#define INTL_REMOVE_EXTRA_URBAN "Убрать"
 const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без связи с Urban)";
 
 // Выбор Urban (настройка и страница конфигурации)
@@ -179,6 +191,8 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подписки";
+#define INTL_NODE_ID INTL_NODE_ID
+const char INTL_NODE_ID[] PROGMEM = "ID узла CPS (0 = не задан)";
 #define INTL_GROUP_MENU "Группа устройств (RWS)"
 #define INTL_GROUP_INTRO "Выберите режим участия в Robonomics Web Services (owner и on-chain список устройств)."
 #define INTL_GROUP_MODE_TITLE "Режим работы"
@@ -612,3 +626,4 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_TEMP_SHORT "Темп."
 #define INTL_DISP_PRESS_SHORT "Давл."
 #define INTL_DISP_NOISE_AVGMAX_SUFFIX "(ср | макс)"
+

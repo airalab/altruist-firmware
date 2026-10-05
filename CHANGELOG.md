@@ -2,10 +2,14 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [R_2026-09](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-09) — 2026-09
+## [Unreleased]
+
+## [R_2026-10](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-10) — 2026-10
 
 ### Features
 
+- **Pressure offset (#165)** — Configurable **Pressure correction in hPa** next to the temperature offset (default `0.0`). Applied to Urban BME280 (hPa) and Insight BME680 (Pa, converted from the same hPa field) so map, protobuf, and display all see the corrected value.
+- **CPS `node_id`** — Settings field under Robonomics (default `0` = unset). Written into protobuf `Meta.node_id` for map grouping after `create_node`.
 - **Owner-value encryption (CPS / AES-256-GCM)** — Optional per-metric encryption for sensors.map (off by default). Selected values are encrypted for the device **owner** via ECDH (device private key + owner public key) → HKDF (`salt=robonomics-network`, `info=aesgcm256`, same order as libcps) → AES-256-GCM. Wire format: `e.<base64(json)>` with `from` as **SS58** (Robonomics prefix 32, with checksum — not raw base58), `nonce`, and `ciphertext`. Decrypt on sensors.map after owner login (mnemonic) or self-owner JSON import. Config toggles under **Encrypt map values** (climate = temperature + humidity together). When `rws_owner` is unset, the device encrypts to itself (self-owner). Debug builds run `valueCryptoSelfTest()` (ECDH/HKDF/GCM/SS58) at datalog setup.
 - **Self-owner map access JSON** — Authenticated download at `/owner-access.json` (`format: altruist-owner1`, ed25519 `seed` + `address`) for Standalone/Master devices. **Device group** page auto-downloads the file once after Save; **Download again…** re-fetches with a confirm dialog. Import on sensors.map Login to decrypt without a mnemonic.
 - **Device backup & restore** — Full settings backup (including owner key when present) via `/backup.json` on **System → Backup & restore**. Restore from JSON (`POST /restore-backup`) replaces `config.json` and restarts. Same backup file can be used on sensors.map Login. On the **guest Wi‑Fi setup** page (`/guest`), restore is available before joining home Wi‑Fi so a reset device can recover credentials, owner key, and encryption settings in one step (multipart upload posts to `/guest-restore`; Advanced keeps `/restore-backup`).
@@ -27,6 +31,10 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Improvements
 
+- **Insight buttons** — Long-press is **1 s** on every screen (was 3 s). Graph enter/leave no longer remounts the SD card on the button press; navigation uses the last draw cache.
+- **Insight several Urbans** — On the main screen, same as graphs: short **SET** next Urban, short **UP** previous (header `1/N`). First page is **main Urban + Insight**. Extra Urbans are their own pages (Urban data only). At the last/first page, short SET/UP leave MAIN. Long SET/UP change screens. Long DOWN still sleeps. Returning to MAIN always shows the main Urban page.
+- **Insight Other Urbans (settings)** — Local, before Sleep analytics: add extras with **Add Urban** — found list or IP, plus a screen name (kitchen, balcony…).
+- **SCD41 automatic self-calibration (#164)** — Enable Sensirion ASC on Insight (`begin(..., autoCalibrate=true)`). Previously ASC was turned off at startup, which allowed unrealistically low CO₂ (e.g. ~287 ppm). ASC needs days and occasional fresh air; readings below 400 ppm are not clamped in software.
 - **Sleep Analytics thresholds + noise peaks** — Temperature uses two-sided comfort bands (General **19–22°C**, Biohacking **17–20°C**). Noise scores by counting night hours whose max `noiseMax` exceeds **45 dB** (allowance 5 / 1 peaks; −2% / −3% impact per excess peak). Hourly history stores `max_v` (NVS hist version 5); **v4→v5 migrates** existing averages (provisional `max_v` = hour avg until fresh `noiseMax` samples). Night card shows peak count instead of night-average dB.
 - **Urban noise absolute SPL (ICS-43434)** — I2S pipeline calibrated to absolute A-weighted SPL instead of an arbitrary offset/`FACTOR`. Samples normalized to ±1.0 FS (`2^23`); FFT octave energy converted to mean-square with Hann compensation; dB from mic sensitivity **−26 dBFS @ 94 dB SPL**. Removed hardcoded `MIC_OFFSET` / `FACTOR`. Exported units are **dBA** (`noiseMax` / `noiseAvg`). Quiet-room levels should land near the expected ~36–38 dBA range.
 - **Hub sidebar TOC** — Desktop submenu lists every hub card (Wi‑Fi, Publish to Map, Encrypt map values, Robonomics, Custom API, …) with hash anchors and scroll-spy highlighting.
@@ -52,6 +60,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
+- **Insight Urban graphs** — CSV logs **only the main Urban**. Extra Urbans stay on the display cache and are not written to the graph file. Non-numeric fields such as `IP_address` are skipped so temperature/pressure columns no longer shift (values looking like thousandths of a degree, pressure ~0 mmHg).
 - **Insight analytics buttons double-advance when SD looks missing** — Short UP/SET on the analytics screen ran navigation twice if `checkInserted()` failed (Analytics→Main→Settings). Navigation no longer depends on SD there (night score uses NVS). SD mount: drop fragile 40 MHz default, try 10/4/20 MHz with `SD.end()` between attempts, and throttle remount retries to 5 s.
 - **Insight `sensors_data` JSON overflow after hours (#149)** — ArduinoJson 6 does not reclaim pool memory when strings/arrays are replaced. Long runs with SCD4x + BME680 + Urban HTTP filled the 4096-byte document (`json_overflow`). Fixed by setting `intl_name`/`units` only once, reusing `altruist_addresses` instead of recreating it every Urban fetch, and calling `garbageCollect()` when usage exceeds ~80% or overflow is detected.
 - **Config not saved after Wi‑Fi / setup** — `writeConfig()` used `json.as<JsonObject>()` on an empty document (null object), so `config.json` was never written. Devices could loop in captive-portal setup after enabling encryption or finishing guest Wi‑Fi. Fixed to `json.to<JsonObject>()`.

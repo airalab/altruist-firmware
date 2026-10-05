@@ -45,6 +45,9 @@ static constexpr uint8_t kGraphSdMaxRetries = 6;
 static bool g_graph_sd_probe_cache_valid = false;
 static bool g_graph_sd_files_ok_cached = false;
 static bool g_graph_sd_data_ready_cached = false;
+static uint32_t g_last_insert_check_ms = 0;
+static bool g_last_insert_ok = false;
+static constexpr uint32_t kSdInsertCheckThrottleMs = 4000;
 
 void graphMarkValueSwitch() {
     g_graph_sd_retry_attempts = 0;
@@ -57,6 +60,8 @@ void graphInvalidateSdProbeCache() {
     g_graph_sd_probe_cache_valid = false;
     g_graph_sd_files_ok_cached = false;
     g_graph_sd_data_ready_cached = false;
+    g_last_insert_check_ms = 0;
+    g_last_insert_ok = false;
     g_graph_sd_retry_attempts = 0;
     g_graph_sd_retry_pending = false;
     g_graph_sd_backoff_until_ms = 0;
@@ -253,11 +258,16 @@ static void graphClearContentArea(uint16_t contentTop, uint16_t navTop) {
 }
 
 static bool checkSDCardAvailable() {
-    // Use checkInserted which properly detects card removal
-    // It checks card type and tries to reinitialize if needed
+    const uint32_t now = millis();
+    if (g_graph_sd_probe_cache_valid && g_last_insert_ok && g_last_insert_check_ms != 0 &&
+        (uint32_t)(now - g_last_insert_check_ms) < kSdInsertCheckThrottleMs) {
+        return true;
+    }
+    // checkInserted remounts on a flaky card — do not call this from the button handler.
     bool isConnected = sdCardLogger.checkInserted();
+    g_last_insert_check_ms = now;
+    g_last_insert_ok = isConnected;
     if (!isConnected) {
-        // Card was removed - update device status
         debug_outln_verbose(F("[Graph] SD card removed - updating status"));
         return false;
     }

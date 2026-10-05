@@ -28,11 +28,18 @@ struct main_screen_values_t {
     uint8_t urban_ttl_state = 0;
     uint16_t urban_age_min = 0;
 
+    // 1-based pager when several Urbans are known (1/N). total==1 hides the pager.
+    uint8_t urban_index = 1;
+    uint8_t urban_total = 1;
+    bool urban_solo = false;
+    String urban_label = "";
+
     /** Insight STA: connected and usable IPv4 (see wifiStaLinkReady). */
     bool wifi_sta_link_ok = false;
 };
 
 void extractMainScreenValues(const JsonDocument &data, main_screen_values_t &values);
+void overlayCurrentUrbanOnMain(main_screen_values_t &values);
 void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip_address, 
                     const String &insight_robonomics_address = "", const String &urban_robonomics_address = "");
 

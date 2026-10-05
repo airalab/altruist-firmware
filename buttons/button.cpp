@@ -28,22 +28,25 @@ PressType ButtonController::process() {
     if (current_state == PRESSED_STATE) {
         if (last_state == NOT_PRESSED_STATE) {
             pressed_time = millis();
-            debug_outln_info(F("Set press time "), pressed_time);
+            short_fired = false;
         } else {
             if (msSince(pressed_time) > LONG_PRESS_TIMEOUT && !long_press) {
-                debug_outln_info(F("Press time long "), pressed_time);
                 long_press = true;
                 res = PressType::LONG;
+            } else if (emit_short_while_held && !long_press && !short_fired &&
+                       msSince(pressed_time) > SHORT_PRESS_TIMEOUT) {
+                short_fired = true;
+                res = PressType::SHORT;
             }
         }
     } else {
         if (last_state == PRESSED_STATE) {
-            if (msSince(pressed_time) > SHORT_PRESS_TIMEOUT && !long_press) {
+            if (msSince(pressed_time) > SHORT_PRESS_TIMEOUT && !long_press && !short_fired) {
                 res = PressType::SHORT;
             }
             pressed_time = 0;
             long_press = false;
-            debug_outln_info(F("Release press time "), pressed_time);
+            short_fired = false;
         }
     }
     last_state = current_state;

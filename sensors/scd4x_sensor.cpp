@@ -24,9 +24,11 @@ bool SCD4xSensor::begin() {
         debug_outln_error(F("SCD4x I2C bus lock failed"));
         return false;
     }
-    bool res = mySensor.begin(true, false, false, true);
+    // measBegin, autoCalibrate, skipStopPeriodicMeasurements, pollAndSetDeviceType
+    bool res = mySensor.begin(true, true, false, true);
     if (res) {
         debug_outln_info(F("SCD4x Sensor started with fetch interval (sec): "), String(timeout/1000));
+        debug_outln_info(F("SCD4x automatic self-calibration (ASC) enabled"));
     }
     last_fetch_time = millis() - timeout;
     return res;

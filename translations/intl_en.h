@@ -121,8 +121,20 @@ const char INTL_CCS811_3F[] PROGMEM = "CCS811 (I2C: 0x5B)";
 const char INTL_DNMS[] PROGMEM = "DNMS ({l_a})";
 const char INTL_DNMS_CORRECTION[] PROGMEM = "correction in dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Temperature correction in °C";
+#define INTL_PRESSURE_CORRECTION INTL_PRESSURE_CORRECTION
+const char INTL_PRESSURE_CORRECTION[] PROGMEM = "Pressure correction in hPa";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Custom Altruist Urban Address";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address";
+#define INTL_MAIN_URBAN "Main Urban (first page with Insight)"
+#define INTL_PANEL_TITLE_EXTRA_URBANS "Other Urbans"
+#define INTL_URBAN_PAGES_GROUP "Other Urbans on the display"
+#define INTL_URBAN_PAGES_HINT "Add any extra Urbans besides the main one. Each gets its own display page with only that Urban’s data. Pick a found device or enter an IP, and give it a name (kitchen, balcony…)."
+#define INTL_EXTRA_URBAN "Urban"
+#define INTL_URBAN_NAME "Name on screen"
+#define INTL_URBAN_NONE "— none —"
+#define INTL_URBAN_CUSTOM_IP "IP address"
+#define INTL_ADD_EXTRA_URBAN "Add Urban"
+#define INTL_REMOVE_EXTRA_URBAN "Remove"
 const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 
 // Urban selection (guest setup & config page)
@@ -179,6 +191,8 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
+#define INTL_NODE_ID INTL_NODE_ID
+const char INTL_NODE_ID[] PROGMEM = "CPS node ID (0 = not set)";
 const char INTL_GROUP_MENU[] PROGMEM = "Device group (RWS)";
 const char INTL_GROUP_INTRO[] PROGMEM = "Choose how this device participates in Robonomics Web Services (owner and on-chain device list).";
 const char INTL_GROUP_MODE_TITLE[] PROGMEM = "Operating mode";
@@ -623,3 +637,4 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_TEMP_SHORT "Temp"
 #define INTL_DISP_PRESS_SHORT "Press."
 #define INTL_DISP_NOISE_AVGMAX_SUFFIX "(avg | max)"
+

@@ -31,6 +31,12 @@ bool cfgApplyAutoRegion();
 bool cfgHasValidMapCoords(double* lat_out = nullptr, double* lon_out = nullptr);
 
 #if defined(ALTRUIST_INSIGHT)
+struct ExtraUrbanItem {
+	char ip[LEN_CHOSEN_ALTRUIS_ADDRESS];
+	char name[LEN_URBAN_NAME];
+};
+/** Parse cfg::extra_urbans (`ip|name;ip|name`). Returns how many entries were written. */
+uint8_t extraUrbansParse(ExtraUrbanItem *out, uint8_t maxn);
 /** Drop cached Urban SS58 / HTTP telemetry when pairing target changes. */
 void clearUrbanPairingTelemetry(JsonDocument &data);
 /** Standalone mode: turn off Urban night analytics and drop stale Urban PM/noise history. */

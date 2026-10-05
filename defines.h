@@ -17,13 +17,13 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIGHT)
-#define SOFTWARE_VERSION_BASE "R-INS_2026-09"
+#define SOFTWARE_VERSION_BASE "R-INS_2026-10"
 #define PM_SENSOR_NAME "Altruist Insight"
 #define DEVICE_MODEL DEVICE_MODEL_INSIGHT
 void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_BASE "R-URB_2026-09"
+#define SOFTWARE_VERSION_BASE "R-URB_2026-10"
 #define PM_SENSOR_NAME "Altruist Urban"
 #define DEVICE_MODEL DEVICE_MODEL_URBAN
 #endif
@@ -129,8 +129,12 @@ void firmwareBlockingYieldHook(void);
 #define LEN_GPS_COORDS 21
 #define LEN_DNMS_CORRECTION 8
 #define LEN_TEMP_CORRECTION 8
+#define LEN_PRESSURE_CORRECTION 8
 #define LEN_LOCAL_HOSTNAME 100
 #define LEN_CHOSEN_ALTRUIS_ADDRESS 20
+#define LEN_URBAN_NAME 32
+#define MAX_EXTRA_URBANS 16
+#define LEN_EXTRA_URBANS 1024
 #define LEN_TIMEZONE 10
 
 #define LEN_HOST_INFLUX 100
@@ -529,6 +533,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // Temp compensation
 #define TEMP_CORRECTION "0.0"
+#define PRESSURE_CORRECTION "0.0"
 
 // MHZ19 CO2 sensor
 #define MHZ19_READ 0

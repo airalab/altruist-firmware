@@ -27,6 +27,7 @@
 #include "../../utils.h"
 #include "../../config_manager/config_helpers.h"
 #include "../../wifi_manager.h"
+#include "../../sensors/http_altruist_sensor.h"
 #include "display_common.h"
 #include "../../intl.h"
 #include "../paint_driver/fonts/fonts.h"
@@ -272,6 +273,53 @@ bool isValidRange(float value, float min_val, float max_val) {
     return (value >= min_val && value <= max_val);
 }
 
+void overlayCurrentUrbanOnMain(main_screen_values_t &values) {
+    uint8_t live_index = 0;
+    uint8_t live_total = 0;
+    bool snap_valid = false;
+    float snap_pm10 = -1, snap_pm25 = -1, snap_na = -1, snap_nm = -1;
+    float snap_temp = -1000, snap_hum = -1, snap_press_pa = -1;
+    char snap_ip[40] = "";
+    char snap_name[LEN_URBAN_NAME] = "";
+    bool solo = false;
+    if (!httpUrbanGetOutdoorView(&live_index, &live_total, &snap_valid,
+                                 &snap_pm10, &snap_pm25, &snap_na, &snap_nm,
+                                 &snap_temp, &snap_hum, &snap_press_pa,
+                                 snap_ip, sizeof(snap_ip),
+                                 snap_name, sizeof(snap_name), &solo)) {
+        return;
+    }
+    if (live_total > 0) {
+        values.urban_index = live_index;
+        values.urban_total = live_total;
+    }
+    values.urban_solo = solo;
+    values.urban_label = snap_name;
+    if (!snap_valid) {
+        if (solo) {
+            values.pm10 = -1;
+            values.pm25 = -1;
+            values.hum_outdoor = -1;
+            values.temp_outdoor = -1000;
+            values.press_outdoor = -1;
+            values.noise_max = -1;
+            values.noise_avg = -1;
+            values.ip_address = snap_ip;
+        }
+        return;
+    }
+    values.pm10 = isValidRange(snap_pm10, 0, 1500) ? snap_pm10 : -1;
+    values.pm25 = isValidRange(snap_pm25, 0, 800) ? snap_pm25 : -1;
+    values.hum_outdoor = isValidRange(snap_hum, 0, 100) ? snap_hum : -1;
+    values.temp_outdoor = isValidRange(snap_temp, -40, 80) ? snap_temp : -1000;
+    const float press_mm = snap_press_pa * 0.0075f;
+    values.press_outdoor = isValidRange(press_mm, 500, 1000) ? press_mm : -1;
+    values.noise_max = isValidRange(snap_nm, 0, 120) ? snap_nm : -1;
+    values.noise_avg = isValidRange(snap_na, 0, 120) ? snap_na : -1;
+    values.ip_address = snap_ip;
+    values.urban_ttl_state = 0;
+}
+
 // Check if PM values are dangerous 
 // Based on LED controller thresholds: GREEN=OK, BLUE=moderate, ORANGE/RED/YELLOW=dangerous
 bool isPMDangerous(float pm10, float pm25) {
@@ -466,6 +514,23 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
             values.urban_ttl_state = 0;
             values.urban_age_min = 0;
         }
+
+        values.urban_index = 1;
+        values.urban_total = 1;
+        if (data.containsKey("service_data")) {
+            JsonObjectConst service = data["service_data"].as<JsonObjectConst>();
+            if (!service.isNull()) {
+                if (service.containsKey("urban_view_index")) {
+                    values.urban_index = service["urban_view_index"].as<uint8_t>();
+                }
+                if (service.containsKey("urban_view_total")) {
+                    values.urban_total = service["urban_view_total"].as<uint8_t>();
+                }
+            }
+        }
+        if (values.urban_total < 1) values.urban_total = 1;
+        if (values.urban_index < 1) values.urban_index = 1;
+        overlayCurrentUrbanOnMain(values);
     }
     
     // Update metrics to get current uptime
@@ -833,25 +898,40 @@ static uint16_t drawNumberWithUnit(uint16_t x, uint16_t y, const char *value, co
 
 static void drawPairNumbersWithUnits(uint16_t x, uint16_t y,
                                      const char *v1, const char *u1,
-                                     const char *v2, const char *u2) {
+                                     const char *v2, const char *u2,
+                                     bool larger_value_glyphs = false) {
     uint16_t cur_x = x;
-    cur_x = drawNumberWithUnit(cur_x, y, v1, u1);
-    // Symmetric spacing around separator so it doesn't look one-sided.
+    cur_x = drawNumberWithUnit(cur_x, y, v1, u1, larger_value_glyphs);
     const uint16_t sep_gap_left = 6;
     const uint16_t sep_gap_right = 6;
     cur_x += sep_gap_left;
-    // Separator: draw a visible centered dot (not a glyph), since small '.' glyphs
-    // can become nearly invisible on e-ink with some fonts.
-    const uint16_t sep_w = 8;                 // width budget for the separator area
-    const uint16_t dot_y = y + 14;      
+    const uint16_t sep_w = 8;
+    const uint16_t dot_y = (uint16_t)(y + (larger_value_glyphs ? 16 : 14));
     const uint16_t mid_x = cur_x + (sep_w / 2);
-    const uint16_t dot_dy = 6; // spacing between dots (in px)
+    const uint16_t dot_dy = 6;
     Paint_DrawPoint(mid_x, dot_y - dot_dy, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
     Paint_DrawPoint(mid_x, dot_y,          BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
     Paint_DrawPoint(mid_x, dot_y + dot_dy, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
-    // Advance by a fixed width so spacing stays stable.
     cur_x += sep_w + sep_gap_right;
-    drawNumberWithUnit(cur_x, y, v2, u2);
+    drawNumberWithUnit(cur_x, y, v2, u2, larger_value_glyphs);
+}
+
+static void drawMainStyleMetric(uint16_t col_x, uint16_t y,
+                                const unsigned char *icon, uint16_t iw, uint16_t ih,
+                                const char *label, int dir,
+                                const char *v1, const char *v2,
+                                bool larger_values) {
+    Paint_DrawImage(icon, col_x, (uint16_t)(y + 1), iw, ih);
+    const uint16_t label_x = (uint16_t)(col_x + 42);
+    Paint_DrawString_Display(label_x, y, label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    const uint16_t label_w = Paint_GetStringWidth_Display(label, &Font12, &font_12_cyrillic, &font_12_ascii);
+    drawWarningLevelIcon((uint16_t)(label_x + label_w + 4), (uint16_t)(y - 1), dir);
+    const uint16_t val_y = (uint16_t)(y + (larger_values ? 14 : 13));
+    if (v2 != nullptr) {
+        drawPairNumbersWithUnits(label_x, val_y, v1, "", v2, "", larger_values);
+    } else {
+        drawNumberWithUnit(label_x, val_y, v1, "", larger_values);
+    }
 }
 
 // Draw the full main screen with card-based main content layout
@@ -1253,6 +1333,206 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         return;
     }
 
+    if (values.urban_solo) {
+        const uint16_t hdr_y = body_top + 4;
+        const uint16_t qr_x = (uint16_t)(content_left + 2);
+        int qr_sz = drawSensorQR(urban_robonomics_address, qr_x, hdr_y);
+        uint16_t left_after_qr = (qr_sz > 0) ? (uint16_t)((int)qr_x + qr_sz + 6) : content_left;
+
+        const bool urban_wifi_ok = values.wifi_sta_link_ok && (values.ip_address.length() > 0);
+        const uint16_t wifi_w = 28;
+        uint16_t wifi_x = (content_right > wifi_w + 10)
+            ? (uint16_t)(content_right - wifi_w - 8)
+            : content_left;
+        Paint_DrawImage(urban_wifi_ok ? wifi_28x28 : wifi_x_28x28, wifi_x, (uint16_t)(hdr_y + 7), wifi_w, wifi_w);
+
+        char title_buf[LEN_URBAN_NAME];
+        {
+            const char *src = (values.urban_label.length() > 0) ? values.urban_label.c_str() : "URBAN";
+            strncpy(title_buf, src, sizeof(title_buf) - 1);
+            title_buf[sizeof(title_buf) - 1] = '\0';
+        }
+        const uint16_t ic_sz = 32;
+        const uint16_t gap_ic = 6;
+        const uint16_t gap_pager = 10;
+        const uint16_t min_grp_x = (uint16_t)((int)left_after_qr + 4);
+        const uint16_t slot_l = min_grp_x;
+        const uint16_t slot_r = ((int)wifi_x > 8) ? (uint16_t)(wifi_x - 8) : content_right;
+        int slot_w = (int)slot_r - (int)slot_l;
+        if (slot_w < 1) {
+            slot_w = 1;
+        }
+
+        char sub_buf[32];
+        snprintf(sub_buf, sizeof(sub_buf), "%u/%u",
+                 (unsigned)values.urban_index, (unsigned)values.urban_total);
+        const uint16_t sub_w = Paint_GetStringWidth_Display(sub_buf, &Font12, &font_12_cyrillic, &font_12_ascii);
+        const int title_max_w = slot_w - (int)ic_sz - (int)gap_ic - (int)gap_pager - (int)sub_w;
+        while (strlen(title_buf) > 3 && title_max_w > 20) {
+            const uint16_t tw0 = Paint_GetStringWidth_Display(title_buf, &Font20, &font_20_cyrillic, &font_20_ascii);
+            if ((int)tw0 <= title_max_w) {
+                break;
+            }
+            title_buf[strlen(title_buf) - 1] = '\0';
+        }
+        const uint16_t tw = Paint_GetStringWidth_Display(title_buf, &Font20, &font_20_cyrillic, &font_20_ascii);
+        const uint16_t grp_w = (uint16_t)(ic_sz + gap_ic + tw + gap_pager + sub_w);
+        int grp_x = (int)slot_l + (slot_w - (int)grp_w) / 2;
+        if (grp_x < (int)slot_l) {
+            grp_x = (int)slot_l;
+        }
+        if (grp_x + (int)grp_w > (int)slot_r && (int)slot_r > (int)grp_w) {
+            grp_x = (int)slot_r - (int)grp_w;
+        }
+        const uint16_t icon_y = (uint16_t)(hdr_y + 2);
+        const uint16_t title_y = (uint16_t)(icon_y + ((int)ic_sz - (int)Font20.Height) / 2);
+        const uint16_t pager_y = (uint16_t)(title_y + (int)Font20.Height - (int)Font12.Height);
+        Paint_DrawImage(urban_32x32, (uint16_t)grp_x, icon_y, ic_sz, ic_sz);
+        const uint16_t title_x = (uint16_t)(grp_x + (int)ic_sz + (int)gap_ic);
+        Paint_DrawString_Display(title_x, title_y, title_buf,
+                                 &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
+        Paint_DrawString_Display((uint16_t)(title_x + tw + gap_pager), pager_y, sub_buf,
+                                 &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+
+        uint16_t header_row_h = (uint16_t)(ic_sz + 6);
+        if (qr_sz > 0 && (uint16_t)qr_sz + 6 > header_row_h) {
+            header_row_h = (uint16_t)qr_sz + 6;
+        }
+        const uint16_t top_sep_y = (uint16_t)(hdr_y + header_row_h + 4);
+        for (uint16_t x = content_left; x <= content_right; x += 4) {
+            uint16_t x1 = x + 1;
+            if (x1 > content_right) {
+                x1 = content_right;
+            }
+            Paint_DrawLine(x, top_sep_y, x1, top_sep_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        }
+
+        const int temp_dir = tempDangerDirection(values.temp_outdoor);
+        const int hum_dir = humidityDangerDirection(values.hum_outdoor);
+        const int press_dir = pressureDangerDirection(values.press_outdoor);
+        const int pm_dir = pmDangerDirection(values.pm10, values.pm25);
+        const int noise_dir = noiseDangerDirection(values.noise_max);
+
+        char temp_out[16], hum_out[16], press_out[16];
+        char pm10_str[16], pm25_str[16], noise_avg[12], noise_max[12];
+        formatMetricValue(temp_out, sizeof(temp_out), values.temp_outdoor, 0, true);
+        formatMetricValue(hum_out, sizeof(hum_out), values.hum_outdoor, 0, false);
+        formatMetricValue(press_out, sizeof(press_out), values.press_outdoor, 0, false);
+        const uint8_t pm10_prec = (!isGenericNoData(values.pm10) && values.pm10 > 0.0f && values.pm10 < 1.0f) ? 1 : 0;
+        const uint8_t pm25_prec = (!isGenericNoData(values.pm25) && values.pm25 > 0.0f && values.pm25 < 1.0f) ? 1 : 0;
+        formatMetricValue(pm10_str, sizeof(pm10_str), values.pm10, pm10_prec, false);
+        formatMetricValue(pm25_str, sizeof(pm25_str), values.pm25, pm25_prec, false);
+        formatMetricValue(noise_avg, sizeof(noise_avg), values.noise_avg, 0, false);
+        formatMetricValue(noise_max, sizeof(noise_max), values.noise_max, 0, false);
+
+        auto levelWord = [](int dir) -> const char* {
+            return (dir > 0) ? INTL_DISP_LEVEL_HIGH : INTL_DISP_LEVEL_LOW;
+        };
+        auto makeToo = [&](const char *measure, int dir) -> String {
+            String s = String(measure);
+            if (strlen(INTL_DISP_IS_TOO) > 0) {
+                s += " ";
+                s += INTL_DISP_IS_TOO;
+            }
+            s += " ";
+            s += levelWord(dir);
+            return s;
+        };
+        auto appendIssue = [](String &line, const String &issue) {
+            if (issue.length() == 0) {
+                return;
+            }
+            if (line.length() > 0) {
+                line += ", ";
+            }
+            line += issue;
+        };
+        String issues = "";
+        if (hum_dir != 0) {
+            appendIssue(issues, makeToo("Hum.", hum_dir));
+        }
+        if (temp_dir != 0) {
+            appendIssue(issues, makeToo(INTL_DISP_TEMP_SHORT, temp_dir));
+        }
+        if (press_dir != 0) {
+            appendIssue(issues, makeToo(INTL_DISP_PRESS_SHORT, press_dir));
+        }
+        if (pm_dir != 0) {
+            appendIssue(issues, makeToo("PM", pm_dir));
+        }
+        if (noise_dir != 0) {
+            appendIssue(issues, makeToo(INTL_DISP_NOISE, noise_dir));
+        }
+        float dew_point_c = calculateDewPointC(values.temp_outdoor, values.hum_outdoor);
+        char dew_str[16];
+        formatMetricValue(dew_str, sizeof(dew_str), dew_point_c, 0, true);
+        if (!isTempNoData(dew_point_c)) {
+            appendIssue(issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_str) + String("°C"));
+        }
+        const String footer_src = (issues.length() > 0) ? issues : String(INTL_DISP_CHECK_MAP_FULL_DATA);
+
+        uint16_t text_right = (DISPLAY_WIDTH > nav_sidebar_width + 1)
+            ? (uint16_t)(DISPLAY_WIDTH - nav_sidebar_width - 1)
+            : content_right;
+        const uint16_t info_icon_size = 32;
+        uint16_t info_icon_x = content_left;
+        uint16_t body_text_x = (uint16_t)(info_icon_x + info_icon_size + 2);
+        uint16_t body_text_w = (text_right > body_text_x) ? (uint16_t)(text_right - body_text_x) : 0;
+        String wrapped[3];
+        int wrapped_count = wrapWordsByWidth(footer_src, body_text_w, wrapped, 3, &Font12, &font_10_cyrillic, &font_10_ascii);
+        if (wrapped_count <= 0) {
+            wrapped[0] = footer_src;
+            wrapped_count = 1;
+        }
+        const uint16_t tipLineH =
+#ifdef INTL_RU
+            (font_10_cyrillic.line_height ? font_10_cyrillic.line_height : Font12.Height);
+#else
+            (font_10_ascii.line_height ? font_10_ascii.line_height : Font12.Height);
+#endif
+        const uint16_t line_step = (uint16_t)(tipLineH + 2);
+        const uint16_t footer_bottom_pad = 2;
+        uint16_t footer_text_h = (uint16_t)(wrapped_count * line_step);
+        uint16_t footer_h = (footer_text_h > info_icon_size) ? footer_text_h : info_icon_size;
+        uint16_t footer_top = (DISPLAY_HEIGHT > footer_bottom_pad + footer_h)
+            ? (uint16_t)(DISPLAY_HEIGHT - footer_bottom_pad - footer_h)
+            : (uint16_t)(top_sep_y + 6);
+
+        const uint16_t row_top = (uint16_t)(top_sep_y + 14);
+        const uint16_t row_step = 56;
+        const uint16_t right_col_shift_left = 9;
+        const int16_t right_col_nudge_px = 26;
+        const uint16_t col_left_x = content_left;
+        const int32_t col_right_x_i32 = (int32_t)content_left + (int32_t)content_width / 2 - 3
+            - (int32_t)right_col_shift_left + (int32_t)right_col_nudge_px;
+        const uint16_t col_right_x = (col_right_x_i32 > 0) ? (uint16_t)col_right_x_i32 : col_left_x;
+        const uint16_t left_x = col_right_x;
+        const uint16_t right_x = col_left_x;
+
+        String temp_label_s = String(INTL_DISP_TEMPERATURE) + " °C";
+        String hum_label_s = String(INTL_DISP_HUMIDITY) + " %";
+        String press_label_s = String(INTL_DISP_PRESSURE) + " mmHg";
+        String noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
+
+        drawMainStyleMetric(left_x, row_top, wi_thermometer_cropped_34x32, 34, 32,
+                            temp_label_s.c_str(), temp_dir, temp_out, nullptr, true);
+        drawMainStyleMetric(left_x, (uint16_t)(row_top + row_step), wi_humidity_cropped_34x34, 34, 34,
+                            hum_label_s.c_str(), hum_dir, hum_out, nullptr, true);
+        drawMainStyleMetric(right_x, row_top, ear_hearing_34x34, 34, 34,
+                            noise_label_s.c_str(), noise_dir, noise_avg, noise_max, true);
+        drawMainStyleMetric(right_x, (uint16_t)(row_top + row_step), dust_34x34, 34, 34,
+                            "PM10 | PM2.5 ug/m3", pm_dir, pm10_str, pm25_str, true);
+        drawMainStyleMetric(right_x, (uint16_t)(row_top + 2 * row_step), pressure_32x32, 32, 32,
+                            press_label_s.c_str(), press_dir, press_out, nullptr, true);
+
+        Paint_DrawImage(info_32x32, info_icon_x, footer_top, info_icon_size, info_icon_size);
+        for (int i = 0; i < wrapped_count; i++) {
+            Paint_DrawString_Display(body_text_x, (uint16_t)(footer_top + i * line_step), wrapped[i].c_str(),
+                                     &Font12, &font_10_cyrillic, &font_10_ascii, WHITE, BLACK);
+        }
+        return;
+    }
+
     // Top strip: QR codes left/right + combined title in the middle.
     // Hide Insight QR when GPS coords are (0,0) — we can't verify Urban's coords (different device)
     bool show_insight_qr = hasValidGpsCoords();
@@ -1290,6 +1570,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     Paint_DrawImage(insight_32x32, insight_icon_x, source_icon_y, source_icon_size, source_icon_size);
 
     // Draw "URBAN ⋮ INSIGHT" with controlled pixel gaps (match number separator feel).
+    // Pager 1/N sits under URBAN, not in the title row (avoids icon overlap).
     const char *title_left = "URBAN";
     const char *title_right = "INSIGHT";
     const uint16_t title_gap_left = 4;
@@ -1303,25 +1584,24 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     uint16_t ty = body_top + 13;
     Paint_DrawString_Display(tx, ty, title_left, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-    // Urban freshness label (TTL): show under "URBAN", but keep it above the dotted separator.
-    if (values.urban_ttl_state == 1 || values.urban_ttl_state == 2) {
-        char ttl_buf[24];
-        if (values.urban_ttl_state == 2) {
-            strncpy(ttl_buf, "offline", sizeof(ttl_buf));
-            ttl_buf[sizeof(ttl_buf) - 1] = '\0';
+    const bool show_urban_pager = (values.urban_total > 1);
+    if (show_urban_pager || values.urban_ttl_state == 1 || values.urban_ttl_state == 2) {
+        char sub_buf[32];
+        if (show_urban_pager) {
+            snprintf(sub_buf, sizeof(sub_buf), "%u/%u",
+                     (unsigned)values.urban_index, (unsigned)values.urban_total);
+        } else if (values.urban_ttl_state == 2) {
+            strncpy(sub_buf, "offline", sizeof(sub_buf));
+            sub_buf[sizeof(sub_buf) - 1] = '\0';
         } else {
-            snprintf(ttl_buf, sizeof(ttl_buf), "stale %um", (unsigned)values.urban_age_min);
+            snprintf(sub_buf, sizeof(sub_buf), "stale %um", (unsigned)values.urban_age_min);
         }
-        // Place the label directly under "URBAN" title.
-        const uint16_t ttl_x = tx;
-        uint16_t ttl_y = ty + Font16.Height + 2;
-        // Ensure it doesn't cross the dotted separator line.
-        // top_sep_y is computed later as body_top + 44 (or based on QR), so we use that worst-case minimum here.
+        uint16_t sub_y = ty + Font16.Height + 1;
         const uint16_t top_sep_y_min = body_top + 44;
-        if (ttl_y + Font12.Height >= top_sep_y_min) {
-            ttl_y = (top_sep_y_min > (Font12.Height + 1)) ? (top_sep_y_min - Font12.Height - 1) : ttl_y;
+        if (sub_y + Font12.Height >= top_sep_y_min) {
+            sub_y = (top_sep_y_min > (Font12.Height + 1)) ? (top_sep_y_min - Font12.Height - 1) : sub_y;
         }
-        Paint_DrawString_Display(ttl_x, ttl_y, ttl_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(tx, sub_y, sub_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     tx += w_left + title_gap_left;
