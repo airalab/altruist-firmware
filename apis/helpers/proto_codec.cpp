@@ -47,6 +47,7 @@ ProtoBuildStatus proto_encode_envelope(const uint8_t *message, size_t message_le
 #include <stdlib.h>
 
 #include "core/v1/message.pb.h"
+#include "crypto/v1/encrypted.pb.h"
 #include "crypto/v1/envelope.pb.h"
 #include "device/v1/insight.pb.h"
 #include "device/v1/urban.pb.h"
@@ -84,16 +85,23 @@ static int route_item(void *pub, pb_size_t *pub_n, pb_size_t pub_max, void *priv
 	return 1;
 }
 
-/* Serialize EncryptedUrban/EncryptedInsight, AES-GCM, fill crypto.v1.Encrypted. */
-static int seal_private(crypto_v1_Encrypted *slot, const pb_msgdesc_t *fields, const void *enc_msg, ProtoAeadFn aead) {
+/*
+ * connectivity-protocol v1 types private as bytes. Live ingest still decodes those
+ * bytes as crypto.v1.Encrypted (same payload as the old nested message).
+ */
+static int seal_private(pb_size_t *size, pb_byte_t *bytes, size_t cap, const pb_msgdesc_t *fields, const void *enc_msg,
+			ProtoAeadFn aead) {
 	uint8_t plain[device_v1_EncryptedUrban_size];
 	size_t plain_len = 0;
 	uint8_t from_pk[32];
 	uint8_t nonce[12];
 	uint8_t *cipher = NULL;
 	size_t cipher_len = 0;
+	crypto_v1_Encrypted wrapped = crypto_v1_Encrypted_init_zero;
+	uint8_t blob[768];
+	size_t blob_len = 0;
 
-	if (!slot || !aead) {
+	if (!size || !bytes || !aead || cap == 0) {
 		return 0;
 	}
 	if (!encode_pb(fields, enc_msg, plain, sizeof(plain), &plain_len)) {
@@ -102,20 +110,24 @@ static int seal_private(crypto_v1_Encrypted *slot, const pb_msgdesc_t *fields, c
 	if (aead(plain, plain_len, from_pk, nonce, &cipher, &cipher_len) != 0 || !cipher) {
 		return 0;
 	}
-	if (cipher_len > sizeof(slot->ciphertext.bytes)) {
+	if (cipher_len > sizeof(wrapped.ciphertext.bytes)) {
 		free(cipher);
 		return 0;
 	}
-	*slot = crypto_v1_Encrypted_init_zero;
-	slot->version = 1;
-	strncpy(slot->algorithm, "aesgcm256", sizeof(slot->algorithm));
-	slot->algorithm[sizeof(slot->algorithm) - 1] = '\0';
-	memcpy(slot->from, from_pk, 32);
-	slot->nonce.size = 12;
-	memcpy(slot->nonce.bytes, nonce, 12);
-	slot->ciphertext.size = (pb_size_t)cipher_len;
-	memcpy(slot->ciphertext.bytes, cipher, cipher_len);
+	wrapped.version = 1;
+	strncpy(wrapped.algorithm, "aesgcm256", sizeof(wrapped.algorithm));
+	wrapped.algorithm[sizeof(wrapped.algorithm) - 1] = '\0';
+	memcpy(wrapped.from, from_pk, 32);
+	wrapped.nonce.size = 12;
+	memcpy(wrapped.nonce.bytes, nonce, 12);
+	wrapped.ciphertext.size = (pb_size_t)cipher_len;
+	memcpy(wrapped.ciphertext.bytes, cipher, cipher_len);
 	free(cipher);
+	if (!encode_pb(crypto_v1_Encrypted_fields, &wrapped, blob, sizeof(blob), &blob_len) || blob_len > cap) {
+		return 0;
+	}
+	memcpy(bytes, blob, blob_len);
+	*size = (pb_size_t)blob_len;
 	return 1;
 }
 
@@ -304,8 +316,9 @@ static ProtoBuildStatus fill_urban(const struct ProtoSample *s, core_v1_Message 
 		if (urban->private_items_count >= ARR_MAX(urban->private_items)) {
 			return PROTO_BUILD_ENCODE_FAILED;
 		}
-		if (!seal_private(&urban->private_items[urban->private_items_count], device_v1_EncryptedUrban_fields,
-				  &enc, aead)) {
+		if (!seal_private(&urban->private_items[urban->private_items_count].size,
+				  urban->private_items[urban->private_items_count].bytes,
+				  sizeof(urban->private_items[0].bytes), device_v1_EncryptedUrban_fields, &enc, aead)) {
 			return PROTO_BUILD_ENCRYPT_FAILED;
 		}
 		urban->private_items_count++;
@@ -361,8 +374,10 @@ static ProtoBuildStatus fill_insight(const struct ProtoSample *s, core_v1_Messag
 		if (insight->private_items_count >= ARR_MAX(insight->private_items)) {
 			return PROTO_BUILD_ENCODE_FAILED;
 		}
-		if (!seal_private(&insight->private_items[insight->private_items_count],
-				  device_v1_EncryptedInsight_fields, &enc, aead)) {
+		if (!seal_private(&insight->private_items[insight->private_items_count].size,
+				  insight->private_items[insight->private_items_count].bytes,
+				  sizeof(insight->private_items[0].bytes), device_v1_EncryptedInsight_fields, &enc,
+				  aead)) {
 			return PROTO_BUILD_ENCRYPT_FAILED;
 		}
 		insight->private_items_count++;

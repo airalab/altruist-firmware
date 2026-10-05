@@ -6,7 +6,8 @@
  * No Arduino/JSON here; the adapter (proto_envelope) fills ProtoSample.
  *
  * C field names public_items/private_items map to proto fields `public`/`private`
- * (tags 1/2). Wire format is unchanged.
+ * (tags 1/2). `private` is opaque bytes; currently filled with serialized
+ * crypto.v1.Encrypted (ingest-compatible).
  */
 
 #include "proto_protocol.h"
@@ -62,7 +63,7 @@ struct ProtoSample {
 	enum ProtoDest dest_co2;
 };
 
-/* AES-GCM for crypto.v1.Encrypted; cipher_out is malloc'd, caller (codec) frees. */
+/* AES-GCM for libcps SCALE V1 ciphertext; cipher_out is malloc'd, caller (codec) frees. */
 typedef int (*ProtoAeadFn)(const uint8_t *plain, size_t plain_len, uint8_t from_pk[32], uint8_t nonce[12],
 			   uint8_t **cipher, size_t *cipher_len);
 

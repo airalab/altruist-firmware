@@ -658,9 +658,7 @@ void RobonomicsHTTPAPI::POSTRequest(const uint8_t *data, size_t len, const Strin
 		{
 			String response_body = _http.getString();
 			logConnectivityFailure(map_send_seq_active, F("http_error"), target_log, result, response_body.length());
-			debug_outln_verbose(F("[Map] FAILED: server returned HTTP error"));
-			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] HTTP code: ") + String(result));
-			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] Response body: ") + response_body);
+			debug_outln_info(F("[Map] PROTO HTTP error: "), String(result) + F(" ") + response_body);
 		}
 		else
 		{

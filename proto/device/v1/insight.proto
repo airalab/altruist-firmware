@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package device.v1;
 
-import "crypto/v1/encrypted.proto";
 import "sensor/v1/sensor.proto";
 
 // Insight (indoor) sensor telemetry.
@@ -32,5 +31,5 @@ message Insight {
 
   // Encrypted measurement sections, each for a different recipient
   // Allows sharing different subsets of measurements with different users
-  repeated crypto.v1.Encrypted private = 2;
+  repeated bytes private = 2;
 }

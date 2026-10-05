@@ -69,9 +69,6 @@ def main() -> int:
             generator = install_nanopb(tools)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for stale in OUT_DIR.glob("*"):
-        if stale.is_file():
-            stale.unlink()
 
     cmd = [
         sys.executable,
@@ -95,6 +92,7 @@ def main() -> int:
         (" private_count;", " private_items_count;"),
         ("MESSAGE,  public,", "MESSAGE,  public_items,"),
         ("MESSAGE,  private,", "MESSAGE,  private_items,"),
+        ("BYTES,    private,", "BYTES,    private_items,"),
         ("_public_MSGTYPE", "_public_items_MSGTYPE"),
         ("_private_MSGTYPE", "_private_items_MSGTYPE"),
     )
@@ -112,10 +110,12 @@ def main() -> int:
         "Refresh: python3 scripts/generate_nanopb.py\n"
         "\n"
         "These `.pb.c` / `.pb.h` files are C structs for the schemas in repo `proto/`\n"
-        "(same messages as the buf docs). The firmware encoder is `proto_codec.cpp`.\n"
+        "(connectivity-protocol v1). The firmware encoder is `proto_codec.cpp`.\n"
         "\n"
         "C++ keywords `public` / `private` are renamed in headers to `public_items` /\n"
-        "`private_items`. Protobuf field numbers stay 1 and 2.\n",
+        "`private_items`. Protobuf field numbers stay 1 and 2. `private` is opaque\n"
+        "bytes. Firmware currently fills them with serialized crypto.v1.Encrypted\n"
+        "(same blob the ingest already decoded as a nested message).\n",
         encoding="utf-8",
     )
     print(f"Wrote {OUT_DIR}")

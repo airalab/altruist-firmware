@@ -39,7 +39,7 @@ bool valueCryptoOwnerPublicKey(const uint8_t sender_pk[VALUE_CRYPTO_KEY_LEN],
 			       uint8_t owner_pk[VALUE_CRYPTO_KEY_LEN]);
 
 /**
- * AES-256-GCM for proto `crypto.v1.Encrypted`.
+ * AES-256-GCM for proto private sections (ciphertext inside crypto.v1.Encrypted).
  * Ciphertext is AEAD payload with the 16-byte GCM tag appended (same as CPS).
  * On success `cipher_out` is malloc'd; caller must free().
  */

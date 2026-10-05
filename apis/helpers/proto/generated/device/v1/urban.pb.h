@@ -4,7 +4,6 @@
 #ifndef PB_DEVICE_V1_DEVICE_V1_URBAN_PB_H_INCLUDED
 #define PB_DEVICE_V1_DEVICE_V1_URBAN_PB_H_INCLUDED
 #include <pb.h>
-#include "crypto/v1/encrypted.pb.h"
 #include "sensor/v1/sensor.pb.h"
 
 #if PB_PROTO_HEADER_VERSION != 40
@@ -31,6 +30,7 @@ typedef struct _device_v1_EncryptedUrban {
     device_v1_UrbanSensor sensors[12];
 } device_v1_EncryptedUrban;
 
+typedef PB_BYTES_ARRAY_T(768) device_v1_Urban_private_t;
 /* Urban payload with public/private data sharing. */
 typedef struct _device_v1_Urban {
     /* Public measurements visible to everyone */
@@ -39,7 +39,7 @@ typedef struct _device_v1_Urban {
     /* Encrypted measurements sections, each for a different recipient
  Allows sharing different subsets of measurements with different users */
     pb_size_t private_items_count;
-    crypto_v1_Encrypted private_items[2];
+    device_v1_Urban_private_t private_items[2];
 } device_v1_Urban;
 
 
@@ -50,10 +50,10 @@ extern "C" {
 /* Initializer values for message structs */
 #define device_v1_UrbanSensor_init_default       {0, {sensor_v1_GPS_init_default}}
 #define device_v1_EncryptedUrban_init_default    {0, {device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default}}
-#define device_v1_Urban_init_default             {0, {device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default}, 0, {crypto_v1_Encrypted_init_default, crypto_v1_Encrypted_init_default}}
+#define device_v1_Urban_init_default             {0, {device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default, device_v1_UrbanSensor_init_default}, 0, {{0, {0}}, {0, {0}}}}
 #define device_v1_UrbanSensor_init_zero          {0, {sensor_v1_GPS_init_zero}}
 #define device_v1_EncryptedUrban_init_zero       {0, {device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero}}
-#define device_v1_Urban_init_zero                {0, {device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero}, 0, {crypto_v1_Encrypted_init_zero, crypto_v1_Encrypted_init_zero}}
+#define device_v1_Urban_init_zero                {0, {device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero, device_v1_UrbanSensor_init_zero}, 0, {{0, {0}}, {0, {0}}}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define device_v1_UrbanSensor_gps_tag            1
@@ -85,11 +85,10 @@ X(a, STATIC,   REPEATED, MESSAGE,  sensors,           1)
 
 #define device_v1_Urban_FIELDLIST(X, a) \
 X(a, STATIC,   REPEATED, MESSAGE,  public_items,            1) \
-X(a, STATIC,   REPEATED, MESSAGE,  private_items,           2)
+X(a, STATIC,   REPEATED, BYTES,    private_items,           2)
 #define device_v1_Urban_CALLBACK NULL
 #define device_v1_Urban_DEFAULT NULL
 #define device_v1_Urban_public_items_MSGTYPE device_v1_UrbanSensor
-#define device_v1_Urban_private_items_MSGTYPE crypto_v1_Encrypted
 
 extern const pb_msgdesc_t device_v1_UrbanSensor_msg;
 extern const pb_msgdesc_t device_v1_EncryptedUrban_msg;
@@ -104,7 +103,7 @@ extern const pb_msgdesc_t device_v1_Urban_msg;
 #define DEVICE_V1_DEVICE_V1_URBAN_PB_H_MAX_SIZE  device_v1_Urban_size
 #define device_v1_EncryptedUrban_size            372
 #define device_v1_UrbanSensor_size               29
-#define device_v1_Urban_size                     2086
+#define device_v1_Urban_size                     1920
 
 #ifdef __cplusplus
 } /* extern "C" */
