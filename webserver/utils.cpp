@@ -300,9 +300,11 @@ String form_select_lang() {
 String form_select_altruist(JsonDocument& data) {
 	String s_select = F(" selected='selected'");
 	String s = F("<div class='form-group'>"
-				"<label for='chosen_altruist_urban'>Altruist Urban</label>"
+				"<label for='chosen_altruist_urban'>");
+	s += INTL_MAIN_URBAN;
+	s += F("</label>"
 				"<div style='display:flex;gap:8px;align-items:center;'>"
-				"<select id='chosen_altruist_urban' name='chosen_altruist_urban' style='flex:1;'>");
+				"<select class='js-urban-ip-select' id='chosen_altruist_urban' name='chosen_altruist_urban' style='flex:1;'>");
 
 	JsonArray addresses = data["service_data"]["altruist_addresses"];
 	for (JsonVariant v : addresses) {
@@ -329,6 +331,105 @@ String form_select_altruist(JsonDocument& data) {
 		"</div>");
 	return s;
 }
+
+#ifdef ALTRUIST_INSIGHT
+static void appendUrbanPickOptions(String &s, JsonDocument &data, const String &current_ip) {
+	String s_select = F(" selected='selected'");
+	s += F("<option value=''>");
+	s += INTL_URBAN_NONE;
+	s += F("</option>");
+	JsonArray addresses = data["service_data"]["altruist_addresses"];
+	bool found = (current_ip.length() == 0);
+	for (JsonVariant v : addresses) {
+		const String ip = v.as<String>();
+		if (ip.length() == 0) {
+			continue;
+		}
+		s += F("<option value='");
+		s += ip;
+		s += "'";
+		if (ip == current_ip) {
+			s += s_select;
+			found = true;
+		}
+		s += ">";
+		s += ip;
+		s += F("</option>");
+	}
+	if (!found && current_ip.length() > 0) {
+		s += F("<option value='");
+		s += current_ip;
+		s += "'";
+		s += s_select;
+		s += ">";
+		s += current_ip;
+		s += F("</option>");
+	}
+	s += F("<option value='__custom__'>");
+	s += INTL_URBAN_CUSTOM_IP;
+	s += F("</option>");
+}
+
+static void appendHtmlAttr(String &s, const char *v) {
+	if (!v) {
+		return;
+	}
+	for (; *v; ++v) {
+		if (*v == '&') {
+			s += F("&amp;");
+		} else if (*v == '"') {
+			s += F("&quot;");
+		} else if (*v == '<') {
+			s += F("&lt;");
+		} else {
+			s += *v;
+		}
+	}
+}
+
+static void appendExtraUrbanRow(String &s, JsonDocument &data, const char *ip, const char *name) {
+	const String current_ip = ip ? String(ip) : String();
+	s += F("<div class='extra-urban-row form-fields-pack'><div class='form-group'><label>");
+	s += INTL_EXTRA_URBAN;
+	s += F("</label><select class='js-extra-urban-pick'>");
+	appendUrbanPickOptions(s, data, current_ip);
+	s += F("</select></div><div class='form-group js-extra-ip-wrap'><label>");
+	s += INTL_URBAN_CUSTOM_IP;
+	s += F("</label><input type='text' maxlength='19' class='js-extra-ip' value='");
+	appendHtmlAttr(s, ip ? ip : "");
+	s += F("'/></div><div class='form-group'><label>");
+	s += INTL_URBAN_NAME;
+	s += F("</label><input type='text' maxlength='31' placeholder='kitchen' class='js-extra-name' value='");
+	appendHtmlAttr(s, name ? name : "");
+	s += F("'/></div><button type='button' class='extra-urban-remove js-extra-urban-remove'>");
+	s += INTL_REMOVE_EXTRA_URBAN;
+	s += F("</button></div>");
+}
+
+String form_extra_urban_pages(JsonDocument &data) {
+	String s = F("<p class='form-hint'>");
+	s += INTL_URBAN_PAGES_HINT;
+	s += F("</p><input type='hidden' id='extra_urbans' name='extra_urbans' value='");
+	appendHtmlAttr(s, cfg::extra_urbans);
+	s += F("'/><div class='extra-urban-list' id='extra-urban-list' data-max='");
+	s += String(MAX_EXTRA_URBANS);
+	s += F("'>");
+	ExtraUrbanItem items[MAX_EXTRA_URBANS];
+	const uint8_t n = extraUrbansParse(items, MAX_EXTRA_URBANS);
+	for (uint8_t i = 0; i < n; i++) {
+		appendExtraUrbanRow(s, data, items[i].ip, items[i].name);
+	}
+	s += F("</div><template id='extra-urban-row-tpl'>");
+	appendExtraUrbanRow(s, data, "", "");
+	s += F("</template><div class='extra-urban-toolbar'><button type='button' class='extra-urban-add' id='btn-add-extra-urban'>");
+	s += INTL_ADD_EXTRA_URBAN;
+	s += F("</button><button type='button' id='btn_scan_urbans_extra' "
+		"style='padding:6px 14px;border:1px solid #ccc;border-radius:4px;background:#f8f8f8;cursor:pointer;white-space:nowrap;'>"
+		"&#x1F50D; " INTL_SCAN_BTN "</button>"
+		"<span class='js-scan-status' id='scan_status_extra' style='font-size:12px;color:#666;'></span></div>");
+	return s;
+}
+#endif
 
 String form_select_timezone() {
 	String s_select = F(" selected='selected'");
@@ -999,6 +1100,11 @@ void append_app_sidebar(String& page_content) {
 	page_content += F("</a>");
 #endif
 #ifdef ALTRUIST_INSIGHT
+	if (!cfg::standalone) {
+		page_content += F("<a class='app-sidebar__subitem' href='/#cfg-extra-urbans'>");
+		page_content += FPSTR(INTL_PANEL_TITLE_EXTRA_URBANS);
+		page_content += F("</a>");
+	}
 	page_content += F("<a class='app-sidebar__subitem' href='/#cfg-sleep'>");
 	page_content += FPSTR(INTL_PANEL_TITLE_SLEEP_ANALYTICS);
 	page_content += F("</a>");
@@ -1032,7 +1138,8 @@ void append_app_sidebar(String& page_content) {
 	page_content += F("</span>"
 		"<a class='app-sidebar__subitem' href='/social#cfg-gps'>");
 	page_content += FPSTR(INTL_PANEL_TITLE_GPS);
-	page_content += F("</a>"
+	page_content += F("</a>");
+	page_content += F(
 		"<a class='app-sidebar__subitem' href='/social#cfg-publish'>");
 	page_content += FPSTR(INTL_PANEL_TITLE_DATA_SHARING);
 	page_content += F("</a>"

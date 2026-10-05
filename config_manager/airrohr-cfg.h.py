@@ -59,6 +59,7 @@ String      donated_by
 String      current_reg
 Bool		region_manual
 String      temp_correction
+String      pressure_correction
 String      local_hostname
 String      chosen_altruist_urban
 String      timezone
@@ -71,6 +72,7 @@ UInt        analytics_night_end_hour
 String      custom_altruist_urban
 Bool		use_custom_urban
 Bool		standalone
+String		extra_urbans
 UInt		epd_refresh_mode
 Bool		analytics_sleep_add_urban
 Bool		analytics_morning_autoswitch

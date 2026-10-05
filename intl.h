@@ -923,6 +923,9 @@
 #ifndef INTL_NODE_ID
 #define INTL_NODE_ID "CPS node ID (0 = not set)"
 #endif
+#ifndef INTL_PRESSURE_CORRECTION
+#define INTL_PRESSURE_CORRECTION "Pressure correction in hPa"
+#endif
 #ifndef INTL_MAP_SEND_CSV
 #define INTL_MAP_SEND_CSV "Send JSON/CSV to Map (current connectivity)"
 #endif
@@ -946,6 +949,36 @@
 #endif
 #ifndef INTL_LORA_UART_HINT
 #define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 / RX GPIO20, 115200. Serial Module: PROTO. Destination set: unicast SignedEnvelope Port 256 to that node (not chat). Empty dest: nothing is sent."
+#endif
+#ifndef INTL_MAIN_URBAN
+#define INTL_MAIN_URBAN "Main Urban (first page with Insight)"
+#endif
+#ifndef INTL_PANEL_TITLE_EXTRA_URBANS
+#define INTL_PANEL_TITLE_EXTRA_URBANS "Other Urbans"
+#endif
+#ifndef INTL_URBAN_PAGES_GROUP
+#define INTL_URBAN_PAGES_GROUP "Other Urbans on the display"
+#endif
+#ifndef INTL_URBAN_PAGES_HINT
+#define INTL_URBAN_PAGES_HINT "The main Urban stays on the first page with Insight. Extra Urbans get their own pages."
+#endif
+#ifndef INTL_EXTRA_URBAN
+#define INTL_EXTRA_URBAN "Urban"
+#endif
+#ifndef INTL_URBAN_NAME
+#define INTL_URBAN_NAME "Name on screen"
+#endif
+#ifndef INTL_URBAN_NONE
+#define INTL_URBAN_NONE "— none —"
+#endif
+#ifndef INTL_URBAN_CUSTOM_IP
+#define INTL_URBAN_CUSTOM_IP "IP address"
+#endif
+#ifndef INTL_ADD_EXTRA_URBAN
+#define INTL_ADD_EXTRA_URBAN "Add Urban"
+#endif
+#ifndef INTL_REMOVE_EXTRA_URBAN
+#define INTL_REMOVE_EXTRA_URBAN "Remove"
 #endif
 
 #endif

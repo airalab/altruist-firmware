@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <strings.h>
+#include <cstring>
 #include <cmath>
 #include <time.h>
 #if defined(ESP32) || defined(ESP8266)
@@ -463,6 +464,36 @@ void readConfig(bool oldconfig) {
 			cfgApplyStandaloneModeEnabled();
 			rewriteConfig = true;
 		}
+		if (cfg::extra_urbans[0] == '\0') {
+			String packed;
+			auto take_legacy = [&](const char *ip_key, const char *name_key) {
+				if (json[ip_key].isNull()) {
+					return;
+				}
+				const char *ip = json[ip_key].as<const char *>();
+				if (!ip || ip[0] == '\0') {
+					return;
+				}
+				if (packed.length() > 0) {
+					packed += ';';
+				}
+				packed += ip;
+				packed += '|';
+				if (!json[name_key].isNull()) {
+					const char *nm = json[name_key].as<const char *>();
+					if (nm) {
+						packed += nm;
+					}
+				}
+			};
+			take_legacy("extra_urban_1_ip", "extra_urban_1_name");
+			take_legacy("extra_urban_2_ip", "extra_urban_2_name");
+			if (packed.length() > 0) {
+				strncpy(cfg::extra_urbans, packed.c_str(), LEN_EXTRA_URBANS - 1);
+				cfg::extra_urbans[LEN_EXTRA_URBANS - 1] = '\0';
+				rewriteConfig = true;
+			}
+		}
 #endif
 		// Climate (temp + humidity) is one map chart — keep encrypt flags paired.
 		if (cfg::encrypt_temperature != cfg::encrypt_humidity) {
@@ -654,3 +685,72 @@ String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type) {
 		map_type, date, lat, lon, zoom, owner, sensor_ss58);
 	return String(buf);
 }
+
+#if defined(ALTRUIST_INSIGHT)
+uint8_t extraUrbansParse(ExtraUrbanItem *out, uint8_t maxn) {
+	if (!out || maxn == 0) {
+		return 0;
+	}
+	const char *s = cfg::extra_urbans;
+	if (!s || s[0] == '\0') {
+		return 0;
+	}
+	uint8_t n = 0;
+	const char *p = s;
+	while (*p && n < maxn) {
+		while (*p == ';') {
+			++p;
+		}
+		if (!*p) {
+			break;
+		}
+		const char *end = strchr(p, ';');
+		if (!end) {
+			end = p + strlen(p);
+		}
+		const char *bar = nullptr;
+		for (const char *q = p; q < end; ++q) {
+			if (*q == '|') {
+				bar = q;
+				break;
+			}
+		}
+		const char *ip_end = bar ? bar : end;
+		while (p < ip_end && (*p == ' ' || *p == '\t')) {
+			++p;
+		}
+		const char *ipe = ip_end;
+		while (ipe > p && (ipe[-1] == ' ' || ipe[-1] == '\t')) {
+			--ipe;
+		}
+		const size_t iplen = (size_t)(ipe - p);
+		if (iplen > 0) {
+			const size_t ip_copy = (iplen >= sizeof(out[n].ip)) ? (sizeof(out[n].ip) - 1) : iplen;
+			memcpy(out[n].ip, p, ip_copy);
+			out[n].ip[ip_copy] = '\0';
+			out[n].name[0] = '\0';
+			if (bar) {
+				const char *np = bar + 1;
+				while (np < end && (*np == ' ' || *np == '\t')) {
+					++np;
+				}
+				const char *ne = end;
+				while (ne > np && (ne[-1] == ' ' || ne[-1] == '\t')) {
+					--ne;
+				}
+				size_t namelen = (size_t)(ne - np);
+				if (namelen >= sizeof(out[n].name)) {
+					namelen = sizeof(out[n].name) - 1;
+				}
+				if (namelen > 0) {
+					memcpy(out[n].name, np, namelen);
+					out[n].name[namelen] = '\0';
+				}
+			}
+			++n;
+		}
+		p = (*end == ';') ? (end + 1) : end;
+	}
+	return n;
+}
+#endif

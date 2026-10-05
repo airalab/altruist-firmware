@@ -20,7 +20,7 @@ void print_button_pressed(button_pressed_t &res) {
     if (res.double_long) {
         message += " DOUBLE"; 
     }
-    debug_outln_info(F("[Button] "), message);
+    debug_outln_verbose(F("[Button] "), message);
 }
 
 #ifdef ALTRUIST_INSIGHT

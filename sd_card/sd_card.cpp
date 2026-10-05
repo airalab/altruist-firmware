@@ -294,7 +294,27 @@ String SDCard::_findLastFileInFolder(const String& path) {
 }
 
 
-void SDCard::_logCSVRow(const String& sensorName, const String& header, const String& values) {
+static void splitCsvLine(const String &line, std::vector<String> &out) {
+    out.clear();
+    int start = 0;
+    const int n = line.length();
+    while (start <= n) {
+        int comma = line.indexOf(',', start);
+        if (comma < 0) {
+            comma = n;
+        }
+        String part = line.substring(start, comma);
+        part.trim();
+        out.push_back(part);
+        if (comma >= n) {
+            break;
+        }
+        start = comma + 1;
+    }
+}
+
+void SDCard::_logCSVRow(const String& sensorName, time_t timestamp,
+                        const std::vector<std::pair<String, float>>& fields) {
     SDLockGuard lock;
     if (!lock.ok()) {
         debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in _logCSVRow()"));
@@ -331,8 +351,57 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
 
     _sensorLastFiles[sensorName] = filename;
 
-    // Если файл новый — пишем заголовок
-    if (!fileExists || file.size() == 0) {
+    auto valueFor = [&](const String &col) -> float {
+        for (const auto &kv : fields) {
+            if (kv.first == col) {
+                return kv.second;
+            }
+        }
+        return 0.0f;
+    };
+
+    String header = "timestamp";
+    String values = String((unsigned long)timestamp);
+    bool write_header = (!fileExists || file.size() == 0);
+
+    if (!write_header) {
+        // Keep column order of the existing daily file so graphs keep reading
+        // BME280_temperature / BME280_pressure from the named cells.
+        file.close();
+        File peek = SD.open(fullPath, FILE_READ);
+        String existing_header;
+        if (peek) {
+            existing_header = peek.readStringUntil('\n');
+            existing_header.trim();
+            peek.close();
+        }
+        file = SD.open(fullPath, FILE_APPEND);
+        if (!file) {
+            debug_outln_info(F("[SDCardLogger] Failed to reopen file: "), fullPath);
+            g_sd_csv_write_fail++;
+            return;
+        }
+        std::vector<String> cols;
+        splitCsvLine(existing_header, cols);
+        if (cols.size() >= 2 && cols[0] == "timestamp") {
+            header = existing_header;
+            values = String((unsigned long)timestamp);
+            for (size_t i = 1; i < cols.size(); i++) {
+                values += ",";
+                values += String(valueFor(cols[i]), 2);
+            }
+        } else {
+            write_header = true;
+        }
+    }
+
+    if (write_header) {
+        for (const auto &kv : fields) {
+            header += ",";
+            header += kv.first;
+            values += ",";
+            values += String(kv.second, 2);
+        }
         if (file.println(header)) {
             debug_outln_verbose(F("[SDCardLogger] Header writed: "), header);
         } else {

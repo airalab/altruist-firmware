@@ -90,6 +90,8 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     float raw_temp     = bme680->temperature;
     float raw_humidity = bme680->humidity;
     float pressure     = bme680->pressure;
+    // Config offset is in hPa; BME680 reports Pa.
+    pressure += readCorrectionOffset(cfg::pressure_correction) * 100.0f;
 
     // ---------------- ТЕМПЕРАТУРА ----------------
     // 1. Фиксированное смещение комнатной температуры

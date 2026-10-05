@@ -10,6 +10,7 @@
 #include "SD.h"
 #include "SPI.h"
 #include <freertos/semphr.h>
+#include <time.h>
 #include "../utils.h"
 
 #define ROOT_FOLDER "/sensors_data/"
@@ -50,33 +51,35 @@ public:
         time_t timestamp = mktime(&timeinfo);
 
         bool foundAny = false;
-
-        // Перебираем все ключи, ищем те, что начинаются с sensorName
         for (JsonPairConst kv : data.as<JsonObjectConst>()) {
             String key = kv.key().c_str();
-
             if (!key.startsWith(sensorName)) {
                 continue;
             }
-
             JsonVariantConst sensorData = kv.value();
             if (!sensorData.is<JsonObjectConst>()) {
                 debug_outln_info(F("[SDCardLogger] sensorData is not an object for key: "), key);
                 continue;
             }
 
-            // Начинаем формировать строки для CSV
-            String header = "timestamp";
-            String values = String(timestamp);
-
+            std::vector<std::pair<String, float>> fields;
             JsonObjectConst measurements = sensorData.as<JsonObjectConst>();
             for (JsonPairConst measurement : measurements) {
-                header += "," + String(measurement.key().c_str());
-                values += "," + String(measurement.value()["value"].as<float>(), 2);
+                const char *mkey = measurement.key().c_str();
+                if (!mkey || strcmp(mkey, "IP_address") == 0) {
+                    continue;
+                }
+                JsonVariantConst val = measurement.value()["value"];
+                if (val.isNull() || val.is<JsonObjectConst>() || val.is<JsonArrayConst>() ||
+                    val.is<const char*>()) {
+                    continue;
+                }
+                fields.push_back({String(mkey), val.as<float>()});
             }
-
-            // Логируем по каждому найденному ключу
-            _logCSVRow(key, header, values);
+            if (fields.empty()) {
+                continue;
+            }
+            _logCSVRow(key, timestamp, fields);
             foundAny = true;
         }
 
@@ -115,7 +118,8 @@ private:
     bool _beginSD(SPIClass &spi);
     String _findLastFileInFolder(const String& path);
     String _getCurrentDateFileName();
-    void _logCSVRow(const String& sensorName, const String& header, const String& values);
+    void _logCSVRow(const String& sensorName, time_t timestamp,
+                    const std::vector<std::pair<String, float>>& fields);
     String _getCardTypeName(sdcard_type_t type);
 
 };

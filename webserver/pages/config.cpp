@@ -574,6 +574,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		"<div class='config-section__body'>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+	add_form_input(page_content, Config_pressure_correction, FPSTR(INTL_PRESSURE_CORRECTION), LEN_PRESSURE_CORRECTION-1);
 #ifdef ALTRUIST_URBAN
 	add_form_input(page_content, Config_sds_meas_interval_ms, FPSTR(INTL_SDS_MEAS_INTERVAL), 5);
 #endif
@@ -654,6 +655,21 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	}
 
 	maybe_flush();
+
+#ifdef ALTRUIST_INSIGHT
+	if (!cfg::standalone && section_enabled(HubSec_Sleep)) {
+#if !defined(ALTRUIST_URBAN_C3_LITE)
+		page_content += F("<section class='config-section config-section--full'");
+#else
+		page_content += F("<section class='config-section'");
+#endif
+		append_section_anchor("cfg-extra-urbans");
+		page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_EXTRA_URBANS "</h2>"
+			"<div class='config-section__body'>");
+		page_content += form_extra_urban_pages(data);
+		page_content += F("</div></section>");
+	}
+#endif
 
 #ifdef ALTRUIST_INSIDE
 	// Sleep analytics (tab 2)

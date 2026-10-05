@@ -79,25 +79,22 @@ void initAndClearScreen() {
 // Optimized: re-initialization only when mode changes.
 void epdInit(DisplayMode mode) {
 #ifdef DISPLAY_4IN2
-    // Re-initialize only if mode changed or display is not initialized
-    if (!epd_initialized || epd_current_mode != mode) {
-        switch (mode) {
-            case DisplayMode::FULL:
-                // For "full" update use fast init (faster, but still clean)
-                EPD_4IN2_V2_Init_Fast(Seconds_1S);
-                break;
-            case DisplayMode::FAST:
-            case DisplayMode::PARTIAL:
-                // For fast and partial updates use fast init.
-                EPD_4IN2_V2_Init_Fast(Seconds_1S);
-                break;
-            case DisplayMode::GRAY_4:
-                EPD_4IN2_V2_Init_4Gray();
-                break;
+    const bool want_gray = (mode == DisplayMode::GRAY_4);
+    const bool have_gray = (epd_current_mode == DisplayMode::GRAY_4);
+    const bool skip_reinit =
+        epd_initialized &&
+        !want_gray &&
+        !have_gray &&
+        (mode == DisplayMode::PARTIAL || mode == epd_current_mode);
+    if (!skip_reinit) {
+        if (want_gray) {
+            EPD_4IN2_V2_Init_4Gray();
+        } else {
+            EPD_4IN2_V2_Init_Fast(Seconds_1S);
         }
-        epd_current_mode = mode;
         epd_initialized = true;
     }
+    epd_current_mode = mode;
 #else
     (void)mode;
 #endif

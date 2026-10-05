@@ -17,6 +17,7 @@
 #include "../config_manager/config_helpers.h"
 #include "../utils.h"
 #include "../buttons/button_manager.h"
+#include "../sensors/http_altruist_sensor.h"
 #ifdef DISPLAY_4IN2
 #include "driver/EPD_4in2_SSD1683.h"
 #endif
@@ -57,6 +58,9 @@ static unsigned long next_main_refresh_ms = 0;
 static uint8_t analytics_refresh_cycle_pos = 0;
 static bool analytics_priority_autoswitch_done = false;
 static bool analytics_priority_prev_window_state = false;
+/** Urban page switch on MAIN: partial refresh (full every 5th). */
+static bool s_urban_page_partial = false;
+static uint8_t s_urban_page_partial_count = 0;
 
 // Cycle order for screens when navigating with UP/SET
 // Order: MAIN -> ANALYTICS -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
@@ -148,20 +152,22 @@ void DisplayManager::setScreen(ScreenPage pageID) {
         graphClearDeferOnScreenEntry();
     }
 #endif
+    if (pageID == ScreenPage::MAIN && currentScreenID != ScreenPage::MAIN) {
+        httpUrbanResetToMainPage();
+    }
     currentScreenID = pageID;
     refresh_now = true;
 }
 
 void DisplayManager::process(button_pressed_t &btn_press) {
-    // Do not nest a second paint while one is in progress. If depth is stuck
-    // after an aborted nested call, recover when the draw mutex is free.
-    if (s_epd_draw_depth > 0) {
+    // Do not nest a second paint while one is in progress. Still accept buttons
+    // so presses are not dropped during a slow e-paper update.
+    const bool paint_busy = (s_epd_draw_depth > 0);
+    if (paint_busy) {
         if (epd_draw_mutex && xSemaphoreTake(epd_draw_mutex, 0) == pdTRUE) {
             xSemaphoreGive(epd_draw_mutex);
             debug_outln_info(F("[EPD] Recovered stuck draw depth"), String(s_epd_draw_depth));
             s_epd_draw_depth = 0;
-        } else {
-            return;
         }
     }
 
@@ -254,18 +260,54 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 return;
             }
             if (currentScreenID == ScreenPage::MAIN) {
-                // Short presses: navigate screens
-                if (btn_press.press_type == PressType::SHORT) {
+#if defined(ALTRUIST_INSIGHT)
+                const bool urban_can_cycle = httpUrbanCanCycleOnMain();
+#else
+                const bool urban_can_cycle = false;
+#endif
+                if (urban_can_cycle) {
+                    if (btn_press.press_type == PressType::LONG) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            ScreenPage target = getPrevScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            ScreenPage target = getNextScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
+                        }
+                    } else if (btn_press.press_type == PressType::SHORT) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            if (httpUrbanCyclePrevView()) {
+                                ScreenPage target = getPrevScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
+                            } else {
+                                overlayCurrentUrbanOnMain(cached_main_values);
+                                s_urban_page_partial = true;
+                                refresh_now = true;
+                            }
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            if (httpUrbanCycleNextView()) {
+                                ScreenPage target = getNextScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
+                            } else {
+                                overlayCurrentUrbanOnMain(cached_main_values);
+                                s_urban_page_partial = true;
+                                refresh_now = true;
+                            }
+                        }
+                    }
+                } else if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-
                     }
                 }
             } 
@@ -298,9 +340,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 // to avoid SD mutex contention during CSV reads on button press.
                 bool graphs_can_cycle = false;
 #if defined(USE_SD_CARD)
-                const bool graphs_storage_ok =
-                    deviceStatus.sd_card_connected && sdCardLogger.checkInserted();
-                graphs_can_cycle = graphs_storage_ok && graphsNavigationCanCycle();
+                // Cached at last graph draw — do not touch SD here (blocks enter/leave).
+                graphs_can_cycle = graphsNavigationCanCycle();
 #endif
                 if (!graphs_can_cycle) {
                     // No graph data yet - navigate to next/prev screen on any button press
@@ -388,6 +429,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             }
         }
     }
+    if (s_epd_draw_depth > 0) {
+        return;
+    }
     // Skip all refresh logic when display is sleeping - only wake on button press
     if (display_sleeping) {
         return;
@@ -457,7 +501,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     // Acquire mutex to safely read sensors_data (it may be modified by sensor task)
     bool need_spiffs_save = false;
     bool need_spiffs_remove = false;
-    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
+    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(20))) {
         if (sensors_data.containsKey("service_data")) {
             auto service = sensors_data["service_data"].as<JsonObject>();
             if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
@@ -567,13 +611,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         }
         
         if (currentScreenID == ScreenPage::MAIN) {
-            // Acquire mutex only to copy required fields into cached_main_values.
-            // This keeps lock hold time short and reduces stale display risk.
-            if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
+            // Don't block the button-to-paint path on Urban HTTP (can hold this mutex for seconds).
+            if (xSemaphoreTake(mutex, pdMS_TO_TICKS(20))) {
                 extractMainScreenValues(sensors_data, cached_main_values);
                 xSemaphoreGive(mutex);
             }
-            // If mutex failed, cached_main_values still has previous data - display stays consistent.
+            overlayCurrentUrbanOnMain(cached_main_values);
             debug_outln_verbose(F("[Display] Refresh MAIN screen"));
             drawMainScreen(BlackImage, cached_main_values, deviceStatus.ip_address, robonomics_address, cached_urban_address);
         } else if (currentScreenID == ScreenPage::ANALYTICS) {
@@ -738,9 +781,22 @@ draw_complete:
         // After wake use FULL mode for first update
         if (force_full_refresh) {
             force_full_refresh = false; // Reset flag after use
+            s_urban_page_partial = false;
             epdResetPeriodPosition(); // Reset period counter after full refresh
             debug_outln_verbose(F("[EPD] FULL refresh (watchdog/wake/main) pushed to panel"));
             epdDisplay(DisplayMode::FULL, BlackImage);
+        } else if (s_urban_page_partial) {
+            s_urban_page_partial = false;
+            s_urban_page_partial_count++;
+            if (s_urban_page_partial_count >= 5) {
+                s_urban_page_partial_count = 0;
+                debug_outln_verbose(F("[EPD] Extra Urban page: FULL (every 5th)"));
+                epdResetPeriodPosition();
+                epdDisplay(DisplayMode::FULL, BlackImage);
+            } else {
+                debug_outln_verbose(F("[EPD] Extra Urban page: PARTIAL"));
+                epdDisplay(DisplayMode::PARTIAL, BlackImage);
+            }
         } else if (currentScreenID == ScreenPage::ANALYTICS &&
                    !deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
             if (!epdPartialRefreshEnabled()) {

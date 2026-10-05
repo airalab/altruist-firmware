@@ -87,6 +87,7 @@ enum ConfigShapeId {
 	Config_current_reg,
 	Config_region_manual,
 	Config_temp_correction,
+	Config_pressure_correction,
 	Config_local_hostname,
 	Config_chosen_altruist_urban,
 	Config_timezone,
@@ -99,6 +100,7 @@ enum ConfigShapeId {
 	Config_custom_altruist_urban,
 	Config_use_custom_urban,
 	Config_standalone,
+	Config_extra_urbans,
 	Config_epd_refresh_mode,
 	Config_analytics_sleep_add_urban,
 	Config_analytics_morning_autoswitch,
@@ -186,6 +188,7 @@ static constexpr char CFG_KEY_DONATED_BY[] PROGMEM = "donated_by";
 static constexpr char CFG_KEY_CURRENT_REG[] PROGMEM = "current_reg";
 static constexpr char CFG_KEY_REGION_MANUAL[] PROGMEM = "region_manual";
 static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
+static constexpr char CFG_KEY_PRESSURE_CORRECTION[] PROGMEM = "pressure_correction";
 static constexpr char CFG_KEY_LOCAL_HOSTNAME[] PROGMEM = "local_hostname";
 static constexpr char CFG_KEY_CHOSEN_ALTRUIST_URBAN[] PROGMEM = "chosen_altruist_urban";
 static constexpr char CFG_KEY_TIMEZONE[] PROGMEM = "timezone";
@@ -198,6 +201,7 @@ static constexpr char CFG_KEY_ANALYTICS_NIGHT_END_HOUR[] PROGMEM = "analytics_ni
 static constexpr char CFG_KEY_CUSTOM_ALTRUIST_URBAN[] PROGMEM = "custom_altruist_urban";
 static constexpr char CFG_KEY_USE_CUSTOM_URBAN[] PROGMEM = "use_custom_urban";
 static constexpr char CFG_KEY_STANDALONE[] PROGMEM = "standalone";
+static constexpr char CFG_KEY_EXTRA_URBANS[] PROGMEM = "extra_urbans";
 static constexpr char CFG_KEY_EPD_REFRESH_MODE[] PROGMEM = "epd_refresh_mode";
 static constexpr char CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN[] PROGMEM = "analytics_sleep_add_urban";
 static constexpr char CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH[] PROGMEM = "analytics_morning_autoswitch";
@@ -285,6 +289,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_reg)-1, CFG_KEY_CURRENT_REG, cfg::current_reg },
 	{ Config_Type_Bool, 0, CFG_KEY_REGION_MANUAL, &cfg::region_manual },
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
+	{ Config_Type_String, sizeof(cfg::pressure_correction)-1, CFG_KEY_PRESSURE_CORRECTION, cfg::pressure_correction },
 	{ Config_Type_String, sizeof(cfg::local_hostname)-1, CFG_KEY_LOCAL_HOSTNAME, cfg::local_hostname },
 	{ Config_Type_String, sizeof(cfg::chosen_altruist_urban)-1, CFG_KEY_CHOSEN_ALTRUIST_URBAN, cfg::chosen_altruist_urban },
 	{ Config_Type_String, sizeof(cfg::timezone)-1, CFG_KEY_TIMEZONE, cfg::timezone },
@@ -297,6 +302,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::custom_altruist_urban)-1, CFG_KEY_CUSTOM_ALTRUIST_URBAN, cfg::custom_altruist_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_USE_CUSTOM_URBAN, &cfg::use_custom_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_STANDALONE, &cfg::standalone },
+	{ Config_Type_String, sizeof(cfg::extra_urbans)-1, CFG_KEY_EXTRA_URBANS, cfg::extra_urbans },
 	{ Config_Type_UInt, 0, CFG_KEY_EPD_REFRESH_MODE, &cfg::epd_refresh_mode },
 	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN, &cfg::analytics_sleep_add_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH, &cfg::analytics_morning_autoswitch },
