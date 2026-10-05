@@ -128,7 +128,7 @@ const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address"
 #define INTL_MAIN_URBAN "Main Urban (first page with Insight)"
 #define INTL_PANEL_TITLE_EXTRA_URBANS "Other Urbans"
 #define INTL_URBAN_PAGES_GROUP "Other Urbans on the display"
-#define INTL_URBAN_PAGES_HINT "Add any extra Urbans besides the main one. Each gets its own display page with only that Urban’s data. Pick a found device or enter an IP, and give it a name (kitchen, balcony…)."
+#define INTL_URBAN_PAGES_HINT "Add any extra Urbans besides the main one. The main Urban cannot be added here — it already has the first page. Each extra gets its own display page with only that Urban’s data. Pick a found device or enter an IP, and give it a name (kitchen, balcony…)."
 #define INTL_EXTRA_URBAN "Urban"
 #define INTL_URBAN_NAME "Name on screen"
 #define INTL_URBAN_NONE "— none —"
@@ -289,8 +289,8 @@ const char INTL_LORA_UART_HINT[] PROGMEM = "Urban C6: TX GPIO22 / RX GPIO20, 115
 const char INTL_ROBONOMICS_PUBLIC_NODE_CUSTOM[] PROGMEM = "Custom Robonomics Public Node";
 const char INTL_GUEST_CONNECTED_SENSORS[] PROGMEM = "Connected Sensors";
 const char INTL_COORD_LAT[] PROGMEM = "Latitude";
-const char INTL_COORD_LON[] PROGMEM = "Longtitude";
-const char INTL_COORDS[] PROGMEM = "GPS: Latitude, Longtitude";
+const char INTL_COORD_LON[] PROGMEM = "Longitude";
+const char INTL_COORDS[] PROGMEM = "GPS: Latitude, Longitude";
 const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_REPORT_ISSUE "Report an issue"
 

@@ -339,10 +339,10 @@ static void appendUrbanPickOptions(String &s, JsonDocument &data, const String &
 	s += INTL_URBAN_NONE;
 	s += F("</option>");
 	JsonArray addresses = data["service_data"]["altruist_addresses"];
-	bool found = (current_ip.length() == 0);
+	bool found = (current_ip.length() == 0) || extraUrbansIpIsMain(current_ip.c_str());
 	for (JsonVariant v : addresses) {
 		const String ip = v.as<String>();
-		if (ip.length() == 0) {
+		if (ip.length() == 0 || extraUrbansIpIsMain(ip.c_str())) {
 			continue;
 		}
 		s += F("<option value='");
@@ -356,7 +356,7 @@ static void appendUrbanPickOptions(String &s, JsonDocument &data, const String &
 		s += ip;
 		s += F("</option>");
 	}
-	if (!found && current_ip.length() > 0) {
+	if (!found && current_ip.length() > 0 && !extraUrbansIpIsMain(current_ip.c_str())) {
 		s += F("<option value='");
 		s += current_ip;
 		s += "'";
@@ -417,6 +417,9 @@ String form_extra_urban_pages(JsonDocument &data) {
 	ExtraUrbanItem items[MAX_EXTRA_URBANS];
 	const uint8_t n = extraUrbansParse(items, MAX_EXTRA_URBANS);
 	for (uint8_t i = 0; i < n; i++) {
+		if (extraUrbansIpIsMain(items[i].ip)) {
+			continue;
+		}
 		appendExtraUrbanRow(s, data, items[i].ip, items[i].name);
 	}
 	s += F("</div><template id='extra-urban-row-tpl'>");

@@ -128,7 +128,7 @@ const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать поль�
 #define INTL_MAIN_URBAN "Главный Urban (первая страница с Insight)"
 #define INTL_PANEL_TITLE_EXTRA_URBANS "Другие Urban"
 #define INTL_URBAN_PAGES_GROUP "Другие Urban на экране"
-#define INTL_URBAN_PAGES_HINT "Добавьте любые Urban кроме главного. У каждого — своя страница на экране только с его данными. Можно выбрать найденный или ввести IP и дать имя (кухня, балкон…)."
+#define INTL_URBAN_PAGES_HINT "Добавьте любые Urban кроме главного. Главный Urban сюда добавлять не нужно — он уже на первой странице. У каждого дополнительного — своя страница на экране только с его данными. Можно выбрать найденный или ввести IP и дать имя (кухня, балкон…)."
 #define INTL_EXTRA_URBAN "Urban"
 #define INTL_URBAN_NAME "Имя на экране"
 #define INTL_URBAN_NONE "— нет —"

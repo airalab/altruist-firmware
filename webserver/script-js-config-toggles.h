@@ -47,6 +47,7 @@
       var chosenField = byId('chosen_altruist_urban');
       if (urbanField) urbanField.disabled = !custom;
       if (chosenField) chosenField.disabled = custom;
+      if (typeof window.stripMainFromExtraPicks === 'function') window.stripMainFromExtraPicks();
     }
     syncUrban();
     urbanCb.onchange = syncUrban;
@@ -112,9 +113,24 @@
     });
   }
 
-  function fillUrbanSelect(selectEl, devices, keepValue, includeEmpty) {
+  function extraMainUrbanIp() {
+    var customCb = byId('use_custom_urban');
+    var custom = byId('custom_altruist_urban');
+    var chosen = byId('chosen_altruist_urban');
+    if (customCb && customCb.checked && custom) {
+      var v = String(custom.value || '').trim();
+      if (v) return v;
+    }
+    if (chosen) {
+      var c = String(chosen.value || '').trim();
+      if (c && c !== '__custom__') return c;
+    }
+    return '';
+  }
+  function fillUrbanSelect(selectEl, devices, keepValue, includeEmpty, skipIp) {
     if (!selectEl) return;
     var cur = keepValue != null ? keepValue : selectEl.value;
+    if (skipIp && cur === skipIp) cur = '';
     selectEl.innerHTML = '';
     if (includeEmpty) {
       var none = document.createElement('option');
@@ -123,6 +139,7 @@
       selectEl.appendChild(none);
     }
     devices.forEach(function(d) {
+      if (skipIp && d.ip === skipIp) return;
       var o = document.createElement('option');
       o.value = d.ip;
       o.textContent = d.hostname ? (d.hostname + ' (' + d.ip + ')') : d.ip;
@@ -135,7 +152,7 @@
       custom.textContent = ")rawliteral" INTL_URBAN_CUSTOM_IP R"rawliteral(";
       selectEl.appendChild(custom);
     }
-    if (cur && selectEl.value !== cur) {
+    if (cur && cur !== skipIp && selectEl.value !== cur) {
       var extra = document.createElement('option');
       extra.value = cur;
       extra.textContent = cur;
@@ -160,10 +177,11 @@
         setScanStatus(")rawliteral" INTL_SCAN_FOUND_PREFIX R"rawliteral(" + devices.length + ")rawliteral" INTL_SCAN_FOUND_SUFFIX R"rawliteral(");
       }
       if (sel) fillUrbanSelect(sel, devices, sel.value, false);
+      var mainIp = extraMainUrbanIp();
       document.querySelectorAll('.js-extra-urban-pick').forEach(function(pick) {
         var row = pick.closest('.extra-urban-row');
         var ipInput = row ? row.querySelector('.js-extra-ip') : null;
-        fillUrbanSelect(pick, devices, ipInput ? ipInput.value : pick.value, true);
+        fillUrbanSelect(pick, devices, ipInput ? ipInput.value : pick.value, true, mainIp);
         if (typeof window.syncExtraUrbanPick === 'function') window.syncExtraUrbanPick(pick);
       });
       if (btn) btn.disabled = false;
@@ -199,6 +217,7 @@
       if (pick && pick.value === '__custom__') ip = ipInput ? String(ipInput.value || '').trim() : '';
       else if (pick) ip = String(pick.value || '').trim();
       if (!ip) return;
+      if (ip === extraMainUrbanIp()) return;
       var name = nameInput ? String(nameInput.value || '').trim() : '';
       parts.push(ip.replace(/[|;]/g, '') + '|' + name.replace(/[|;]/g, ' '));
     });
@@ -218,6 +237,18 @@
     serializeExtraUrbans();
   }
   window.syncExtraUrbanPick = syncExtraUrbanPick;
+  function stripMainFromExtraPicks() {
+    var main = extraMainUrbanIp();
+    document.querySelectorAll('.js-extra-urban-pick').forEach(function(pick) {
+      if (!main) return;
+      for (var i = pick.options.length - 1; i >= 0; i--) {
+        if (pick.options[i].value === main) pick.remove(i);
+      }
+      if (pick.value === main) pick.value = '';
+    });
+    serializeExtraUrbans();
+  }
+  window.stripMainFromExtraPicks = stripMainFromExtraPicks;
   function bindExtraRow(row) {
     if (!row) return;
     var pick = row.querySelector('.js-extra-urban-pick');
@@ -253,8 +284,13 @@
       syncExtraAddBtn();
     });
     if (extraHidden && extraHidden.form) extraHidden.form.addEventListener('submit', serializeExtraUrbans);
+    var chosenUrban = byId('chosen_altruist_urban');
+    if (chosenUrban) chosenUrban.addEventListener('change', stripMainFromExtraPicks);
+    var customUrban = byId('custom_altruist_urban');
+    if (customUrban) customUrban.addEventListener('input', stripMainFromExtraPicks);
     syncExtraAddBtn();
     serializeExtraUrbans();
+    stripMainFromExtraPicks();
   }
 
   document.querySelectorAll('form.js-delete-config').forEach(function(form) {

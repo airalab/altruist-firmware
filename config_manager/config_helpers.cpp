@@ -226,6 +226,7 @@ bool writeConfig() {
 	if (cfg::standalone) {
 		cfg::analytics_sleep_add_urban = false;
 	}
+	extraUrbansSanitize();
 #endif
 	ConfigFsLockGuard lock(10000);
 	if (!lock.ok()) {
@@ -494,6 +495,15 @@ void readConfig(bool oldconfig) {
 				rewriteConfig = true;
 			}
 		}
+		{
+			char extras_before[LEN_EXTRA_URBANS];
+			strncpy(extras_before, cfg::extra_urbans, LEN_EXTRA_URBANS - 1);
+			extras_before[LEN_EXTRA_URBANS - 1] = '\0';
+			extraUrbansSanitize();
+			if (strcmp(extras_before, cfg::extra_urbans) != 0) {
+				rewriteConfig = true;
+			}
+		}
 #endif
 		// Climate (temp + humidity) is one map chart — keep encrypt flags paired.
 		if (cfg::encrypt_temperature != cfg::encrypt_humidity) {
@@ -752,5 +762,59 @@ uint8_t extraUrbansParse(ExtraUrbanItem *out, uint8_t maxn) {
 		p = (*end == ';') ? (end + 1) : end;
 	}
 	return n;
+}
+
+void extraUrbansMainIp(char *out, size_t out_len) {
+	if (!out || out_len == 0) {
+		return;
+	}
+	out[0] = '\0';
+	if (cfg::use_custom_urban && cfg::custom_altruist_urban[0] != '\0') {
+		strncpy(out, cfg::custom_altruist_urban, out_len - 1);
+	} else if (cfg::chosen_altruist_urban[0] != '\0') {
+		strncpy(out, cfg::chosen_altruist_urban, out_len - 1);
+	}
+	out[out_len - 1] = '\0';
+}
+
+bool extraUrbansIpIsMain(const char *ip) {
+	if (!ip || ip[0] == '\0') {
+		return false;
+	}
+	char main_ip[LEN_CHOSEN_ALTRUIS_ADDRESS];
+	extraUrbansMainIp(main_ip, sizeof(main_ip));
+	return main_ip[0] != '\0' && strcmp(ip, main_ip) == 0;
+}
+
+void extraUrbansSanitize() {
+	ExtraUrbanItem items[MAX_EXTRA_URBANS];
+	const uint8_t n = extraUrbansParse(items, MAX_EXTRA_URBANS);
+	char packed[LEN_EXTRA_URBANS];
+	packed[0] = '\0';
+	size_t used = 0;
+	for (uint8_t i = 0; i < n; i++) {
+		if (items[i].ip[0] == '\0' || extraUrbansIpIsMain(items[i].ip)) {
+			continue;
+		}
+		const size_t ip_len = strlen(items[i].ip);
+		const size_t name_len = strlen(items[i].name);
+		const size_t need = ip_len + 1 + name_len + (used ? 1 : 0);
+		if (used + need + 1 > sizeof(packed)) {
+			break;
+		}
+		if (used) {
+			packed[used++] = ';';
+		}
+		memcpy(packed + used, items[i].ip, ip_len);
+		used += ip_len;
+		packed[used++] = '|';
+		memcpy(packed + used, items[i].name, name_len);
+		used += name_len;
+		packed[used] = '\0';
+	}
+	if (strcmp(cfg::extra_urbans, packed) != 0) {
+		strncpy(cfg::extra_urbans, packed, LEN_EXTRA_URBANS - 1);
+		cfg::extra_urbans[LEN_EXTRA_URBANS - 1] = '\0';
+	}
 }
 #endif

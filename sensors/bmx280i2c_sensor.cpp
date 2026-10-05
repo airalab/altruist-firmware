@@ -137,7 +137,8 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
 		debug_outln_error(F("BMP/BME280 read failed"));
 	} else {
 		temperature = t + readCorrectionOffset(cfg::temp_correction);
-		pressure = p + readCorrectionOffset(cfg::pressure_correction);
+		// Field is hPa; BME280 readPressure() returns Pa.
+		pressure = p + readCorrectionOffset(cfg::pressure_correction) * 100.0f;
     last_temperature_str = String(temperature, 1);
     last_humidity_str = String(humidity, 1);
     last_pressure_str = String(pressure, 1);
