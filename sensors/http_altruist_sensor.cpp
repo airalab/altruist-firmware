@@ -18,16 +18,7 @@ static ExtraUrbanItem g_extras[MAX_EXTRA_URBANS];
 static uint8_t g_extras_n = 0;
 
 static void httpUrbanMainIp(char *out, size_t out_len) {
-    if (!out || out_len == 0) {
-        return;
-    }
-    out[0] = '\0';
-    if (cfg::use_custom_urban && cfg::custom_altruist_urban[0] != '\0') {
-        strncpy(out, cfg::custom_altruist_urban, out_len - 1);
-    } else if (cfg::chosen_altruist_urban[0] != '\0') {
-        strncpy(out, cfg::chosen_altruist_urban, out_len - 1);
-    }
-    out[out_len - 1] = '\0';
+    extraUrbansMainIp(out, out_len);
 }
 
 static void refreshExtras() {

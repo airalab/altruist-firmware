@@ -7,6 +7,3 @@
 #endif
 
 PB_BIND(crypto_v1_Encrypted, crypto_v1_Encrypted, 2)
-
-
-

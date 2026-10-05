@@ -4,6 +4,13 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ## [Unreleased]
 
+### Improvements
+
+- **Protobuf private sections (connectivity-protocol v1)** — `Urban.private` / `Insight.private` are opaque bytes. Encrypted measurements are still `EncryptedUrban` / `EncryptedInsight`, then AES-256-GCM. The bytes currently carry serialized `crypto.v1.Encrypted` so the live ingest can decode them (same blob as the old nested message). libcps SCALE wrapping waits until the backend accepts it. JSON `e.…` on the legacy map path is unchanged.
+- **GPS label (#171)** — English (and copied locale strings) use **Longitude**, not “Longtitude”.
+- **Other Urbans (#171)** — The main Urban is not offered in the extra list and is dropped on save; it already has the first display page.
+- **Improv Serial** — On boot, send the AUTHORIZED packet once instead of repeating it on USB CDC.
+
 ## [R_2026-10](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-10) — 2026-10
 
 ### Features

@@ -37,6 +37,12 @@ struct ExtraUrbanItem {
 };
 /** Parse cfg::extra_urbans (`ip|name;ip|name`). Returns how many entries were written. */
 uint8_t extraUrbansParse(ExtraUrbanItem *out, uint8_t maxn);
+/** IP of the paired main Urban (custom or chosen). Empty if none. */
+void extraUrbansMainIp(char *out, size_t out_len);
+/** True when ip is the current main Urban. */
+bool extraUrbansIpIsMain(const char *ip);
+/** Drop extra entries whose IP matches the main Urban. */
+void extraUrbansSanitize();
 /** Drop cached Urban SS58 / HTTP telemetry when pairing target changes. */
 void clearUrbanPairingTelemetry(JsonDocument &data);
 /** Standalone mode: turn off Urban night analytics and drop stale Urban PM/noise history. */
