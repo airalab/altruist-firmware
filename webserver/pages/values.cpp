@@ -62,6 +62,8 @@ void render_sensor_section(
 			if (type == "pressure") {
 				floatValue = floatValue * 0.750062 * 0.01;
 				value = String(floatValue, 0);
+			} else if (type == "gas_resistance" || type == "gas_baseline" || type == "voc_spikes_today") {
+				value = String((uint32_t)(floatValue + 0.5f));
 			} else {
 				value = String(floatValue, 2);
 			}

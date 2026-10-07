@@ -4,7 +4,9 @@
 #include "sensor_names.h"
 #include "../utils.h"
 
-#define BME680_SENSOR_MIN_TIMEOUT 300000
+#include <time.h>
+#include <SPIFFS.h>
+#include <ArduinoJson.h>
 
 #define ROOM_TEMP_OFFSET_C     -3.0f   // Измеренное смещение
 #define ESP_TEMP_NOMINAL_C     30.0f   // Типичная температура ESP32-C6 в режиме ожидания
@@ -39,9 +41,9 @@ bool BME680Sensor::begin() {
     for (uint8_t addr : {0x77, 0x76}) {
         auto test_bme680 = new Adafruit_BME680(I2C_NUM_0, addr);
         if (test_bme680->begin()) {
-            // We currently use BME680 only for temperature / humidity / pressure.
-            // Disable gas heater to reduce power use and self-heating unless gas measurements are explicitly needed.
-            test_bme680->setGasHeater(0, 0);
+            // VOC probe: heater 320 °C / 150 ms (datasheet / Adafruit default).
+            // T/H/P of the same forced sample are taken before the heater runs.
+            test_bme680->setGasHeater(320, 150);
             bme680 = test_bme680;
             sensor_address = addr;
             break;
@@ -52,6 +54,7 @@ bool BME680Sensor::begin() {
     if (bme680) {
         debug_outln_info(F("BME680 Sensor started at address: 0x"), String(sensor_address, HEX));
         debug_outln_info(F("Fetch interval (sec): "), String(timeout / 1000));
+        loadVocDay();
         last_fetch_time = millis() - timeout;
         return true;
     }
@@ -150,6 +153,8 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     last_temperature_value = corrected_temp;
     last_humidity_value    = smoothed_humidity;  // Используем сглаженное значение
     last_pressure_value    = pressure;
+    last_gas_resistance_value = bme680->gas_resistance;
+    updateVocSpikeDetector();
 
     // ---------------- ОТЛАДКА ----------------
     debug_outln_verbose(F("BME680 temperature: "), String(last_temperature_value, 1));
@@ -161,13 +166,169 @@ void BME680Sensor::_fetch(JsonDocument &data) {
         F("%, smoothed=") + String(smoothed_humidity, 1) + F("%")
     );
     debug_outln_verbose(F("BME680 pressure: "), String(last_pressure_value));
+    debug_outln_info(F("BME680 gas resistance (Ohm)"), String(last_gas_resistance_value));
 
     // ---------------- JSON ----------------
     addValueToJSON(data, F("temperature"), last_temperature_value, INTL_TEMPERATURE, F("°C"));
     addValueToJSON(data, F("pressure"),    last_pressure_value,    INTL_PRESSURE,    F("Pa"));
     addValueToJSON(data, F("humidity"),    last_humidity_value,    INTL_HUMIDITY,    F("%"));
+    addValueToJSON(data, F("gas_resistance"), last_gas_resistance_value, INTL_GAS_RESISTANCE, F("Ohm"));
+    addValueToJSON(data, F("gas_baseline"), (uint32_t)(gas_baseline_ohm + 0.5f), INTL_GAS_BASELINE, F("Ohm"));
+    addValueToJSON(data, F("voc_spikes_today"), voc_spikes_today, INTL_VOC_SPIKES_TODAY, F(""));
 
 #if defined(ALTRUIST_BUILD_DEBUG)
     serializeJson(data, Serial);
 #endif
+}
+
+void BME680Sensor::updateVocSpikeDetector() {
+    // Qualitative VOC (#172): a spike is a sudden drop vs the device's own baseline, not ppm.
+    // Ignore drops while the package is cooling — MOX resistance follows T/H and that
+    // looked like a spike after the 60 s heater tests (no odor).
+    // Count is local calendar day (until 00:00), persisted on SPIFFS.
+    static constexpr uint8_t kWarmupSamples = 4;
+    static constexpr float kSpikeRatio = 0.92f;
+    static constexpr float kSuddenRatio = 0.92f;
+    static constexpr float kRecoverRatio = 0.96f;
+    static constexpr float kCoolingDeltaC = 0.6f;
+
+    const uint16_t count_before = voc_spikes_today;
+    const bool event_before = voc_event_open;
+    const int yday_before = voc_spikes_yday;
+    const int year_before = voc_spikes_year;
+
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 0)) {
+        if (voc_spikes_year != timeinfo.tm_year || voc_spikes_yday != timeinfo.tm_yday) {
+            voc_spikes_year = timeinfo.tm_year;
+            voc_spikes_yday = timeinfo.tm_yday;
+            voc_spikes_today = 0;
+            voc_event_open = false;
+        }
+    }
+
+    auto persist_if_changed = [this, count_before, event_before, yday_before, year_before]() {
+        if (voc_spikes_today != count_before || voc_event_open != event_before ||
+            voc_spikes_yday != yday_before || voc_spikes_year != year_before) {
+            persistVocDay();
+        }
+    };
+
+    const uint32_t r = last_gas_resistance_value;
+    if (r == 0) {
+        persist_if_changed();
+        return;
+    }
+
+    const float rf = (float)r;
+    const float t = last_temperature_value;
+    const bool cooling = prev_gas_valid && (prev_temp_c - t) > kCoolingDeltaC;
+    const bool sudden = prev_gas_valid && (rf < prev_gas_ohm * kSuddenRatio);
+
+    if (gas_baseline_samples < kWarmupSamples) {
+        if (gas_baseline_ohm <= 0.0f) {
+            gas_baseline_ohm = rf;
+        } else {
+            gas_baseline_ohm = 0.5f * gas_baseline_ohm + 0.5f * rf;
+        }
+        gas_baseline_samples++;
+        prev_gas_ohm = rf;
+        prev_temp_c = t;
+        prev_gas_valid = true;
+        debug_outln_info(F("BME680 gas baseline warmup"),
+            String((int)gas_baseline_samples) + F("/") + String((int)kWarmupSamples) +
+            F(" R=") + String(r) + F(" baseline=") + String((uint32_t)(gas_baseline_ohm + 0.5f)));
+        persist_if_changed();
+        return;
+    }
+
+    if (cooling && voc_event_open) {
+        voc_event_open = false;
+        debug_outln_info(F("BME680 VOC spike ignored (cooling)"),
+            String(F("R=")) + String(r) + F(" dT=") + String(prev_temp_c - t, 2));
+    }
+
+    if (!voc_event_open && sudden && !cooling && rf < gas_baseline_ohm * kSpikeRatio) {
+        voc_event_open = true;
+        if (voc_spikes_today < 65535) {
+            voc_spikes_today++;
+        }
+        debug_outln_info(F("BME680 VOC spike"),
+            String(F("today=")) + String(voc_spikes_today) +
+            F(" R=") + String(r) +
+            F(" baseline=") + String((uint32_t)(gas_baseline_ohm + 0.5f)));
+    } else if (voc_event_open && rf >= gas_baseline_ohm * kRecoverRatio) {
+        voc_event_open = false;
+        debug_outln_info(F("BME680 VOC spike recovered"), String(r));
+    } else if (!voc_event_open && rf < gas_baseline_ohm * kSpikeRatio && (cooling || !sudden)) {
+        debug_outln_info(F("BME680 VOC drop skipped"),
+            String(F("R=")) + String(r) +
+            F(" baseline=") + String((uint32_t)(gas_baseline_ohm + 0.5f)) +
+            (cooling ? F(" cooling") : F(" slow")));
+    }
+
+    if (!voc_event_open) {
+        if (rf >= gas_baseline_ohm) {
+            gas_baseline_ohm = 0.4f * rf + 0.6f * gas_baseline_ohm;
+        } else if (cooling) {
+            gas_baseline_ohm = 0.35f * rf + 0.65f * gas_baseline_ohm;
+        } else {
+            gas_baseline_ohm = 0.1f * rf + 0.9f * gas_baseline_ohm;
+        }
+    }
+
+    prev_gas_ohm = rf;
+    prev_temp_c = t;
+    prev_gas_valid = true;
+    persist_if_changed();
+}
+
+void BME680Sensor::loadVocDay() {
+    if (!SPIFFS.begin(true)) {
+        return;
+    }
+    File f = SPIFFS.open(F("/voc_day.json"), "r");
+    if (!f) {
+        return;
+    }
+    DynamicJsonDocument doc(256);
+    const DeserializationError err = deserializeJson(doc, f);
+    f.close();
+    if (err) {
+        return;
+    }
+    voc_spikes_year = doc["y"] | -1;
+    voc_spikes_yday = doc["d"] | -1;
+    voc_spikes_today = doc["n"] | 0;
+    voc_event_open = doc["e"] | false;
+
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 0)) {
+        if (voc_spikes_year != timeinfo.tm_year || voc_spikes_yday != timeinfo.tm_yday) {
+            voc_spikes_year = timeinfo.tm_year;
+            voc_spikes_yday = timeinfo.tm_yday;
+            voc_spikes_today = 0;
+            voc_event_open = false;
+            persistVocDay();
+        }
+    }
+    debug_outln_info(F("BME680 VOC day loaded"), String(voc_spikes_today));
+}
+
+void BME680Sensor::persistVocDay() {
+    if (!SPIFFS.begin(true)) {
+        return;
+    }
+    DynamicJsonDocument doc(256);
+    doc["y"] = voc_spikes_year;
+    doc["d"] = voc_spikes_yday;
+    doc["n"] = voc_spikes_today;
+    doc["e"] = voc_event_open;
+    File f = SPIFFS.open(F("/voc_day.json"), "w");
+    if (!f) {
+        debug_outln_error(F("BME680 VOC day save failed"));
+        return;
+    }
+    serializeJson(doc, f);
+    f.close();
 }
