@@ -562,7 +562,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Signalqualität";
 #define INTL_DISP_URBAN_ONLY "Nur Urban"
 #define INTL_DISP_GOING_TO_SLEEP "Ruhemodus..."
 #define INTL_DISP_OTA_UPDATING "Firmware-Update"
-#define INTL_DISP_OTA_DO_NOT_DISCONNECT "Strom nicht trennen"
+#define INTL_DISP_OTA_DO_NOT_DISCONNECT "nicht vom Strom trennen"
 #define INTL_DISP_OTA_FAILED "Update fehlgeschlagen"
 #define INTL_DISP_OTA_WILL_RETRY "Neuer Versuch später"
 #define INTL_DISP_OTA_SUCCESS "Firmware aktualisiert"
