@@ -454,6 +454,12 @@ const char INTL_NOISE_MAX[] PROGMEM = "Максимальный шум";
 const char INTL_NOISE_MEAN[] PROGMEM = "Средний шум";
 const char INTL_HUMIDITY[] PROGMEM = "Относительная влажность";
 const char INTL_PRESSURE[] PROGMEM = "Давление воздуха";
+#define INTL_GAS_RESISTANCE INTL_GAS_RESISTANCE
+const char INTL_GAS_RESISTANCE[] PROGMEM = "Сопротивление газа (сырое)";
+#define INTL_GAS_BASELINE INTL_GAS_BASELINE
+const char INTL_GAS_BASELINE[] PROGMEM = "Базовый уровень газа";
+#define INTL_VOC_SPIKES_TODAY INTL_VOC_SPIKES_TODAY
+const char INTL_VOC_SPIKES_TODAY[] PROGMEM = "Всплески VOC сегодня";
 const char INTL_RADIATION[] PROGMEM = "Радиация";
 const char INTL_CO2[] PROGMEM = "CO2";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";
@@ -548,6 +554,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_ENABLE_SD "Включите SD карту"
 #define INTL_DISP_INSIGHT_HEADER "Insight"
 #define INTL_DISP_INSIGHT_ONLY "Insight only"
+#define INTL_DISP_VOC_TODAY "VOC сегодня:"
 #define INTL_DISP_URBAN_HEADER "Urban"
 #define INTL_DISP_URBAN_ONLY "Urban only"
 #define INTL_DISP_GOING_TO_SLEEP "Уход в сон..."

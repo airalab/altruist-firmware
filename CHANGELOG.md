@@ -10,6 +10,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **GPS label (#171)** — English (and copied locale strings) use **Longitude**, not “Longtitude”.
 - **Other Urbans (#171)** — The main Urban is not offered in the extra list and is dropped on save; it already has the first display page.
 - **Improv Serial** — On boot, send the AUTHORIZED packet once instead of repeating it on USB CDC.
+- **BME680 VOC spikes (#172)** — Insight turns the MOX heater on (320 °C / 150 ms, every **5 min**) and logs raw `gas_resistance` (Ohm) on Values / `/data.json` / serial. A sudden drop of ≥8% vs both the last sample and a rolling baseline counts as one spike for the **local calendar day** (until 00:00, RAM + `/voc_day.json`). Not ppm and not a BSEC IAQ index. Drops while BME temperature is falling (>0.6 °C) are ignored. Main e-ink header shows `VOC today: N` (not ohms, not in the metric grid or warning footer; extra Urban pages unchanged).
 
 ## [R_2026-10](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-10) — 2026-10
 

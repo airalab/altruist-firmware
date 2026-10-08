@@ -30,8 +30,22 @@ private:
     float last_pressure_value = 0.0f;
     float last_humidity_value = 0.0f;
     uint32_t last_gas_resistance_value = 0;
+    float gas_baseline_ohm = 0.0f;
+    uint8_t gas_baseline_samples = 0;
+    uint16_t voc_spikes_today = 0;
+    int voc_spikes_yday = -1;
+    int voc_spikes_year = -1;
+    bool voc_event_open = false;
+    bool prev_gas_valid = false;
+    float prev_gas_ohm = 0.0f;
+    float prev_temp_c = 0.0f;
 
-    // Минимальный таймаут, например 5 минут (300000 мс)
+    void updateVocSpikeDetector();
+    void loadVocDay();
+    void persistVocDay();
+
+    // Gas / VOC (#172): 5 min forced sample. Shorter intervals (60 s) heated the case;
+    // perfume-length odors still miss the enclosure. Sustained events fit this cadence.
     static constexpr unsigned long BME680_SENSOR_MIN_TIMEOUT = 300000UL;
 };
 

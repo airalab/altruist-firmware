@@ -582,6 +582,12 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
             float press = bme["pressure"]["value"].as<float>() * 0.0075;
             values.press_indoor = isValidRange(press, 500, 1000) ? press : -1;
         }
+        if (bme.containsKey("voc_spikes_today")) {
+            values.voc_spikes_today = (int16_t)bme["voc_spikes_today"]["value"].as<int>();
+            if (values.voc_spikes_today < 0) {
+                values.voc_spikes_today = 0;
+            }
+        }
     }
 }
 
@@ -604,6 +610,16 @@ static void formatMetricValue(char *out, size_t out_size, float value, uint8_t p
         return;
     }
     stringFromFloat(out, value, precision);
+}
+
+static String vocTodayCaption(int16_t count) {
+    if (count < 0) {
+        return String();
+    }
+    String s = INTL_DISP_VOC_TODAY;
+    s += ' ';
+    s += String((unsigned)count);
+    return s;
 }
 
 static float calculateDewPointC(float temperature_c, float humidity_percent) {
@@ -955,15 +971,13 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     char date_buf[12] = {0};
     char time_buf[8] = {0};
     const bool has_time = getLocalTime(&timeinfo);
+    int time_x = (int)DISPLAY_WIDTH / 2;
+    int time_width = 0;
     if (has_time) {
         strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M",    &timeinfo);
-    }
-
-    // Center/right: only show when time is valid (NTP synced)
-    if (has_time) {
-        int time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
-        int time_x = (DISPLAY_WIDTH - time_width) / 2;
+        time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
+        time_x = (DISPLAY_WIDTH - time_width) / 2;
         int time_y = header_top_y;
         Paint_DrawString_Display(time_x, time_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
@@ -972,6 +986,50 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         int date_x = DISPLAY_WIDTH - right_margin - date_width;
         int date_y = header_top_y;
         Paint_DrawString_Display(date_x, date_y, date_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    }
+
+    // Daily VOC count lives in the header so footer warnings keep their three lines.
+    // Skip extra-Urban-only pages (same BME680 would be misleading there).
+    if (!values.urban_solo) {
+        const String voc_cap = vocTodayCaption(values.voc_spikes_today);
+        if (voc_cap.length()) {
+            const uint16_t sep_x = (uint16_t)(header_icon_x + header_icon_size + 8);
+            const char sep[] = "|";
+            const uint16_t voc_w14 = Paint_GetStringWidth_Display(voc_cap.c_str(), &Font16, &font_14_cyrillic, &font_14_ascii);
+            const uint16_t voc_w12 = Paint_GetStringWidth_Display(voc_cap.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
+            const uint16_t sep_w14 = Paint_GetStringWidth_Display(sep, &Font16, &font_14_cyrillic, &font_14_ascii);
+            const uint16_t sep_w12 = Paint_GetStringWidth_Display(sep, &Font12, &font_12_cyrillic, &font_12_ascii);
+            const int gap_after_sep = 8;
+            const int gap_before_time = 8;
+            int voc_x14 = (int)sep_x + (int)sep_w14 + gap_after_sep;
+            int voc_x12 = (int)sep_x + (int)sep_w12 + gap_after_sep;
+            const bool fit14 = !has_time || (voc_x14 + (int)voc_w14 + gap_before_time <= time_x);
+            const bool fit12 = !has_time || (voc_x12 + (int)voc_w12 + gap_before_time <= time_x);
+            const bool use14 = fit14;
+            const bool use12 = !use14 && fit12;
+            sFONT *voc_sfont = use14 ? &Font16 : (use12 ? &Font12 : &Font8);
+            const Font *voc_cy = use14 ? &font_14_cyrillic : (use12 ? &font_12_cyrillic : &font_8_cyrillic);
+            const Font *voc_ascii = use14 ? &font_14_ascii : (use12 ? &font_12_ascii : &font_8_ascii);
+            const uint16_t voc_x = use14 ? (uint16_t)voc_x14 : (uint16_t)voc_x12;
+            const int voc_h = voc_cy->line_height ? (int)voc_cy->line_height : (int)voc_sfont->Height;
+            const int sep_h = use14
+                ? (int)(font_14_ascii.line_height ? font_14_ascii.line_height : Font16.Height)
+                : (int)Font12.Height;
+            int sep_y = (int)header_top_y + (((int)header_row_height - sep_h) / 2);
+            int voc_y = (int)header_top_y + (((int)header_row_height - voc_h) / 2);
+            if (sep_y < (int)header_top_y) {
+                sep_y = (int)header_top_y;
+            }
+            if (voc_y < (int)header_top_y) {
+                voc_y = (int)header_top_y;
+            }
+            Paint_DrawString_Display(sep_x, (uint16_t)sep_y, sep,
+                use14 ? &Font16 : &Font12,
+                use14 ? &font_14_cyrillic : &font_12_cyrillic,
+                use14 ? &font_14_ascii : &font_12_ascii, WHITE, BLACK);
+            Paint_DrawString_Display(voc_x, (uint16_t)voc_y, voc_cap.c_str(),
+                voc_sfont, voc_cy, voc_ascii, WHITE, BLACK);
+        }
     }
 
     // Draw bottom border for header 

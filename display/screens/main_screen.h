@@ -33,6 +33,8 @@ struct main_screen_values_t {
     uint8_t urban_total = 1;
     bool urban_solo = false;
     String urban_label = "";
+    /** Daily qualitative VOC events from BME680; -1 = no reading yet. */
+    int16_t voc_spikes_today = -1;
 
     /** Insight STA: connected and usable IPv4 (see wifiStaLinkReady). */
     bool wifi_sta_link_ok = false;

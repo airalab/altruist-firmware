@@ -106,6 +106,9 @@
 #ifndef INTL_DISP_IS_TOO
 #define INTL_DISP_IS_TOO "is too"
 #endif
+#ifndef INTL_DISP_VOC_TODAY
+#define INTL_DISP_VOC_TODAY "VOC today:"
+#endif
 #ifndef INTL_DISP_CHECK_MAP_FULL_DATA
 #define INTL_DISP_CHECK_MAP_FULL_DATA "Check out our sensor map for full data and analytics."
 #endif
@@ -925,6 +928,15 @@
 #endif
 #ifndef INTL_PRESSURE_CORRECTION
 #define INTL_PRESSURE_CORRECTION "Pressure correction in hPa"
+#endif
+#ifndef INTL_GAS_RESISTANCE
+#define INTL_GAS_RESISTANCE "Gas resistance (raw)"
+#endif
+#ifndef INTL_GAS_BASELINE
+#define INTL_GAS_BASELINE "Gas baseline (Ohm)"
+#endif
+#ifndef INTL_VOC_SPIKES_TODAY
+#define INTL_VOC_SPIKES_TODAY "VOC spikes today"
 #endif
 #ifndef INTL_MAP_SEND_CSV
 #define INTL_MAP_SEND_CSV "Send JSON/CSV to Map (current connectivity)"
