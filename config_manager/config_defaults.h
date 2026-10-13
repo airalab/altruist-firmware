@@ -85,6 +85,12 @@ namespace cfg {
 	extern char temp_correction[LEN_TEMP_CORRECTION];
 	/** Added to BME280 hPa / BME680 (as hPa, converted to Pa). */
 	extern char pressure_correction[LEN_PRESSURE_CORRECTION];
+	/** Display unit for web / e-ink / graphs: `mmhg` (default) or `hpa`. Map/JSON stay SI. */
+	extern char pressure_unit[LEN_PRESSURE_UNIT];
+	/** Display unit: `c` (default) or `f`. Map/JSON stay °C. */
+	extern char temp_unit[LEN_TEMP_UNIT];
+	/** Display date: `mdy` MM/DD/YYYY (default), `dmy` DD.MM.YYYY, `ymd` YYYY-MM-DD. */
+	extern char date_format[LEN_DATE_FORMAT];
 	extern char local_hostname[LEN_LOCAL_HOSTNAME];
 	extern char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
 	extern char timezone[LEN_TIMEZONE];

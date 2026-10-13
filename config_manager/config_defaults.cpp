@@ -81,6 +81,9 @@ namespace cfg {
 
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
 	char pressure_correction[LEN_PRESSURE_CORRECTION] = PRESSURE_CORRECTION;
+	char pressure_unit[LEN_PRESSURE_UNIT] = PRESSURE_UNIT_MMHG;
+	char temp_unit[LEN_TEMP_UNIT] = TEMP_UNIT_C;
+	char date_format[LEN_DATE_FORMAT] = DATE_FORMAT_MDY;
 	char local_hostname[LEN_LOCAL_HOSTNAME] = "";
 	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	char timezone[LEN_TIMEZONE] = "<+00>0";

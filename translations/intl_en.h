@@ -123,6 +123,9 @@ const char INTL_DNMS_CORRECTION[] PROGMEM = "correction in dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Temperature correction in °C";
 #define INTL_PRESSURE_CORRECTION INTL_PRESSURE_CORRECTION
 const char INTL_PRESSURE_CORRECTION[] PROGMEM = "Pressure correction in hPa";
+#define INTL_PRESSURE_UNIT "Pressure unit"
+#define INTL_TEMP_UNIT "Temperature unit"
+#define INTL_DATE_FORMAT "Date format"
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Custom Altruist Urban Address";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address";
 #define INTL_MAIN_URBAN "Main Urban (first page with Insight)"

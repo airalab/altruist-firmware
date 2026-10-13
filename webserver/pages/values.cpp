@@ -60,8 +60,11 @@ void render_sensor_section(
 		} else if (measurementData["value"].is<float>()) {
 			float floatValue = measurementData["value"].as<float>();
 			if (type == "pressure") {
-				floatValue = floatValue * 0.750062 * 0.01;
+				floatValue = pressurePaToDisplay(floatValue);
 				value = String(floatValue, 0);
+			} else if (type == "temperature" || type.endsWith("_temperature")) {
+				floatValue = tempCToDisplay(floatValue);
+				value = String(floatValue, 1);
 			} else if (type == "gas_resistance" || type == "gas_baseline" || type == "voc_spikes_today") {
 				value = String((uint32_t)(floatValue + 0.5f));
 			} else {
@@ -73,7 +76,9 @@ void render_sensor_section(
 		String intl_param = measurementData["intl_name"].as<String>();
 		String units;
 		if (type == "pressure") {
-			units = "mm Hg";
+			units = cfgPressureDisplayUnit();
+		} else if (type == "temperature" || type.endsWith("_temperature")) {
+			units = cfgTempDisplayUnit();
 		} else {
 			units = measurementData["units"].as<String>();
 		}

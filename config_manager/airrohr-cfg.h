@@ -88,6 +88,9 @@ enum ConfigShapeId {
 	Config_region_manual,
 	Config_temp_correction,
 	Config_pressure_correction,
+	Config_pressure_unit,
+	Config_temp_unit,
+	Config_date_format,
 	Config_local_hostname,
 	Config_chosen_altruist_urban,
 	Config_timezone,
@@ -189,6 +192,9 @@ static constexpr char CFG_KEY_CURRENT_REG[] PROGMEM = "current_reg";
 static constexpr char CFG_KEY_REGION_MANUAL[] PROGMEM = "region_manual";
 static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
 static constexpr char CFG_KEY_PRESSURE_CORRECTION[] PROGMEM = "pressure_correction";
+static constexpr char CFG_KEY_PRESSURE_UNIT[] PROGMEM = "pressure_unit";
+static constexpr char CFG_KEY_TEMP_UNIT[] PROGMEM = "temp_unit";
+static constexpr char CFG_KEY_DATE_FORMAT[] PROGMEM = "date_format";
 static constexpr char CFG_KEY_LOCAL_HOSTNAME[] PROGMEM = "local_hostname";
 static constexpr char CFG_KEY_CHOSEN_ALTRUIST_URBAN[] PROGMEM = "chosen_altruist_urban";
 static constexpr char CFG_KEY_TIMEZONE[] PROGMEM = "timezone";
@@ -290,6 +296,9 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_REGION_MANUAL, &cfg::region_manual },
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
 	{ Config_Type_String, sizeof(cfg::pressure_correction)-1, CFG_KEY_PRESSURE_CORRECTION, cfg::pressure_correction },
+	{ Config_Type_String, sizeof(cfg::pressure_unit)-1, CFG_KEY_PRESSURE_UNIT, cfg::pressure_unit },
+	{ Config_Type_String, sizeof(cfg::temp_unit)-1, CFG_KEY_TEMP_UNIT, cfg::temp_unit },
+	{ Config_Type_String, sizeof(cfg::date_format)-1, CFG_KEY_DATE_FORMAT, cfg::date_format },
 	{ Config_Type_String, sizeof(cfg::local_hostname)-1, CFG_KEY_LOCAL_HOSTNAME, cfg::local_hostname },
 	{ Config_Type_String, sizeof(cfg::chosen_altruist_urban)-1, CFG_KEY_CHOSEN_ALTRUIST_URBAN, cfg::chosen_altruist_urban },
 	{ Config_Type_String, sizeof(cfg::timezone)-1, CFG_KEY_TIMEZONE, cfg::timezone },

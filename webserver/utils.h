@@ -45,6 +45,9 @@ String form_extra_urban_pages(JsonDocument& data);
 #endif
 String form_select_timezone();
 String form_select_reg();
+String form_select_pressure_unit();
+String form_select_temp_unit();
+String form_select_date_format();
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length, bool enabled);
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length);
 

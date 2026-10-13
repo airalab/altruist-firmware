@@ -60,6 +60,9 @@ String      current_reg
 Bool		region_manual
 String      temp_correction
 String      pressure_correction
+String      pressure_unit
+String      temp_unit
+String      date_format
 String      local_hostname
 String      chosen_altruist_urban
 String      timezone

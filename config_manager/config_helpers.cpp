@@ -523,6 +523,45 @@ void readConfig(bool oldconfig) {
 			cfg::current_reg[sizeof(cfg::current_reg) - 1] = '\0';
 			rewriteConfig = true;
 		}
+		if (strcasecmp(cfg::pressure_unit, PRESSURE_UNIT_HPA) == 0) {
+			if (strcmp(cfg::pressure_unit, PRESSURE_UNIT_HPA) != 0) {
+				strncpy(cfg::pressure_unit, PRESSURE_UNIT_HPA, sizeof(cfg::pressure_unit) - 1);
+				cfg::pressure_unit[sizeof(cfg::pressure_unit) - 1] = '\0';
+				rewriteConfig = true;
+			}
+		} else if (strcmp(cfg::pressure_unit, PRESSURE_UNIT_MMHG) != 0) {
+			strncpy(cfg::pressure_unit, PRESSURE_UNIT_MMHG, sizeof(cfg::pressure_unit) - 1);
+			cfg::pressure_unit[sizeof(cfg::pressure_unit) - 1] = '\0';
+			rewriteConfig = true;
+		}
+		if (strcasecmp(cfg::temp_unit, TEMP_UNIT_F) == 0) {
+			if (strcmp(cfg::temp_unit, TEMP_UNIT_F) != 0) {
+				strncpy(cfg::temp_unit, TEMP_UNIT_F, sizeof(cfg::temp_unit) - 1);
+				cfg::temp_unit[sizeof(cfg::temp_unit) - 1] = '\0';
+				rewriteConfig = true;
+			}
+		} else if (strcmp(cfg::temp_unit, TEMP_UNIT_C) != 0) {
+			strncpy(cfg::temp_unit, TEMP_UNIT_C, sizeof(cfg::temp_unit) - 1);
+			cfg::temp_unit[sizeof(cfg::temp_unit) - 1] = '\0';
+			rewriteConfig = true;
+		}
+		if (strcasecmp(cfg::date_format, DATE_FORMAT_DMY) == 0) {
+			if (strcmp(cfg::date_format, DATE_FORMAT_DMY) != 0) {
+				strncpy(cfg::date_format, DATE_FORMAT_DMY, sizeof(cfg::date_format) - 1);
+				cfg::date_format[sizeof(cfg::date_format) - 1] = '\0';
+				rewriteConfig = true;
+			}
+		} else if (strcasecmp(cfg::date_format, DATE_FORMAT_YMD) == 0) {
+			if (strcmp(cfg::date_format, DATE_FORMAT_YMD) != 0) {
+				strncpy(cfg::date_format, DATE_FORMAT_YMD, sizeof(cfg::date_format) - 1);
+				cfg::date_format[sizeof(cfg::date_format) - 1] = '\0';
+				rewriteConfig = true;
+			}
+		} else if (strcmp(cfg::date_format, DATE_FORMAT_MDY) != 0) {
+			strncpy(cfg::date_format, DATE_FORMAT_MDY, sizeof(cfg::date_format) - 1);
+			cfg::date_format[sizeof(cfg::date_format) - 1] = '\0';
+			rewriteConfig = true;
+		}
 		if (cfgApplyAutoRegion()) {
 			rewriteConfig = true;
 		}
@@ -818,3 +857,82 @@ void extraUrbansSanitize() {
 	}
 }
 #endif
+
+bool cfgPressureDisplayHpa() {
+	return strcasecmp(cfg::pressure_unit, PRESSURE_UNIT_HPA) == 0;
+}
+
+const char *cfgPressureDisplayUnit() {
+	return cfgPressureDisplayHpa() ? "hPa" : "mmHg";
+}
+
+float pressurePaToDisplay(float pa) {
+	if (cfgPressureDisplayHpa()) {
+		return pa * 0.01f;
+	}
+	return pa * 0.00750062f;
+}
+
+float pressureMmHgToDisplay(float mmhg) {
+	if (mmhg < 0.0f) {
+		return mmhg;
+	}
+	if (cfgPressureDisplayHpa()) {
+		return mmhg / 0.75f;
+	}
+	return mmhg;
+}
+
+bool cfgTempDisplayFahrenheit() {
+	return strcasecmp(cfg::temp_unit, TEMP_UNIT_F) == 0;
+}
+
+const char *cfgTempDisplayUnit() {
+	return cfgTempDisplayFahrenheit() ? "°F" : "°C";
+}
+
+float tempCToDisplay(float celsius) {
+	if (celsius <= -200.0f) {
+		return celsius;
+	}
+	if (cfgTempDisplayFahrenheit()) {
+		return celsius * 1.8f + 32.0f;
+	}
+	return celsius;
+}
+
+const char *cfgDateStrftimeFmt() {
+	if (strcasecmp(cfg::date_format, DATE_FORMAT_DMY) == 0) {
+		return "%d.%m.%Y";
+	}
+	if (strcasecmp(cfg::date_format, DATE_FORMAT_YMD) == 0) {
+		return "%Y-%m-%d";
+	}
+	return "%m/%d/%Y";
+}
+
+void cfgFormatDate(char *buf, size_t n, const struct tm *ti) {
+	if (!buf || n == 0) {
+		return;
+	}
+	buf[0] = '\0';
+	if (!ti) {
+		return;
+	}
+	strftime(buf, n, cfgDateStrftimeFmt(), ti);
+}
+
+void cfgFormatDateTime(char *buf, size_t n, const struct tm *ti) {
+	if (!buf || n == 0) {
+		return;
+	}
+	buf[0] = '\0';
+	if (!ti) {
+		return;
+	}
+	char date[16];
+	cfgFormatDate(date, sizeof(date), ti);
+	char clock[16];
+	strftime(clock, sizeof(clock), "%H:%M:%S", ti);
+	snprintf(buf, n, "%s %s", date, clock);
+}

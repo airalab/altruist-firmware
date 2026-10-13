@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <time.h>
 #include "airrohr-cfg.h"
 #include "defines.h"
 
@@ -29,6 +30,26 @@ String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type = 
 bool cfgApplyAutoRegion();
 /** True when coords_gps parses to a non-zero lat/lon. */
 bool cfgHasValidMapCoords(double* lat_out = nullptr, double* lon_out = nullptr);
+/** True when Settings → pressure unit is hPa (default is mmHg). */
+bool cfgPressureDisplayHpa();
+/** Short unit for Values / e-ink / graphs: `hPa` or `mmHg`. */
+const char *cfgPressureDisplayUnit();
+/** Convert sensor Pa to the configured display unit. */
+float pressurePaToDisplay(float pa);
+/** Convert an internal mmHg value (e-ink / graph CSV) to the configured display unit. */
+float pressureMmHgToDisplay(float mmhg);
+/** True when Settings → temperature unit is °F (default is °C). */
+bool cfgTempDisplayFahrenheit();
+/** `°C` or `°F`. */
+const char *cfgTempDisplayUnit();
+/** Convert °C to the configured display unit. No-data sentinels (≤ −200) are unchanged. */
+float tempCToDisplay(float celsius);
+/** strftime pattern for the configured display date (`%m/%d/%Y`, `%d.%m.%Y`, `%Y-%m-%d`). */
+const char *cfgDateStrftimeFmt();
+/** Write the local date into buf using Settings → date format. */
+void cfgFormatDate(char *buf, size_t n, const struct tm *ti);
+/** Date plus ` HH:MM:SS` in the same display format. */
+void cfgFormatDateTime(char *buf, size_t n, const struct tm *ti);
 
 #if defined(ALTRUIST_INSIGHT)
 struct ExtraUrbanItem {

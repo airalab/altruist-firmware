@@ -574,7 +574,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		"<div class='config-section__body'>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+	page_content += form_select_temp_unit();
 	add_form_input(page_content, Config_pressure_correction, FPSTR(INTL_PRESSURE_CORRECTION), LEN_PRESSURE_CORRECTION-1);
+	page_content += form_select_pressure_unit();
 #ifdef ALTRUIST_URBAN
 	add_form_input(page_content, Config_sds_meas_interval_ms, FPSTR(INTL_SDS_MEAS_INTERVAL), 5);
 #endif
@@ -759,6 +761,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 #endif
 	page_content += F("</div><div class='config-cluster'>");
 	page_content += form_select_timezone();
+	page_content += form_select_date_format();
 	page_content += form_select_reg();
 	page_content += F("</div></div></section>");
 

@@ -109,7 +109,6 @@ static void fill_sample(JsonDocument &data, struct ProtoSample *s) {
 
 	{
 		const char *bme = data[BME_SENSOR_NAME].isNull() ? BMP_SENSOR_NAME : BME_SENSOR_NAME;
-		s->pressure_hpa = 1;
 		s->has_temperature = json_double(data, bme, "temperature", &s->temperature);
 		s->has_humidity = json_double(data, bme, "humidity", &s->humidity);
 		s->has_pressure = json_double(data, bme, "pressure", &s->pressure);
