@@ -100,7 +100,7 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
     // Center: time (same display font as rest of UI)
     if (getLocalTime(&timeinfo)) {
         char date_buf[12], time_buf[8];
-        strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
+        cfgFormatDate(date_buf, sizeof(date_buf), &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M",    &timeinfo);
 
         int time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);

@@ -417,7 +417,7 @@ static bool buildGraphUpdateNote(char *out, size_t out_size, GraphValue value, c
     switch (value) {
         case GraphValue::INSIGHT_TEMP:
         case GraphValue::URBAN_TEMP:
-            unit = "°C";
+            unit = cfgTempDisplayUnit();
             break;
         case GraphValue::INSIGHT_HUM:
         case GraphValue::URBAN_HUM:
@@ -428,7 +428,7 @@ static bool buildGraphUpdateNote(char *out, size_t out_size, GraphValue value, c
             break;
         case GraphValue::INSIGHT_PRESSURE:
         case GraphValue::URBAN_PRESSURE:
-            unit = "mmHg";
+            unit = cfgPressureDisplayUnit();
             break;
         case GraphValue::URBAN_AIR:
             unit = "ug/m3";
@@ -677,6 +677,18 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
                 filterToHourlyData(lineData[i]);
                 if (lineData[i].count <= 0) {
                     continue;
+                }
+                if ((value == GraphValue::INSIGHT_PRESSURE || value == GraphValue::URBAN_PRESSURE) &&
+                    cfgPressureDisplayHpa() && lineData[i].values) {
+                    for (int vi = 0; vi < lineData[i].count; vi++) {
+                        lineData[i].values[vi] = pressureMmHgToDisplay(lineData[i].values[vi]);
+                    }
+                }
+                if ((value == GraphValue::INSIGHT_TEMP || value == GraphValue::URBAN_TEMP) &&
+                    cfgTempDisplayFahrenheit() && lineData[i].values) {
+                    for (int vi = 0; vi < lineData[i].count; vi++) {
+                        lineData[i].values[vi] = tempCToDisplay(lineData[i].values[vi]);
+                    }
                 }
                 const char* plot_label = "";
                 GraphLineStyle plot_style;

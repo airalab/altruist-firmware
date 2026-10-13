@@ -44,7 +44,6 @@ struct ProtoSample {
 	int has_noise_avg;
 	int has_co2;
 	int temp_from_scd41; /* Insight: T/H from SCD41 after warmup, else BME680 */
-	int pressure_hpa;    /* Urban BME280 JSON is hPa → multiply by 100 for Pa */
 
 	double temperature;
 	double humidity;

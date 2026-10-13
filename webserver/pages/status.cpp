@@ -205,7 +205,7 @@ void webserver_status_part2(String &page_content, device_status_t &deviceStatus,
 				struct tm ti;
 				localtime_r(&value.last_send_time, &ti);
 				char buf[24];
-				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &ti);
+				cfgFormatDateTime(buf, sizeof(buf), &ti);
 				api_last_send = buf;
 			}
 			add_data_api_status_row(page_content, String(key.c_str()), api_is_ok, api_count_sends, api_last_send);

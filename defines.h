@@ -130,6 +130,16 @@ void firmwareBlockingYieldHook(void);
 #define LEN_DNMS_CORRECTION 8
 #define LEN_TEMP_CORRECTION 8
 #define LEN_PRESSURE_CORRECTION 8
+#define LEN_PRESSURE_UNIT 8
+#define PRESSURE_UNIT_MMHG "mmhg"
+#define PRESSURE_UNIT_HPA "hpa"
+#define LEN_TEMP_UNIT 4
+#define TEMP_UNIT_C "c"
+#define TEMP_UNIT_F "f"
+#define LEN_DATE_FORMAT 8
+#define DATE_FORMAT_MDY "mdy"
+#define DATE_FORMAT_DMY "dmy"
+#define DATE_FORMAT_YMD "ymd"
 #define LEN_LOCAL_HOSTNAME 100
 #define LEN_CHOSEN_ALTRUIS_ADDRESS 20
 #define LEN_URBAN_NAME 32

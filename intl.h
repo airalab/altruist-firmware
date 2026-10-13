@@ -929,6 +929,15 @@
 #ifndef INTL_PRESSURE_CORRECTION
 #define INTL_PRESSURE_CORRECTION "Pressure correction in hPa"
 #endif
+#ifndef INTL_PRESSURE_UNIT
+#define INTL_PRESSURE_UNIT "Pressure unit"
+#endif
+#ifndef INTL_TEMP_UNIT
+#define INTL_TEMP_UNIT "Temperature unit"
+#endif
+#ifndef INTL_DATE_FORMAT
+#define INTL_DATE_FORMAT "Date format"
+#endif
 #ifndef INTL_GAS_RESISTANCE
 #define INTL_GAS_RESISTANCE "Gas resistance (raw)"
 #endif

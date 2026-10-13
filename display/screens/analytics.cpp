@@ -1801,7 +1801,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     if (has_co2)   snprintf(co2v, sizeof(co2v), "%.0f", co2);
     if (has_pm25)  snprintf(pmv,  sizeof(pmv),  "%.0f", pm25);
     if (has_noise) snprintf(nv,   sizeof(nv),   "%u", (unsigned)noise_peaks);
-    if (has_temp)  snprintf(tv,   sizeof(tv),   "%.0f", temp);
+    if (has_temp)  snprintf(tv,   sizeof(tv),   "%.0f", tempCToDisplay(temp));
     if (has_hum)   snprintf(hv,   sizeof(hv),   "%.0f%%", hum);
 
     // Top row: two cards (RH near QR + CO2 on right).
@@ -1818,7 +1818,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     const int top_rh_x = card_x - top_rh_w - 10;
 
     // Try layout variant: Temp small top block (near QR), RH in right metric stack.
-    drawMetricCard(top_rh_x, top_row_y, top_rh_w, top_rh_h, "T°", tv, "°C", f_temp, -4, false, 0, false, true);
+    drawMetricCard(top_rh_x, top_row_y, top_rh_w, top_rh_h, "T°", tv, cfgTempDisplayUnit(), f_temp, -4, false, 0, false, true);
 
     // No extra label here; the header clarifies night average semantics.
 
@@ -1858,7 +1858,7 @@ void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &value
 
     if (getLocalTime(&timeinfo)) {
         char date_buf[12], time_buf[8];
-        strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
+        cfgFormatDate(date_buf, sizeof(date_buf), &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M", &timeinfo);
 
         int time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);

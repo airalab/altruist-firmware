@@ -472,6 +472,46 @@ String form_select_timezone() {
 	return s;
 }
 
+String form_select_pressure_unit() {
+	String s_select = F(" selected='selected'");
+	String s = F("<div class='form-group'>"
+					"<label for='pressure_unit'>" INTL_PRESSURE_UNIT "</label>"
+					"<select id='pressure_unit' name='pressure_unit'>"
+					"<option value='" PRESSURE_UNIT_MMHG "'>mmHg</option>"
+					"<option value='" PRESSURE_UNIT_HPA "'>hPa</option>"
+					"</select>"
+					"</div>");
+	s.replace("'" + String(cfg::pressure_unit) + "'>", "'" + String(cfg::pressure_unit) + "'" + s_select + ">");
+	return s;
+}
+
+String form_select_temp_unit() {
+	String s_select = F(" selected='selected'");
+	String s = F("<div class='form-group'>"
+					"<label for='temp_unit'>" INTL_TEMP_UNIT "</label>"
+					"<select id='temp_unit' name='temp_unit'>"
+					"<option value='" TEMP_UNIT_C "'>°C</option>"
+					"<option value='" TEMP_UNIT_F "'>°F</option>"
+					"</select>"
+					"</div>");
+	s.replace("'" + String(cfg::temp_unit) + "'>", "'" + String(cfg::temp_unit) + "'" + s_select + ">");
+	return s;
+}
+
+String form_select_date_format() {
+	String s_select = F(" selected='selected'");
+	String s = F("<div class='form-group'>"
+					"<label for='date_format'>" INTL_DATE_FORMAT "</label>"
+					"<select id='date_format' name='date_format'>"
+					"<option value='" DATE_FORMAT_MDY "'>MM/DD/YYYY</option>"
+					"<option value='" DATE_FORMAT_DMY "'>DD.MM.YYYY</option>"
+					"<option value='" DATE_FORMAT_YMD "'>YYYY-MM-DD</option>"
+					"</select>"
+					"</div>");
+	s.replace("'" + String(cfg::date_format) + "'>", "'" + String(cfg::date_format) + "'" + s_select + ">");
+	return s;
+}
+
 String form_select_reg() {
 	String s_select = F(" selected='selected'");
 	String s = F(	"<div class='form-group'>"

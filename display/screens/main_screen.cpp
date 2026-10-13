@@ -974,7 +974,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     int time_x = (int)DISPLAY_WIDTH / 2;
     int time_width = 0;
     if (has_time) {
-        strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
+        cfgFormatDate(date_buf, sizeof(date_buf), &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M",    &timeinfo);
         time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         time_x = (DISPLAY_WIDTH - time_width) / 2;
@@ -1135,9 +1135,9 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
 #endif
 
         char t_in[16], h_in[16], p_in[16], co2b[16];
-        formatMetricValue(t_in, sizeof(t_in), values.temp_indoor, 0, true);
+        formatMetricValue(t_in, sizeof(t_in), tempCToDisplay(values.temp_indoor), 0, true);
         formatMetricValue(h_in, sizeof(h_in), values.hum_indoor, 0, false);
-        formatMetricValue(p_in, sizeof(p_in), values.press_indoor, 0, false);
+        formatMetricValue(p_in, sizeof(p_in), pressureMmHgToDisplay(values.press_indoor), 0, false);
         formatMetricValue(co2b, sizeof(co2b), values.co2, 0, false);
 
         const uint16_t col_gap = 8;
@@ -1168,7 +1168,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
 
         // Left column: Temperature, Humidity
         Paint_DrawImage(wi_thermometer_cropped_34x32, mxL, metrics_top + 1, 34, 32);
-        String tls = String(INTL_DISP_TEMPERATURE) + " °C";
+        String tls = String(INTL_DISP_TEMPERATURE) + " " + cfgTempDisplayUnit();
         Paint_DrawString_Display(labL, metrics_top, tls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t tlw = Paint_GetStringWidth_Display(tls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
         drawWarningLevelIcon(labL + tlw + 4, metrics_top - 1, t_di);
@@ -1190,7 +1190,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         drawNumberWithUnit(labR, (uint16_t)(metrics_top + val_dy), co2b, "", true);
 
         Paint_DrawImage(pressure_32x32, mxR, (uint16_t)(metrics_top + row_step + 1), 32, 32);
-        String pls = String(INTL_DISP_PRESSURE) + " mmHg";
+        String pls = String(INTL_DISP_PRESSURE) + " " + cfgPressureDisplayUnit();
         Paint_DrawString_Display(labR, (uint16_t)(metrics_top + row_step), pls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t plw = Paint_GetStringWidth_Display(pls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
         drawWarningLevelIcon(labR + plw + 4, (uint16_t)(metrics_top + row_step - 1), p_di);
@@ -1473,9 +1473,9 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
 
         char temp_out[16], hum_out[16], press_out[16];
         char pm10_str[16], pm25_str[16], noise_avg[12], noise_max[12];
-        formatMetricValue(temp_out, sizeof(temp_out), values.temp_outdoor, 0, true);
+        formatMetricValue(temp_out, sizeof(temp_out), tempCToDisplay(values.temp_outdoor), 0, true);
         formatMetricValue(hum_out, sizeof(hum_out), values.hum_outdoor, 0, false);
-        formatMetricValue(press_out, sizeof(press_out), values.press_outdoor, 0, false);
+        formatMetricValue(press_out, sizeof(press_out), pressureMmHgToDisplay(values.press_outdoor), 0, false);
         const uint8_t pm10_prec = (!isGenericNoData(values.pm10) && values.pm10 > 0.0f && values.pm10 < 1.0f) ? 1 : 0;
         const uint8_t pm25_prec = (!isGenericNoData(values.pm25) && values.pm25 > 0.0f && values.pm25 < 1.0f) ? 1 : 0;
         formatMetricValue(pm10_str, sizeof(pm10_str), values.pm10, pm10_prec, false);
@@ -1523,9 +1523,9 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         }
         float dew_point_c = calculateDewPointC(values.temp_outdoor, values.hum_outdoor);
         char dew_str[16];
-        formatMetricValue(dew_str, sizeof(dew_str), dew_point_c, 0, true);
+        formatMetricValue(dew_str, sizeof(dew_str), tempCToDisplay(dew_point_c), 0, true);
         if (!isTempNoData(dew_point_c)) {
-            appendIssue(issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_str) + String("°C"));
+            appendIssue(issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_str) + cfgTempDisplayUnit());
         }
         const String footer_src = (issues.length() > 0) ? issues : String(INTL_DISP_CHECK_MAP_FULL_DATA);
 
@@ -1567,9 +1567,9 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         const uint16_t left_x = col_right_x;
         const uint16_t right_x = col_left_x;
 
-        String temp_label_s = String(INTL_DISP_TEMPERATURE) + " °C";
+        String temp_label_s = String(INTL_DISP_TEMPERATURE) + " " + cfgTempDisplayUnit();
         String hum_label_s = String(INTL_DISP_HUMIDITY) + " %";
-        String press_label_s = String(INTL_DISP_PRESSURE) + " mmHg";
+        String press_label_s = String(INTL_DISP_PRESSURE) + " " + cfgPressureDisplayUnit();
         String noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
 
         drawMainStyleMetric(left_x, row_top, wi_thermometer_cropped_34x32, 34, 32,
@@ -1717,12 +1717,12 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         noise_icon_dir = 1;
         pm_icon_dir = 1;
     }
-    formatMetricValue(temp_out, sizeof(temp_out), values.temp_outdoor, 0, true);
-    formatMetricValue(temp_in, sizeof(temp_in), values.temp_indoor, 0, true);
+    formatMetricValue(temp_out, sizeof(temp_out), tempCToDisplay(values.temp_outdoor), 0, true);
+    formatMetricValue(temp_in, sizeof(temp_in), tempCToDisplay(values.temp_indoor), 0, true);
     formatMetricValue(hum_out, sizeof(hum_out), values.hum_outdoor, 0, false);
     formatMetricValue(hum_in, sizeof(hum_in), values.hum_indoor, 0, false);
-    formatMetricValue(press_out, sizeof(press_out), values.press_outdoor, 0, false);
-    formatMetricValue(press_in, sizeof(press_in), values.press_indoor, 0, false);
+    formatMetricValue(press_out, sizeof(press_out), pressureMmHgToDisplay(values.press_outdoor), 0, false);
+    formatMetricValue(press_in, sizeof(press_in), pressureMmHgToDisplay(values.press_indoor), 0, false);
     // PM: keep decimals for sub-1.0 values (avoid rounding to 0).
     const uint8_t pm10_prec = (!isGenericNoData(values.pm10) && values.pm10 > 0.0f && values.pm10 < 1.0f) ? 1 : 0;
     const uint8_t pm25_prec = (!isGenericNoData(values.pm25) && values.pm25 > 0.0f && values.pm25 < 1.0f) ? 1 : 0;
@@ -1749,7 +1749,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     // Left group: shared metrics Urban/Insight.
 
     Paint_DrawImage(wi_thermometer_cropped_34x32, left_x, row_top + 1, 34, 32);
-    String left_temp_label_s = String(INTL_DISP_TEMPERATURE) + " °C";
+    String left_temp_label_s = String(INTL_DISP_TEMPERATURE) + " " + cfgTempDisplayUnit();
     const char *left_temp_label = left_temp_label_s.c_str();
     uint16_t left_temp_label_x = left_x + 42;
     Paint_DrawString_Display(left_temp_label_x, row_top, left_temp_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
@@ -1767,7 +1767,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     drawPairNumbersWithUnits(left_hum_label_x, row_top + row_step + 13, hum_out, "", hum_in, "");
 
     Paint_DrawImage(pressure_32x32, left_x, row_top + 2 * row_step + 1, 32, 32);
-    String left_press_label_s = String(INTL_DISP_PRESSURE) + " mmHg";
+    String left_press_label_s = String(INTL_DISP_PRESSURE) + " " + cfgPressureDisplayUnit();
     const char *left_press_label = left_press_label_s.c_str();
     uint16_t left_press_label_x = left_x + 42;
     Paint_DrawString_Display(left_press_label_x, row_top + 2 * row_step, left_press_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
@@ -1834,7 +1834,9 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         appendIssue(urban_issues, makeTooPhrase(INTL_DISP_PRESS_SHORT, -1));
         appendIssue(urban_issues, makeTooPhrase("PM", 1));
         appendIssue(urban_issues, makeTooPhrase(INTL_DISP_NOISE, 1));
-        appendIssue(urban_issues, String(INTL_DISP_DEW_POINT_IS) + String("12°C"));
+        char dew_demo[16];
+        formatMetricValue(dew_demo, sizeof(dew_demo), tempCToDisplay(12.0f), 0, true);
+        appendIssue(urban_issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_demo) + cfgTempDisplayUnit());
         appendIssue(insight_issues, makeTooPhrase("Hum.", 1));
         appendIssue(insight_issues, makeTooPhrase(INTL_DISP_TEMP_SHORT, 1));
         appendIssue(insight_issues, makeTooPhrase(INTL_DISP_PRESS_SHORT, -1));
@@ -1859,9 +1861,9 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     // Include dew point in Urban line when available.
     float dew_point_c = calculateDewPointC(values.temp_outdoor, values.hum_outdoor);
     char dew_str[16];
-    formatMetricValue(dew_str, sizeof(dew_str), dew_point_c, 0, true);
+    formatMetricValue(dew_str, sizeof(dew_str), tempCToDisplay(dew_point_c), 0, true);
     if (!footer_test_all_warnings && !isTempNoData(dew_point_c)) {
-        appendIssue(urban_issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_str) + String("°C"));
+        appendIssue(urban_issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_str) + cfgTempDisplayUnit());
     }
 
     String source_lines[3];

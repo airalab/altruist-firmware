@@ -156,8 +156,8 @@ static uint32_t proto_scaled_u32(double value, double scale) {
 	return (uint32_t)lround(scaled);
 }
 
-static uint32_t proto_deci_pascal(double value, int pressure_hpa) {
-	return proto_scaled_u32(pressure_hpa ? value * 100.0 : value, 10.0);
+static uint32_t proto_deci_pascal(double value) {
+	return proto_scaled_u32(value, 10.0);
 }
 
 static int add_urban(device_v1_Urban *urban, device_v1_EncryptedUrban *enc, enum ProtoDest dest,
@@ -180,7 +180,7 @@ static device_v1_UrbanSensor urban_gps(double lat, double lon) {
 	return item;
 }
 
-static device_v1_UrbanSensor urban_bme(pb_size_t tag, double value, int pressure_hpa) {
+static device_v1_UrbanSensor urban_bme(pb_size_t tag, double value) {
 	device_v1_UrbanSensor item = device_v1_UrbanSensor_init_zero;
 	item.which_sensor = device_v1_UrbanSensor_bme280_tag;
 	item.sensor.bme280.which_measurement = tag;
@@ -189,7 +189,7 @@ static device_v1_UrbanSensor urban_bme(pb_size_t tag, double value, int pressure
 	} else if (tag == sensor_v1_BME280_humidity_tag) {
 		item.sensor.bme280.measurement.humidity.centi_percent = proto_scaled_u32(value, 100.0);
 	} else {
-		item.sensor.bme280.measurement.pressure.deci_pascal = proto_deci_pascal(value, pressure_hpa);
+		item.sensor.bme280.measurement.pressure.deci_pascal = proto_deci_pascal(value);
 	}
 	return item;
 }
@@ -235,7 +235,7 @@ static device_v1_InsightSensor insight_bme(pb_size_t tag, double value) {
 	} else if (tag == sensor_v1_BME680_humidity_tag) {
 		item.sensor.bme680.measurement.humidity.centi_percent = proto_scaled_u32(value, 100.0);
 	} else {
-		item.sensor.bme680.measurement.pressure.deci_pascal = proto_deci_pascal(value, 0);
+		item.sensor.bme680.measurement.pressure.deci_pascal = proto_deci_pascal(value);
 	}
 	return item;
 }
@@ -270,19 +270,19 @@ static ProtoBuildStatus fill_urban(const struct ProtoSample *s, core_v1_Message 
 		}
 	}
 	if (s->has_temperature && s->dest_temperature != PROTO_DEST_SKIP) {
-		item = urban_bme(sensor_v1_BME280_temperature_tag, s->temperature, 0);
+		item = urban_bme(sensor_v1_BME280_temperature_tag, s->temperature);
 		if (!add_urban(urban, &enc, s->dest_temperature, &item)) {
 			return PROTO_BUILD_ENCODE_FAILED;
 		}
 	}
 	if (s->has_humidity && s->dest_humidity != PROTO_DEST_SKIP) {
-		item = urban_bme(sensor_v1_BME280_humidity_tag, s->humidity, 0);
+		item = urban_bme(sensor_v1_BME280_humidity_tag, s->humidity);
 		if (!add_urban(urban, &enc, s->dest_humidity, &item)) {
 			return PROTO_BUILD_ENCODE_FAILED;
 		}
 	}
 	if (s->has_pressure && s->dest_pressure != PROTO_DEST_SKIP) {
-		item = urban_bme(sensor_v1_BME280_pressure_tag, s->pressure, s->pressure_hpa);
+		item = urban_bme(sensor_v1_BME280_pressure_tag, s->pressure);
 		if (!add_urban(urban, &enc, s->dest_pressure, &item)) {
 			return PROTO_BUILD_ENCODE_FAILED;
 		}

@@ -4,13 +4,20 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **Urban protobuf pressure ×100** — After the BME280 JSON value became Pa, encode still treated it as hPa and wrote `deci_pascal` 100× too high (e.g. 100565094 instead of ~1005650). Same Pa × 10 path as Insight. Hits Meshtastic and map protobuf.
+
 ### Improvements
 
 - **Protobuf private sections (connectivity-protocol v1)** — `Urban.private` / `Insight.private` are opaque bytes. Encrypted measurements are still `EncryptedUrban` / `EncryptedInsight`, then AES-256-GCM. The bytes currently carry serialized `crypto.v1.Encrypted` so the live ingest can decode them (same blob as the old nested message). libcps SCALE wrapping waits until the backend accepts it. JSON `e.…` on the legacy map path is unchanged.
-- **GPS label (#171)** — English (and copied locale strings) use **Longitude**, not “Longtitude”.
-- **Other Urbans (#171)** — The main Urban is not offered in the extra list and is dropped on save; it already has the first display page.
+- **GPS label** — English (and copied locale strings) use **Longitude**, not “Longtitude”.
+- **Other Urbans** — The main Urban is not offered in the extra list and is dropped on save; it already has the first display page.
 - **Improv Serial** — On boot, send the AUTHORIZED packet once instead of repeating it on USB CDC.
-- **BME680 VOC spikes (#172)** — Insight turns the MOX heater on (320 °C / 150 ms, every **5 min**) and logs raw `gas_resistance` (Ohm) on Values / `/data.json` / serial. A sudden drop of ≥8% vs both the last sample and a rolling baseline counts as one spike for the **local calendar day** (until 00:00, RAM + `/voc_day.json`). Not ppm and not a BSEC IAQ index. Drops while BME temperature is falling (>0.6 °C) are ignored. Main e-ink header shows `VOC today: N` (not ohms, not in the metric grid or warning footer; extra Urban pages unchanged).
+- **Pressure display unit** — Settings → GPS & Sensors: **mmHg** (default) or **hPa**, independent of firmware language. Values, e-ink, and graphs follow the choice. Map / `/data.json` stay in Pa/hPa. Pressure correction remains in hPa.
+- **Date format** — Local → System, next to timezone: **MM/DD/YYYY** (default), **DD.MM.YYYY**, or **YYYY-MM-DD**. E-ink headers and Status last-send times follow it. SD file names and map URLs stay ISO.
+- **Temperature display unit** — **°C** (default) or **°F** next to the temperature correction. Values, e-ink (including dew point), sleep analytics card, and graphs follow it. Map / `/data.json`, LED bands, and the correction field stay °C.
+- **BME680 VOC spikes** — Insight turns the MOX heater on (320 °C / 150 ms, every **5 min**) and logs raw `gas_resistance` (Ohm) on Values / `/data.json` / serial. A sudden drop of ≥8% vs both the last sample and a rolling baseline counts as one spike for the **local calendar day** (until 00:00, RAM + `/voc_day.json`). Not ppm and not a BSEC IAQ index. Drops while BME temperature is falling (>0.6 °C) are ignored. Main e-ink header shows `VOC today: N` (not ohms, not in the metric grid or warning footer; extra Urban pages unchanged).
 
 ## [R_2026-10](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-10) — 2026-10
 

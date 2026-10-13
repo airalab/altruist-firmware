@@ -123,6 +123,9 @@ const char INTL_DNMS_CORRECTION[] PROGMEM = "поправка в dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Коррекция температуры в °C";
 #define INTL_PRESSURE_CORRECTION INTL_PRESSURE_CORRECTION
 const char INTL_PRESSURE_CORRECTION[] PROGMEM = "Коррекция давления в гПа";
+#define INTL_PRESSURE_UNIT "Единица давления"
+#define INTL_TEMP_UNIT "Единица температуры"
+#define INTL_DATE_FORMAT "Формат даты"
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Пользовательский адрес Altruist Urban";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать пользовательский адрес Altruist Urban";
 #define INTL_MAIN_URBAN "Главный Urban (первая страница с Insight)"
