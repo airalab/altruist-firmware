@@ -33,7 +33,7 @@ private:
     float gas_baseline_ohm = 0.0f;
     uint8_t gas_baseline_samples = 0;
     uint16_t voc_spikes_today = 0;
-    /** 0 = none, 1 = low, 2 = high; -1 = not ready. */
+    /** 0 = none, 1 = low, 2 = medium, 3 = high; -1 = not ready. */
     int8_t voc_level = -1;
     /** 0–100 arbitrary units from drop vs this device's baseline. Not ppm / IAQ. */
     uint8_t voc_index = 0;

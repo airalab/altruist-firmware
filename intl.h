@@ -115,6 +115,9 @@
 #ifndef INTL_DISP_VOC_LOW
 #define INTL_DISP_VOC_LOW "VOC: low"
 #endif
+#ifndef INTL_DISP_VOC_MED
+#define INTL_DISP_VOC_MED "VOC: medium"
+#endif
 #ifndef INTL_DISP_VOC_HIGH
 #define INTL_DISP_VOC_HIGH "VOC: high"
 #endif
@@ -967,6 +970,9 @@
 #endif
 #ifndef INTL_VOC_PHRASE_LOW
 #define INTL_VOC_PHRASE_LOW "detected in air (low)"
+#endif
+#ifndef INTL_VOC_PHRASE_MED
+#define INTL_VOC_PHRASE_MED "detected in air (medium)"
 #endif
 #ifndef INTL_VOC_PHRASE_HIGH
 #define INTL_VOC_PHRASE_HIGH "detected in air (high)"

@@ -173,8 +173,10 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     addValueToJSON(data, F("pressure"),    last_pressure_value,    INTL_PRESSURE,    F("Pa"));
     addValueToJSON(data, F("humidity"),    last_humidity_value,    INTL_HUMIDITY,    F("%"));
     const char *voc_phrase = INTL_VOC_PHRASE_NONE;
-    if (voc_level >= 2) {
+    if (voc_level >= 3) {
         voc_phrase = INTL_VOC_PHRASE_HIGH;
+    } else if (voc_level == 2) {
+        voc_phrase = INTL_VOC_PHRASE_MED;
     } else if (voc_level == 1) {
         voc_phrase = INTL_VOC_PHRASE_LOW;
     }
@@ -200,7 +202,8 @@ void BME680Sensor::updateVocSpikeDetector() {
     static constexpr float kSuddenRatio = 0.92f;
     static constexpr float kRecoverRatio = 0.92f;
     static constexpr uint8_t kEventTimeoutSamples = 6;
-    static constexpr float kHighRatio = 0.80f;
+    static constexpr uint8_t kMedIndex = 50;
+    static constexpr uint8_t kHighIndex = 75;
     static constexpr float kIndexFullDrop = 0.30f;
     static constexpr float kCoolingDeltaC = 0.6f;
 
@@ -317,7 +320,9 @@ void BME680Sensor::updateVocSpikeDetector() {
                 voc_index = (uint8_t)(units + 0.5f);
             }
         }
-        if (ratio < kHighRatio) {
+        if (voc_index >= kHighIndex) {
+            voc_level = 3;
+        } else if (voc_index >= kMedIndex) {
             voc_level = 2;
         } else if (ratio < kSpikeRatio || voc_event_open) {
             voc_level = 1;

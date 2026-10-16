@@ -590,7 +590,9 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
         }
         if (bme.containsKey("voc_level")) {
             const int level = bme["voc_level"]["value"].as<int>();
-            if (level >= 2) {
+            if (level >= 3) {
+                values.voc_level = 3;
+            } else if (level == 2) {
                 values.voc_level = 2;
             } else if (level == 1) {
                 values.voc_level = 1;
@@ -647,8 +649,10 @@ static bool footerShowVocPage(const main_screen_values_t &values) {
 static String vocFooterPhraseLine(const main_screen_values_t &values) {
     String s = INTL_VOC_ORGANIC;
     s += ": ";
-    if (values.voc_level >= 2) {
+    if (values.voc_level >= 3) {
         s += INTL_VOC_PHRASE_HIGH;
+    } else if (values.voc_level == 2) {
+        s += INTL_VOC_PHRASE_MED;
     } else if (values.voc_level == 1) {
         s += INTL_VOC_PHRASE_LOW;
     } else {

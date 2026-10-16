@@ -469,6 +469,8 @@ const char INTL_VOC_ORGANIC[] PROGMEM = "Органические газы";
 const char INTL_VOC_PHRASE_NONE[] PROGMEM = "не обнаружены";
 #define INTL_VOC_PHRASE_LOW INTL_VOC_PHRASE_LOW
 const char INTL_VOC_PHRASE_LOW[] PROGMEM = "обнаружены в воздухе (мало)";
+#define INTL_VOC_PHRASE_MED INTL_VOC_PHRASE_MED
+const char INTL_VOC_PHRASE_MED[] PROGMEM = "обнаружены в воздухе (средне)";
 #define INTL_VOC_PHRASE_HIGH INTL_VOC_PHRASE_HIGH
 const char INTL_VOC_PHRASE_HIGH[] PROGMEM = "обнаружены в воздухе (много)";
 #define INTL_VOC_INDEX INTL_VOC_INDEX
@@ -574,6 +576,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_VOC_TODAY "VOC сегодня:"
 #define INTL_DISP_VOC_NONE "VOC: нет"
 #define INTL_DISP_VOC_LOW "VOC: мало"
+#define INTL_DISP_VOC_MED "VOC: средне"
 #define INTL_DISP_VOC_HIGH "VOC: много"
 #define INTL_DISP_VOC_SPIKES_UNIT "всплесков"
 #define INTL_DISP_VOC_LEVEL "уровень"
