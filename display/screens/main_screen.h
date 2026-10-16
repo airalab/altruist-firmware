@@ -35,6 +35,9 @@ struct main_screen_values_t {
     String urban_label = "";
     /** Daily qualitative VOC events from BME680; -1 = no reading yet. */
     int16_t voc_spikes_today = -1;
+    /** Live VOC band from BME680: -1 none yet, 0 none, 1 low, 2 high. */
+    int8_t voc_level = -1;
+    uint8_t voc_index = 0;
 
     /** Insight STA: connected and usable IPv4 (see wifiStaLinkReady). */
     bool wifi_sta_link_ok = false;
