@@ -53,6 +53,9 @@ void render_sensor_section(
 	bool grid_open = false;
 	for (JsonPair measurement : sensorData) {
 		String type = measurement.key().c_str();
+		if (type == "voc_level") {
+			continue;
+		}
 		JsonObject measurementData = measurement.value().as<JsonObject>();
 		String value;
 		if (measurementData["value"].is<uint8_t>()) {
@@ -65,7 +68,8 @@ void render_sensor_section(
 			} else if (type == "temperature" || type.endsWith("_temperature")) {
 				floatValue = tempCToDisplay(floatValue);
 				value = String(floatValue, 1);
-			} else if (type == "gas_resistance" || type == "gas_baseline" || type == "voc_spikes_today") {
+			} else if (type == "gas_resistance" || type == "gas_baseline" || type == "voc_spikes_today" ||
+				   type == "voc_index") {
 				value = String((uint32_t)(floatValue + 0.5f));
 			} else {
 				value = String(floatValue, 2);
@@ -81,6 +85,12 @@ void render_sensor_section(
 			units = cfgTempDisplayUnit();
 		} else {
 			units = measurementData["units"].as<String>();
+		}
+
+		if (type == "voc_index") {
+			intl_param += F("<br><span class='reading-card__hint'>");
+			intl_param += INTL_VOC_INDEX_HINT;
+			intl_param += F("</span>");
 		}
 
 		if (!grid_open) {

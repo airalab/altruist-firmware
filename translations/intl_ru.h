@@ -463,6 +463,22 @@ const char INTL_GAS_RESISTANCE[] PROGMEM = "Сопротивление газа 
 const char INTL_GAS_BASELINE[] PROGMEM = "Базовый уровень газа";
 #define INTL_VOC_SPIKES_TODAY INTL_VOC_SPIKES_TODAY
 const char INTL_VOC_SPIKES_TODAY[] PROGMEM = "Всплески VOC сегодня";
+#define INTL_VOC_ORGANIC INTL_VOC_ORGANIC
+const char INTL_VOC_ORGANIC[] PROGMEM = "Органические газы";
+#define INTL_VOC_PHRASE_NONE INTL_VOC_PHRASE_NONE
+const char INTL_VOC_PHRASE_NONE[] PROGMEM = "не обнаружены";
+#define INTL_VOC_PHRASE_LOW INTL_VOC_PHRASE_LOW
+const char INTL_VOC_PHRASE_LOW[] PROGMEM = "обнаружены в воздухе (мало)";
+#define INTL_VOC_PHRASE_MED INTL_VOC_PHRASE_MED
+const char INTL_VOC_PHRASE_MED[] PROGMEM = "обнаружены в воздухе (средне)";
+#define INTL_VOC_PHRASE_HIGH INTL_VOC_PHRASE_HIGH
+const char INTL_VOC_PHRASE_HIGH[] PROGMEM = "обнаружены в воздухе (много)";
+#define INTL_VOC_INDEX INTL_VOC_INDEX
+const char INTL_VOC_INDEX[] PROGMEM = "Уровень VOC";
+#define INTL_VOC_AU INTL_VOC_AU
+const char INTL_VOC_AU[] PROGMEM = "из 100";
+#define INTL_VOC_INDEX_HINT INTL_VOC_INDEX_HINT
+const char INTL_VOC_INDEX_HINT[] PROGMEM = "0 — как обычно у Altruist Insight, 100 — заметно больше органических газов";
 const char INTL_RADIATION[] PROGMEM = "Радиация";
 const char INTL_CO2[] PROGMEM = "CO2";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";
@@ -558,6 +574,13 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_INSIGHT_HEADER "Insight"
 #define INTL_DISP_INSIGHT_ONLY "Insight only"
 #define INTL_DISP_VOC_TODAY "VOC сегодня:"
+#define INTL_DISP_VOC_NONE "VOC: нет"
+#define INTL_DISP_VOC_LOW "VOC: мало"
+#define INTL_DISP_VOC_MED "VOC: средне"
+#define INTL_DISP_VOC_HIGH "VOC: много"
+#define INTL_DISP_VOC_SPIKES_UNIT "всплесков"
+#define INTL_DISP_VOC_LEVEL "уровень"
+#define INTL_DISP_VOC_SCALE_HINT "0 обычно у Insight, 100 больше газов"
 #define INTL_DISP_URBAN_HEADER "Urban"
 #define INTL_DISP_URBAN_ONLY "Urban only"
 #define INTL_DISP_GOING_TO_SLEEP "Уход в сон..."

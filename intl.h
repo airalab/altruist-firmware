@@ -109,6 +109,21 @@
 #ifndef INTL_DISP_VOC_TODAY
 #define INTL_DISP_VOC_TODAY "VOC today:"
 #endif
+#ifndef INTL_DISP_VOC_NONE
+#define INTL_DISP_VOC_NONE "VOC: none"
+#endif
+#ifndef INTL_DISP_VOC_LOW
+#define INTL_DISP_VOC_LOW "VOC: low"
+#endif
+#ifndef INTL_DISP_VOC_MED
+#define INTL_DISP_VOC_MED "VOC: medium"
+#endif
+#ifndef INTL_DISP_VOC_HIGH
+#define INTL_DISP_VOC_HIGH "VOC: high"
+#endif
+#ifndef INTL_DISP_VOC_SPIKES_UNIT
+#define INTL_DISP_VOC_SPIKES_UNIT "spikes"
+#endif
 #ifndef INTL_DISP_CHECK_MAP_FULL_DATA
 #define INTL_DISP_CHECK_MAP_FULL_DATA "Check out our sensor map for full data and analytics."
 #endif
@@ -946,6 +961,36 @@
 #endif
 #ifndef INTL_VOC_SPIKES_TODAY
 #define INTL_VOC_SPIKES_TODAY "VOC spikes today"
+#endif
+#ifndef INTL_VOC_ORGANIC
+#define INTL_VOC_ORGANIC "Organic gases"
+#endif
+#ifndef INTL_VOC_PHRASE_NONE
+#define INTL_VOC_PHRASE_NONE "not detected"
+#endif
+#ifndef INTL_VOC_PHRASE_LOW
+#define INTL_VOC_PHRASE_LOW "detected in air (low)"
+#endif
+#ifndef INTL_VOC_PHRASE_MED
+#define INTL_VOC_PHRASE_MED "detected in air (medium)"
+#endif
+#ifndef INTL_VOC_PHRASE_HIGH
+#define INTL_VOC_PHRASE_HIGH "detected in air (high)"
+#endif
+#ifndef INTL_VOC_INDEX
+#define INTL_VOC_INDEX "VOC level "
+#endif
+#ifndef INTL_VOC_AU
+#define INTL_VOC_AU "of 100"
+#endif
+#ifndef INTL_VOC_INDEX_HINT
+#define INTL_VOC_INDEX_HINT "0 is typical for Altruist Insight, 100 means much more organic gases"
+#endif
+#ifndef INTL_DISP_VOC_LEVEL
+#define INTL_DISP_VOC_LEVEL "level"
+#endif
+#ifndef INTL_DISP_VOC_SCALE_HINT
+#define INTL_DISP_VOC_SCALE_HINT "0 typical for Insight, 100 more gases"
 #endif
 #ifndef INTL_MAP_SEND_CSV
 #define INTL_MAP_SEND_CSV "Send JSON/CSV to Map (current connectivity)"

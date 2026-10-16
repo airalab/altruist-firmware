@@ -473,6 +473,22 @@ const char INTL_GAS_RESISTANCE[] PROGMEM = "Gas resistance (raw)";
 const char INTL_GAS_BASELINE[] PROGMEM = "Gas baseline";
 #define INTL_VOC_SPIKES_TODAY INTL_VOC_SPIKES_TODAY
 const char INTL_VOC_SPIKES_TODAY[] PROGMEM = "VOC spikes today";
+#define INTL_VOC_ORGANIC INTL_VOC_ORGANIC
+const char INTL_VOC_ORGANIC[] PROGMEM = "Organic gases";
+#define INTL_VOC_PHRASE_NONE INTL_VOC_PHRASE_NONE
+const char INTL_VOC_PHRASE_NONE[] PROGMEM = "not detected";
+#define INTL_VOC_PHRASE_LOW INTL_VOC_PHRASE_LOW
+const char INTL_VOC_PHRASE_LOW[] PROGMEM = "detected in air (low)";
+#define INTL_VOC_PHRASE_MED INTL_VOC_PHRASE_MED
+const char INTL_VOC_PHRASE_MED[] PROGMEM = "detected in air (medium)";
+#define INTL_VOC_PHRASE_HIGH INTL_VOC_PHRASE_HIGH
+const char INTL_VOC_PHRASE_HIGH[] PROGMEM = "detected in air (high)";
+#define INTL_VOC_INDEX INTL_VOC_INDEX
+const char INTL_VOC_INDEX[] PROGMEM = "VOC level";
+#define INTL_VOC_AU INTL_VOC_AU
+const char INTL_VOC_AU[] PROGMEM = "of 100";
+#define INTL_VOC_INDEX_HINT INTL_VOC_INDEX_HINT
+const char INTL_VOC_INDEX_HINT[] PROGMEM = "0 is typical for Altruist Insight, 100 means much more organic gases";
 const char INTL_RADIATION[] PROGMEM = "Radiation";
 const char INTL_CO2[] PROGMEM = "CO2";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";
@@ -568,6 +584,13 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_INSIGHT_HEADER "Insight"
 #define INTL_DISP_INSIGHT_ONLY "Insight only"
 #define INTL_DISP_VOC_TODAY "VOC today:"
+#define INTL_DISP_VOC_NONE "VOC: none"
+#define INTL_DISP_VOC_LOW "VOC: low"
+#define INTL_DISP_VOC_MED "VOC: medium"
+#define INTL_DISP_VOC_HIGH "VOC: high"
+#define INTL_DISP_VOC_SPIKES_UNIT "spikes"
+#define INTL_DISP_VOC_LEVEL "level"
+#define INTL_DISP_VOC_SCALE_HINT "0 typical for Insight, 100 more gases"
 #define INTL_DISP_URBAN_HEADER "Urban"
 #define INTL_DISP_URBAN_ONLY "Urban only"
 #define INTL_DISP_GOING_TO_SLEEP "Going to sleep..."

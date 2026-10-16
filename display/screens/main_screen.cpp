@@ -588,6 +588,28 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
                 values.voc_spikes_today = 0;
             }
         }
+        if (bme.containsKey("voc_level")) {
+            const int level = bme["voc_level"]["value"].as<int>();
+            if (level >= 3) {
+                values.voc_level = 3;
+            } else if (level == 2) {
+                values.voc_level = 2;
+            } else if (level == 1) {
+                values.voc_level = 1;
+            } else if (level == 0) {
+                values.voc_level = 0;
+            }
+        }
+        if (bme.containsKey("voc_index")) {
+            const int index = bme["voc_index"]["value"].as<int>();
+            if (index <= 0) {
+                values.voc_index = 0;
+            } else if (index >= 100) {
+                values.voc_index = 100;
+            } else {
+                values.voc_index = (uint8_t)index;
+            }
+        }
     }
 }
 
@@ -612,14 +634,56 @@ static void formatMetricValue(char *out, size_t out_size, float value, uint8_t p
     stringFromFloat(out, value, precision);
 }
 
-static String vocTodayCaption(int16_t count) {
-    if (count < 0) {
-        return String();
+static constexpr unsigned long kFooterCarouselMs = 180000UL;
+
+static bool footerShowVocPage(const main_screen_values_t &values) {
+    if (values.urban_solo) {
+        return false;
     }
+    if (values.voc_level < 0 && values.voc_spikes_today < 0) {
+        return false;
+    }
+    return ((millis() / kFooterCarouselMs) % 2UL) == 1UL;
+}
+
+static String vocFooterPhraseLine(const main_screen_values_t &values) {
+    String s = INTL_VOC_ORGANIC;
+    s += ": ";
+    if (values.voc_level >= 3) {
+        s += INTL_VOC_PHRASE_HIGH;
+    } else if (values.voc_level == 2) {
+        s += INTL_VOC_PHRASE_MED;
+    } else if (values.voc_level == 1) {
+        s += INTL_VOC_PHRASE_LOW;
+    } else {
+        s += INTL_VOC_PHRASE_NONE;
+    }
+    return s;
+}
+
+static String vocFooterStatsLine(const main_screen_values_t &values) {
     String s = INTL_DISP_VOC_TODAY;
     s += ' ';
-    s += String((unsigned)count);
+    if (values.voc_spikes_today >= 0) {
+        s += String((unsigned)values.voc_spikes_today);
+    } else {
+        s += '-';
+    }
+    s += ' ';
+    s += INTL_DISP_VOC_SPIKES_UNIT;
+    if (values.voc_level >= 0) {
+        s += ", ";
+        s += INTL_DISP_VOC_LEVEL;
+        s += ' ';
+        s += String((unsigned)values.voc_index);
+        s += ' ';
+        s += INTL_VOC_AU;
+    }
     return s;
+}
+
+static String vocFooterScaleLine() {
+    return String(INTL_DISP_VOC_SCALE_HINT);
 }
 
 static float calculateDewPointC(float temperature_c, float humidity_percent) {
@@ -986,50 +1050,6 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         int date_x = DISPLAY_WIDTH - right_margin - date_width;
         int date_y = header_top_y;
         Paint_DrawString_Display(date_x, date_y, date_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
-    }
-
-    // Daily VOC count lives in the header so footer warnings keep their three lines.
-    // Skip extra-Urban-only pages (same BME680 would be misleading there).
-    if (!values.urban_solo) {
-        const String voc_cap = vocTodayCaption(values.voc_spikes_today);
-        if (voc_cap.length()) {
-            const uint16_t sep_x = (uint16_t)(header_icon_x + header_icon_size + 8);
-            const char sep[] = "|";
-            const uint16_t voc_w14 = Paint_GetStringWidth_Display(voc_cap.c_str(), &Font16, &font_14_cyrillic, &font_14_ascii);
-            const uint16_t voc_w12 = Paint_GetStringWidth_Display(voc_cap.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
-            const uint16_t sep_w14 = Paint_GetStringWidth_Display(sep, &Font16, &font_14_cyrillic, &font_14_ascii);
-            const uint16_t sep_w12 = Paint_GetStringWidth_Display(sep, &Font12, &font_12_cyrillic, &font_12_ascii);
-            const int gap_after_sep = 8;
-            const int gap_before_time = 8;
-            int voc_x14 = (int)sep_x + (int)sep_w14 + gap_after_sep;
-            int voc_x12 = (int)sep_x + (int)sep_w12 + gap_after_sep;
-            const bool fit14 = !has_time || (voc_x14 + (int)voc_w14 + gap_before_time <= time_x);
-            const bool fit12 = !has_time || (voc_x12 + (int)voc_w12 + gap_before_time <= time_x);
-            const bool use14 = fit14;
-            const bool use12 = !use14 && fit12;
-            sFONT *voc_sfont = use14 ? &Font16 : (use12 ? &Font12 : &Font8);
-            const Font *voc_cy = use14 ? &font_14_cyrillic : (use12 ? &font_12_cyrillic : &font_8_cyrillic);
-            const Font *voc_ascii = use14 ? &font_14_ascii : (use12 ? &font_12_ascii : &font_8_ascii);
-            const uint16_t voc_x = use14 ? (uint16_t)voc_x14 : (uint16_t)voc_x12;
-            const int voc_h = voc_cy->line_height ? (int)voc_cy->line_height : (int)voc_sfont->Height;
-            const int sep_h = use14
-                ? (int)(font_14_ascii.line_height ? font_14_ascii.line_height : Font16.Height)
-                : (int)Font12.Height;
-            int sep_y = (int)header_top_y + (((int)header_row_height - sep_h) / 2);
-            int voc_y = (int)header_top_y + (((int)header_row_height - voc_h) / 2);
-            if (sep_y < (int)header_top_y) {
-                sep_y = (int)header_top_y;
-            }
-            if (voc_y < (int)header_top_y) {
-                voc_y = (int)header_top_y;
-            }
-            Paint_DrawString_Display(sep_x, (uint16_t)sep_y, sep,
-                use14 ? &Font16 : &Font12,
-                use14 ? &font_14_cyrillic : &font_12_cyrillic,
-                use14 ? &font_14_ascii : &font_12_ascii, WHITE, BLACK);
-            Paint_DrawString_Display(voc_x, (uint16_t)voc_y, voc_cap.c_str(),
-                voc_sfont, voc_cy, voc_ascii, WHITE, BLACK);
-        }
     }
 
     // Draw bottom border for header 
@@ -1527,7 +1547,9 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         if (!isTempNoData(dew_point_c)) {
             appendIssue(issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_str) + cfgTempDisplayUnit());
         }
-        const String footer_src = (issues.length() > 0) ? issues : String(INTL_DISP_CHECK_MAP_FULL_DATA);
+        const String footer_src = footerShowVocPage(values)
+            ? (vocFooterPhraseLine(values) + " " + vocFooterStatsLine(values) + " " + vocFooterScaleLine())
+            : ((issues.length() > 0) ? issues : String(INTL_DISP_CHECK_MAP_FULL_DATA));
 
         uint16_t text_right = (DISPLAY_WIDTH > nav_sidebar_width + 1)
             ? (uint16_t)(DISPLAY_WIDTH - nav_sidebar_width - 1)
@@ -1868,14 +1890,20 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
 
     String source_lines[3];
     int source_line_count = 0;
-    if (urban_issues.length() > 0) {
-        source_lines[source_line_count++] = String("Urban: ") + urban_issues;
-    }
-    if (insight_issues.length() > 0) {
-        source_lines[source_line_count++] = String("Insight: ") + insight_issues;
-    }
-    if (source_line_count == 0) {
-        source_lines[source_line_count++] = INTL_DISP_CHECK_MAP_FULL_DATA;
+    if (footerShowVocPage(values)) {
+        source_lines[source_line_count++] = vocFooterPhraseLine(values);
+        source_lines[source_line_count++] = vocFooterStatsLine(values);
+        source_lines[source_line_count++] = vocFooterScaleLine();
+    } else {
+        if (urban_issues.length() > 0) {
+            source_lines[source_line_count++] = String("Urban: ") + urban_issues;
+        }
+        if (insight_issues.length() > 0) {
+            source_lines[source_line_count++] = String("Insight: ") + insight_issues;
+        }
+        if (source_line_count == 0) {
+            source_lines[source_line_count++] = INTL_DISP_CHECK_MAP_FULL_DATA;
+        }
     }
 
     // Footer text: use as much width as possible (excluding the right sidebar only).

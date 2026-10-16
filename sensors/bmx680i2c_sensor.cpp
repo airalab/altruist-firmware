@@ -172,9 +172,20 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     addValueToJSON(data, F("temperature"), last_temperature_value, INTL_TEMPERATURE, F("°C"));
     addValueToJSON(data, F("pressure"),    last_pressure_value,    INTL_PRESSURE,    F("Pa"));
     addValueToJSON(data, F("humidity"),    last_humidity_value,    INTL_HUMIDITY,    F("%"));
+    const char *voc_phrase = INTL_VOC_PHRASE_NONE;
+    if (voc_level >= 3) {
+        voc_phrase = INTL_VOC_PHRASE_HIGH;
+    } else if (voc_level == 2) {
+        voc_phrase = INTL_VOC_PHRASE_MED;
+    } else if (voc_level == 1) {
+        voc_phrase = INTL_VOC_PHRASE_LOW;
+    }
+    addValueToJSON(data, F("voc_phrase"), String(voc_phrase), INTL_VOC_ORGANIC, F(""));
+    addValueToJSON(data, F("voc_index"), voc_index, INTL_VOC_INDEX, INTL_VOC_AU);
+    addValueToJSON(data, F("voc_level"), voc_level, INTL_VOC_ORGANIC, F(""));
+    addValueToJSON(data, F("voc_spikes_today"), voc_spikes_today, INTL_VOC_SPIKES_TODAY, F(""));
     addValueToJSON(data, F("gas_resistance"), last_gas_resistance_value, INTL_GAS_RESISTANCE, F("Ohm"));
     addValueToJSON(data, F("gas_baseline"), (uint32_t)(gas_baseline_ohm + 0.5f), INTL_GAS_BASELINE, F("Ohm"));
-    addValueToJSON(data, F("voc_spikes_today"), voc_spikes_today, INTL_VOC_SPIKES_TODAY, F(""));
 
 #if defined(ALTRUIST_BUILD_DEBUG)
     serializeJson(data, Serial);
@@ -189,7 +200,11 @@ void BME680Sensor::updateVocSpikeDetector() {
     static constexpr uint8_t kWarmupSamples = 4;
     static constexpr float kSpikeRatio = 0.92f;
     static constexpr float kSuddenRatio = 0.92f;
-    static constexpr float kRecoverRatio = 0.96f;
+    static constexpr float kRecoverRatio = 0.92f;
+    static constexpr uint8_t kEventTimeoutSamples = 6;
+    static constexpr uint8_t kMedIndex = 50;
+    static constexpr uint8_t kHighIndex = 75;
+    static constexpr float kIndexFullDrop = 0.30f;
     static constexpr float kCoolingDeltaC = 0.6f;
 
     const uint16_t count_before = voc_spikes_today;
@@ -204,6 +219,7 @@ void BME680Sensor::updateVocSpikeDetector() {
             voc_spikes_yday = timeinfo.tm_yday;
             voc_spikes_today = 0;
             voc_event_open = false;
+            voc_event_samples = 0;
         }
     }
 
@@ -216,6 +232,8 @@ void BME680Sensor::updateVocSpikeDetector() {
 
     const uint32_t r = last_gas_resistance_value;
     if (r == 0) {
+        voc_level = -1;
+        voc_index = 0;
         persist_if_changed();
         return;
     }
@@ -235,6 +253,8 @@ void BME680Sensor::updateVocSpikeDetector() {
         prev_gas_ohm = rf;
         prev_temp_c = t;
         prev_gas_valid = true;
+        voc_level = 0;
+        voc_index = 0;
         debug_outln_info(F("BME680 gas baseline warmup"),
             String((int)gas_baseline_samples) + F("/") + String((int)kWarmupSamples) +
             F(" R=") + String(r) + F(" baseline=") + String((uint32_t)(gas_baseline_ohm + 0.5f)));
@@ -244,12 +264,14 @@ void BME680Sensor::updateVocSpikeDetector() {
 
     if (cooling && voc_event_open) {
         voc_event_open = false;
+        voc_event_samples = 0;
         debug_outln_info(F("BME680 VOC spike ignored (cooling)"),
             String(F("R=")) + String(r) + F(" dT=") + String(prev_temp_c - t, 2));
     }
 
     if (!voc_event_open && sudden && !cooling && rf < gas_baseline_ohm * kSpikeRatio) {
         voc_event_open = true;
+        voc_event_samples = 0;
         if (voc_spikes_today < 65535) {
             voc_spikes_today++;
         }
@@ -257,9 +279,18 @@ void BME680Sensor::updateVocSpikeDetector() {
             String(F("today=")) + String(voc_spikes_today) +
             F(" R=") + String(r) +
             F(" baseline=") + String((uint32_t)(gas_baseline_ohm + 0.5f)));
-    } else if (voc_event_open && rf >= gas_baseline_ohm * kRecoverRatio) {
-        voc_event_open = false;
-        debug_outln_info(F("BME680 VOC spike recovered"), String(r));
+    } else if (voc_event_open) {
+        if (voc_event_samples < 255) {
+            voc_event_samples++;
+        }
+        const bool recovered = rf >= gas_baseline_ohm * kRecoverRatio;
+        const bool timed_out = voc_event_samples >= kEventTimeoutSamples;
+        if (recovered || timed_out) {
+            voc_event_open = false;
+            voc_event_samples = 0;
+            debug_outln_info(timed_out ? F("BME680 VOC spike timed out") : F("BME680 VOC spike recovered"),
+                             String(r));
+        }
     } else if (!voc_event_open && rf < gas_baseline_ohm * kSpikeRatio && (cooling || !sudden)) {
         debug_outln_info(F("BME680 VOC drop skipped"),
             String(F("R=")) + String(r) +
@@ -274,6 +305,27 @@ void BME680Sensor::updateVocSpikeDetector() {
             gas_baseline_ohm = 0.35f * rf + 0.65f * gas_baseline_ohm;
         } else {
             gas_baseline_ohm = 0.1f * rf + 0.9f * gas_baseline_ohm;
+        }
+    }
+
+    voc_index = 0;
+    voc_level = 0;
+    if (gas_baseline_ohm > 0.0f && !cooling) {
+        const float ratio = rf / gas_baseline_ohm;
+        if (ratio < 1.0f) {
+            const float units = ((1.0f - ratio) / kIndexFullDrop) * 100.0f;
+            if (units >= 100.0f) {
+                voc_index = 100;
+            } else if (units > 0.0f) {
+                voc_index = (uint8_t)(units + 0.5f);
+            }
+        }
+        if (voc_index >= kHighIndex) {
+            voc_level = 3;
+        } else if (voc_index >= kMedIndex) {
+            voc_level = 2;
+        } else if (ratio < kSpikeRatio || voc_event_open) {
+            voc_level = 1;
         }
     }
 
@@ -309,6 +361,7 @@ void BME680Sensor::loadVocDay() {
             voc_spikes_yday = timeinfo.tm_yday;
             voc_spikes_today = 0;
             voc_event_open = false;
+            voc_event_samples = 0;
             persistVocDay();
         }
     }
