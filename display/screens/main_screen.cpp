@@ -1583,7 +1583,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         String temp_label_s = String(INTL_DISP_TEMPERATURE) + " " + cfgTempDisplayUnit();
         String hum_label_s = String(INTL_DISP_HUMIDITY) + " %";
         String press_label_s = String(INTL_DISP_PRESSURE) + " " + cfgPressureDisplayUnit();
-        String noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
+        String noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dBA";
 
         drawMainStyleMetric(left_x, row_top, wi_thermometer_cropped_34x32, 34, 32,
                             temp_label_s.c_str(), temp_dir, temp_out, nullptr, true);
@@ -1791,7 +1791,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     // Right group: source-specific metrics.
 
     Paint_DrawImage(ear_hearing_34x34, right_x, row_top + 1, 34, 34);
-    String right_noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
+    String right_noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dBA";
     const char *right_noise_label = right_noise_label_s.c_str();
     uint16_t right_noise_label_x = right_x + 42;
     // Noise on main screen comes from Urban device/sensors.

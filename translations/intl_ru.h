@@ -705,7 +705,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_ANALYTICS_ROW_TEMP "Температура C"
 #define INTL_DISP_ANALYTICS_ROW_HUM "Влажность %"
 #define INTL_DISP_ANALYTICS_ROW_PM25 "PM2.5 мкг/м3"
-#define INTL_DISP_ANALYTICS_ROW_NOISE "Шум дБ"
+#define INTL_DISP_ANALYTICS_ROW_NOISE "Шум дБА"
 #define INTL_DISP_ANALYTICS_AT "в"
 #define INTL_DISP_ANALYTICS_HOUR_SUFFIX "ч"
 #define INTL_DISP_INFO_LABEL "Инфо:"

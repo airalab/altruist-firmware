@@ -1832,7 +1832,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     if (has_noise) {
         drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h,
                        A_TXT("Noise", "Шум"), nv, A_TXT("peaks", "пиков"), f_noise, -1, false, 4, true, true,
-                       A_TXT(">45 dB/night", ">45 дБ/ночь"));
+                       A_TXT(">45 dBA/night", ">45 дБА/ночь"));
         metric_row++;
     }
     drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, "RH", hv, "", f_hum, -1, false, 4, true, true);

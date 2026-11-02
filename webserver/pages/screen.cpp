@@ -92,11 +92,18 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 		INTL_DESK_TITLE_AIR, INTL_DESK_TITLE_CLIMATE, INTL_DESK_TITLE_CO2,
 		INTL_DESK_TITLE_NOISE, INTL_DESK_TITLE_PRESSURE
 	};
+	unsigned shown_home = cfg::desk_home;
+	if (cfg::standalone && (shown_home == DESK_PAGE_AIR || shown_home == DESK_PAGE_NOISE)) {
+		shown_home = deskPageIdAt(deskHomeSlot());
+	}
 	for (unsigned i = 0; i < DESK_PAGE_COUNT; i++) {
+		if (cfg::standalone && (i == DESK_PAGE_AIR || i == DESK_PAGE_NOISE)) {
+			continue;
+		}
 		page_content += F("<option value='");
 		page_content += String(i);
 		page_content += F("'");
-		if (cfg::desk_home == i) {
+		if (shown_home == i) {
 			page_content += F(" selected='selected'");
 		}
 		page_content += F(">");
@@ -106,6 +113,9 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 	page_content += F("</select></div>");
 
 	auto deskPageBox = [&](unsigned bit, const char *name, const char *label) {
+		if (cfg::standalone && (bit == DESK_PAGE_AIR || bit == DESK_PAGE_NOISE)) {
+			return;
+		}
 		page_content += F("<label class='guest-option'><input type='checkbox' name='");
 		page_content += name;
 		page_content += F("' value='1'");
@@ -184,6 +194,13 @@ ScreenSaveResult webserver_screen_post(WebServer& server) {
 	}
 	if (server.hasArg(F("desk_page_pressure"))) {
 		pages |= (1u << DESK_PAGE_PRESSURE);
+	}
+	if (cfg::standalone) {
+		const unsigned urban = (1u << DESK_PAGE_AIR) | (1u << DESK_PAGE_NOISE);
+		pages = (pages & ~urban) | (cfg::desk_pages & urban);
+		if (home == DESK_PAGE_AIR || home == DESK_PAGE_NOISE) {
+			home = deskPageIdAt(deskHomeSlot());
+		}
 	}
 
 	const unsigned old_mode = cfg::epd_refresh_mode;
