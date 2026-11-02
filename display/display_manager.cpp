@@ -61,6 +61,25 @@ static bool analytics_priority_prev_window_state = false;
 /** Urban page switch on MAIN: partial refresh (full every 5th). */
 static bool s_urban_page_partial = false;
 static uint8_t s_urban_page_partial_count = 0;
+static uint8_t s_desk_slot = 0;
+static bool s_desk_skip_advance = true;
+static bool s_desk_advance = false;
+static uint8_t s_desk_partial_count = 0;
+
+static bool deskLayoutActive() {
+    return cfg::main_layout == MAIN_LAYOUT_DESK;
+}
+
+static void deskClampSlot() {
+    const uint8_t n = deskEnabledCount();
+    if (n == 0) {
+        s_desk_slot = 0;
+        return;
+    }
+    if (s_desk_slot >= n) {
+        s_desk_slot = 0;
+    }
+}
 
 // Cycle order for screens when navigating with UP/SET
 // Order: MAIN -> ANALYTICS -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
@@ -126,6 +145,10 @@ void DisplayManager::requestEpdFullRefresh() {
     force_full_refresh = true;
     refresh_now = true;
     epdResetPeriodPosition();
+    s_desk_slot = deskHomeSlot();
+    s_desk_skip_advance = true;
+    s_desk_advance = false;
+    s_desk_partial_count = 0;
 }
 
 void DisplayManager::requestWifiClearConfirmScreen() {
@@ -154,6 +177,9 @@ void DisplayManager::setScreen(ScreenPage pageID) {
 #endif
     if (pageID == ScreenPage::MAIN && currentScreenID != ScreenPage::MAIN) {
         httpUrbanResetToMainPage();
+        s_desk_slot = deskHomeSlot();
+        s_desk_skip_advance = true;
+        s_desk_advance = false;
     }
     currentScreenID = pageID;
     refresh_now = true;
@@ -559,7 +585,16 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     } else {
         last_ota_display_ms = 0;  // reset so next OTA session shows immediately
         if (currentScreenID == ScreenPage::MAIN) {
-            if (next_main_refresh_ms == 0) {
+            if (deskLayoutActive()) {
+                if (next_main_refresh_ms == 0) {
+                    time_based_refresh = msSince(last_refresh_time) > deskIntervalMs();
+                } else {
+                    time_based_refresh = (int32_t)(millis() - next_main_refresh_ms) >= 0;
+                }
+                if (time_based_refresh) {
+                    s_desk_advance = true;
+                }
+            } else if (next_main_refresh_ms == 0) {
                 time_based_refresh = msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL;
             } else {
                 time_based_refresh = (int32_t)(millis() - next_main_refresh_ms) >= 0;
@@ -618,7 +653,27 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             }
             overlayCurrentUrbanOnMain(cached_main_values);
             debug_outln_verbose(F("[Display] Refresh MAIN screen"));
-            drawMainScreen(BlackImage, cached_main_values, deviceStatus.ip_address, robonomics_address, cached_urban_address);
+            uint8_t desk_page = 0;
+            uint8_t desk_pos = 1;
+            uint8_t desk_count = 1;
+            if (deskLayoutActive()) {
+                if (s_desk_skip_advance) {
+                    s_desk_slot = deskHomeSlot();
+                }
+                deskClampSlot();
+                if (s_desk_advance) {
+                    s_desk_advance = false;
+                    if (!s_desk_skip_advance && deskEnabledCount() > 1) {
+                        s_desk_slot = static_cast<uint8_t>((s_desk_slot + 1) % deskEnabledCount());
+                    }
+                    s_desk_skip_advance = false;
+                }
+                desk_count = deskEnabledCount();
+                desk_page = deskPageIdAt(s_desk_slot);
+                desk_pos = static_cast<uint8_t>(s_desk_slot + 1);
+            }
+            drawMainScreen(BlackImage, cached_main_values, deviceStatus.ip_address, robonomics_address, cached_urban_address,
+                           desk_page, desk_pos, desk_count);
         } else if (currentScreenID == ScreenPage::ANALYTICS) {
             // Snapshot live values with a short mutex hold; keep previous values if busy.
             if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
@@ -762,20 +817,24 @@ draw_complete:
         // local minute boundary so that the displayed time is always
         // up-to-date right after the minute changes.
         if (currentScreenID == ScreenPage::MAIN) {
-            struct tm timeinfo;
-            if (getLocalTime(&timeinfo)) {
-                int sec = timeinfo.tm_sec;
-                // How many seconds left until the next minute tick.
-                int seconds_to_next_minute = (sec == 0) ? 60 : (60 - sec);
-                unsigned long now_ms = millis();
-                unsigned long ms_to_next_minute = (unsigned long)seconds_to_next_minute * 1000UL;
-
-                const unsigned long safety_margin_ms = 200;
-                ms_to_next_minute += safety_margin_ms;
-                next_main_refresh_ms = now_ms + ms_to_next_minute;
+            if (deskLayoutActive()) {
+                next_main_refresh_ms = millis() + deskIntervalMs();
             } else {
-                // If we cannot get time yet, keep simple behaviour.
-                next_main_refresh_ms = last_refresh_time + DISPLAY_REFRESH_INTERVAL;
+                struct tm timeinfo;
+                if (getLocalTime(&timeinfo)) {
+                    int sec = timeinfo.tm_sec;
+                    // How many seconds left until the next minute tick.
+                    int seconds_to_next_minute = (sec == 0) ? 60 : (60 - sec);
+                    unsigned long now_ms = millis();
+                    unsigned long ms_to_next_minute = (unsigned long)seconds_to_next_minute * 1000UL;
+
+                    const unsigned long safety_margin_ms = 200;
+                    ms_to_next_minute += safety_margin_ms;
+                    next_main_refresh_ms = now_ms + ms_to_next_minute;
+                } else {
+                    // If we cannot get time yet, keep simple behaviour.
+                    next_main_refresh_ms = last_refresh_time + DISPLAY_REFRESH_INTERVAL;
+                }
             }
         }
         // After wake use FULL mode for first update
@@ -785,6 +844,7 @@ draw_complete:
             epdResetPeriodPosition(); // Reset period counter after full refresh
             debug_outln_verbose(F("[EPD] FULL refresh (watchdog/wake/main) pushed to panel"));
             epdDisplay(DisplayMode::FULL, BlackImage);
+            s_desk_partial_count = 0;
         } else if (s_urban_page_partial) {
             s_urban_page_partial = false;
             s_urban_page_partial_count++;
@@ -796,6 +856,25 @@ draw_complete:
             } else {
                 debug_outln_verbose(F("[EPD] Extra Urban page: PARTIAL"));
                 epdDisplay(DisplayMode::PARTIAL, BlackImage);
+            }
+        } else if (currentScreenID == ScreenPage::MAIN && deskLayoutActive() &&
+                   !deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
+            if (!epdPartialRefreshEnabled()) {
+                debug_outln_verbose(F("[EPD] Desk MAIN: FULL (safe screen mode)"));
+                epdResetPeriodPosition();
+                epdDisplay(DisplayMode::FULL, BlackImage);
+                s_desk_partial_count = 0;
+            } else {
+                s_desk_partial_count++;
+                if (s_desk_partial_count >= 6) {
+                    debug_outln_verbose(F("[EPD] Desk MAIN: FULL (after 5 partials)"));
+                    epdResetPeriodPosition();
+                    epdDisplay(DisplayMode::FULL, BlackImage);
+                    s_desk_partial_count = 0;
+                } else {
+                    debug_outln_verbose(F("[EPD] Desk MAIN: PARTIAL"));
+                    epdDisplay(DisplayMode::PARTIAL, BlackImage);
+                }
             }
         } else if (currentScreenID == ScreenPage::ANALYTICS &&
                    !deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {

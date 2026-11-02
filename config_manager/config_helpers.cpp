@@ -567,6 +567,40 @@ void readConfig(bool oldconfig) {
 		if (cfgMigrateTimezoneDst()) {
 			rewriteConfig = true;
 		}
+#ifdef ALTRUIST_INSIGHT
+		if (cfg::main_layout > MAIN_LAYOUT_DESK) {
+			cfg::main_layout = MAIN_LAYOUT_DEFAULT;
+			rewriteConfig = true;
+		}
+		{
+			const unsigned before_i = cfg::desk_interval_s;
+			const unsigned before_p = cfg::desk_pages;
+			const unsigned before_h = cfg::desk_home;
+			if (cfg::desk_interval_s < DESK_INTERVAL_MIN_S) {
+				cfg::desk_interval_s = DESK_INTERVAL_MIN_S;
+			} else if (cfg::desk_interval_s > DESK_INTERVAL_MAX_S) {
+				cfg::desk_interval_s = DESK_INTERVAL_MAX_S;
+			}
+			cfg::desk_pages &= DESK_PAGES_ALL;
+			if (cfg::desk_pages == 0) {
+				cfg::desk_pages = DESK_PAGES_ALL;
+			}
+			if (cfg::desk_home >= DESK_PAGE_COUNT) {
+				cfg::desk_home = DESK_PAGE_AIR;
+			}
+			if ((cfg::desk_pages & (1u << cfg::desk_home)) == 0) {
+				for (unsigned i = 0; i < DESK_PAGE_COUNT; i++) {
+					if (cfg::desk_pages & (1u << i)) {
+						cfg::desk_home = i;
+						break;
+					}
+				}
+			}
+			if (before_i != cfg::desk_interval_s || before_p != cfg::desk_pages || before_h != cfg::desk_home) {
+				rewriteConfig = true;
+			}
+		}
+#endif
 		if (cfgApplyAutoRegion()) {
 			rewriteConfig = true;
 		}

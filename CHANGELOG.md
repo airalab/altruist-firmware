@@ -8,6 +8,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Features
 
+- **Insight Desk main screen** — Local → Screen mode: **Default** (current all-metrics layout) or **Desk** (five large-number slides: air / climate / CO2 / noise / pressure). Header and sidebar stay the same. Desk flips on a timer (default 60 s); e-paper does 5 partial updates then 1 full. Settings: interval, home slide, and which slides to include (one slide = stay there, e.g. CO2 only). Standalone hides Urban-only air/noise slides.
 - **Timezone DST (#177)** — Timezone stays **UTC±N**. A second **DST** select (Off / Europe / UK / USA / Australia) turns summer/winter switching on. Off keeps the offset all year (Russia, UAE, Georgia…). Existing UTC±N settings stay Off.
 - **Sensor key API** — `POST /api/sensor-key` with JSON `{ "private_key": "<64 hex>" }` (or `hex`) installs the Robonomics seed, returns SS58 `address`, then restarts. `GET` returns the current address only. The key is not logged or echoed.
 - **Local key install** — Advanced → **Install sensor key** (`/provision`) hard-derives `MASTER_SEED//N` in the browser (ed25519, same as `cps id inspect`). The page does the hashes itself, so Chrome on `http://192.168…` works (no `crypto.subtle`). Only the 64-hex child key is POSTed. The mnemonic stays on the PC. Derive is safe; Install replaces the device key and restarts. Local LAN HTTP only (service page on the hub). Guest AP does not expose this page.

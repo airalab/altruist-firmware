@@ -29,6 +29,7 @@
 #include "../../wifi_manager.h"
 #include "../../sensors/http_altruist_sensor.h"
 #include "display_common.h"
+#include "desk_screen.h"
 #include "../../intl.h"
 #include "../paint_driver/fonts/fonts.h"
 #include <qrcode.h>
@@ -999,7 +1000,8 @@ static void drawMainStyleMetric(uint16_t col_x, uint16_t y,
 }
 
 // Draw the full main screen with card-based main content layout
-void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip, const String &insight_robonomics_address, const String &urban_robonomics_address) {
+void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip, const String &insight_robonomics_address, const String &urban_robonomics_address,
+                    uint8_t desk_page, uint8_t desk_pos, uint8_t desk_count) {
 
     // Clear screen first to remove any white lines
     Paint_Clear(WHITE);
@@ -1046,6 +1048,11 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t content_right = (DISPLAY_WIDTH > nav_sidebar_width + 2) ? (DISPLAY_WIDTH - nav_sidebar_width - 2) : (DISPLAY_WIDTH - 1);
     const uint16_t content_width = (content_right > content_left) ? (content_right - content_left) : 0;
     const uint16_t body_top = header_bottom_border_y + 4;
+
+    if (cfg::main_layout == MAIN_LAYOUT_DESK) {
+        drawDeskMainBody(values, body_top, content_left, content_right, desk_page, desk_pos, desk_count);
+        return;
+    }
 
     if (cfg::standalone) {
         const uint16_t footer_band = 38;

@@ -93,6 +93,10 @@ namespace cfg {
 	bool standalone = false;
 	char extra_urbans[LEN_EXTRA_URBANS] = "";
 	unsigned epd_refresh_mode = EPD_REFRESH_SAFE;
+	unsigned main_layout = MAIN_LAYOUT_DEFAULT;
+	unsigned desk_interval_s = DESK_INTERVAL_DEFAULT_S;
+	unsigned desk_pages = DESK_PAGES_ALL;
+	unsigned desk_home = DESK_PAGE_AIR;
 	bool analytics_sleep_add_urban = false;
 
 	unsigned leds_brightness = 100; // Default 100% = 30% actual brightness (scaled down)

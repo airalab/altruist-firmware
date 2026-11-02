@@ -105,6 +105,14 @@ namespace cfg {
 	extern char extra_urbans[LEN_EXTRA_URBANS];
 	/** Insight e-paper: 0 = safe full refresh only, 1 = experimental partial refresh. */
 	extern unsigned epd_refresh_mode;
+	/** Insight MAIN layout: 0 = default (all metrics), 1 = desk carousel. */
+	extern unsigned main_layout;
+	/** Desk carousel period in seconds (15–300, default 60). */
+	extern unsigned desk_interval_s;
+	/** Bitmask of desk slides (air/climate/CO2/noise/pressure). */
+	extern unsigned desk_pages;
+	/** Desk slide shown first / returned to (0–4). */
+	extern unsigned desk_home;
 	/** Paired mode: add Urban PM2.5 & noise to sleep analytics hourly history (default off = Insight PM2.5 only). */
 	extern bool analytics_sleep_add_urban;
 

@@ -282,6 +282,30 @@ const char INTL_SCREEN_SAVE_OK[] PROGMEM = "Screen mode saved.";
 const char INTL_SCREEN_SAVE_FAILED[] PROGMEM = "Could not save screen mode.";
 const char INTL_SCREEN_SAVE_INVALID_MODE[] PROGMEM = "Invalid screen mode selected.";
 const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configuration to storage.";
+#define INTL_MAIN_LAYOUT "Main screen"
+#define INTL_MAIN_LAYOUT_DEFAULT "Default (all metrics)"
+#define INTL_MAIN_LAYOUT_DESK "Desk (one metric per slide)"
+#define INTL_MAIN_LAYOUT_HINT "Desk shows large values and flips slides automatically. Header and sidebar stay the same."
+#define INTL_DESK_INTERVAL "Desk slide interval (seconds)"
+#define INTL_DESK_HOME "Desk home slide"
+#define INTL_DESK_PAGES "Desk slides"
+#define INTL_DESK_PAGES_HINT "Unchecked slides are skipped. If only one is on, the screen stays there."
+#define INTL_DESK_TITLE_AIR "AIR QUALITY"
+#define INTL_DESK_TITLE_CLIMATE "CLIMATE"
+#define INTL_DESK_TITLE_CO2 "CO2"
+#define INTL_DESK_TITLE_NOISE "NOISE"
+#define INTL_DESK_TITLE_PRESSURE "PRESSURE"
+#define INTL_DESK_FOOTER_AIR "AIR"
+#define INTL_DESK_FOOTER_CLIMATE "CLIMATE"
+#define INTL_DESK_FOOTER_CO2 "CO2"
+#define INTL_DESK_FOOTER_NOISE "NOISE"
+#define INTL_DESK_FOOTER_PRESSURE "PRESSURE"
+#define INTL_DESK_BAND_GOOD "Good"
+#define INTL_DESK_BAND_ELEVATED "Elevated"
+#define INTL_DESK_BAND_HIGH "High"
+#define INTL_DESK_BAND_LOW "Low"
+#define INTL_DESK_OUT "Out"
+#define INTL_DESK_IN "In"
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Robonomics Map Host (connectivity)";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Robonomics Map Hosts pool (one per line)";

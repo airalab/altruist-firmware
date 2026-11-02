@@ -106,6 +106,10 @@ enum ConfigShapeId {
 	Config_standalone,
 	Config_extra_urbans,
 	Config_epd_refresh_mode,
+	Config_main_layout,
+	Config_desk_interval_s,
+	Config_desk_pages,
+	Config_desk_home,
 	Config_analytics_sleep_add_urban,
 	Config_analytics_morning_autoswitch,
 	Config_analytics_morning_end_hour,
@@ -211,6 +215,10 @@ static constexpr char CFG_KEY_USE_CUSTOM_URBAN[] PROGMEM = "use_custom_urban";
 static constexpr char CFG_KEY_STANDALONE[] PROGMEM = "standalone";
 static constexpr char CFG_KEY_EXTRA_URBANS[] PROGMEM = "extra_urbans";
 static constexpr char CFG_KEY_EPD_REFRESH_MODE[] PROGMEM = "epd_refresh_mode";
+static constexpr char CFG_KEY_MAIN_LAYOUT[] PROGMEM = "main_layout";
+static constexpr char CFG_KEY_DESK_INTERVAL_S[] PROGMEM = "desk_interval_s";
+static constexpr char CFG_KEY_DESK_PAGES[] PROGMEM = "desk_pages";
+static constexpr char CFG_KEY_DESK_HOME[] PROGMEM = "desk_home";
 static constexpr char CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN[] PROGMEM = "analytics_sleep_add_urban";
 static constexpr char CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH[] PROGMEM = "analytics_morning_autoswitch";
 static constexpr char CFG_KEY_ANALYTICS_MORNING_END_HOUR[] PROGMEM = "analytics_morning_end_hour";
@@ -316,6 +324,10 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_STANDALONE, &cfg::standalone },
 	{ Config_Type_String, sizeof(cfg::extra_urbans)-1, CFG_KEY_EXTRA_URBANS, cfg::extra_urbans },
 	{ Config_Type_UInt, 0, CFG_KEY_EPD_REFRESH_MODE, &cfg::epd_refresh_mode },
+	{ Config_Type_UInt, 0, CFG_KEY_MAIN_LAYOUT, &cfg::main_layout },
+	{ Config_Type_UInt, 0, CFG_KEY_DESK_INTERVAL_S, &cfg::desk_interval_s },
+	{ Config_Type_UInt, 0, CFG_KEY_DESK_PAGES, &cfg::desk_pages },
+	{ Config_Type_UInt, 0, CFG_KEY_DESK_HOME, &cfg::desk_home },
 	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN, &cfg::analytics_sleep_add_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH, &cfg::analytics_morning_autoswitch },
 	{ Config_Type_UInt, 0, CFG_KEY_ANALYTICS_MORNING_END_HOUR, &cfg::analytics_morning_end_hour },

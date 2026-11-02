@@ -584,6 +584,78 @@
 #ifndef INTL_SCREEN_SAVE_CONFIG_FAILED
 #define INTL_SCREEN_SAVE_CONFIG_FAILED "Could not write configuration."
 #endif
+#ifndef INTL_MAIN_LAYOUT
+#define INTL_MAIN_LAYOUT "Main screen"
+#endif
+#ifndef INTL_MAIN_LAYOUT_DEFAULT
+#define INTL_MAIN_LAYOUT_DEFAULT "Default (all metrics)"
+#endif
+#ifndef INTL_MAIN_LAYOUT_DESK
+#define INTL_MAIN_LAYOUT_DESK "Desk (one metric per slide)"
+#endif
+#ifndef INTL_MAIN_LAYOUT_HINT
+#define INTL_MAIN_LAYOUT_HINT "Desk shows large values and flips slides automatically."
+#endif
+#ifndef INTL_DESK_INTERVAL
+#define INTL_DESK_INTERVAL "Desk slide interval (seconds)"
+#endif
+#ifndef INTL_DESK_HOME
+#define INTL_DESK_HOME "Desk home slide"
+#endif
+#ifndef INTL_DESK_PAGES
+#define INTL_DESK_PAGES "Desk slides"
+#endif
+#ifndef INTL_DESK_PAGES_HINT
+#define INTL_DESK_PAGES_HINT "Unchecked slides are skipped."
+#endif
+#ifndef INTL_DESK_TITLE_AIR
+#define INTL_DESK_TITLE_AIR "AIR QUALITY"
+#endif
+#ifndef INTL_DESK_TITLE_CLIMATE
+#define INTL_DESK_TITLE_CLIMATE "CLIMATE"
+#endif
+#ifndef INTL_DESK_TITLE_CO2
+#define INTL_DESK_TITLE_CO2 "CO2 CONCENTRATION"
+#endif
+#ifndef INTL_DESK_TITLE_NOISE
+#define INTL_DESK_TITLE_NOISE "NOISE"
+#endif
+#ifndef INTL_DESK_TITLE_PRESSURE
+#define INTL_DESK_TITLE_PRESSURE "PRESSURE"
+#endif
+#ifndef INTL_DESK_FOOTER_AIR
+#define INTL_DESK_FOOTER_AIR "AIR"
+#endif
+#ifndef INTL_DESK_FOOTER_CLIMATE
+#define INTL_DESK_FOOTER_CLIMATE "CLIMATE"
+#endif
+#ifndef INTL_DESK_FOOTER_CO2
+#define INTL_DESK_FOOTER_CO2 "CO2"
+#endif
+#ifndef INTL_DESK_FOOTER_NOISE
+#define INTL_DESK_FOOTER_NOISE "NOISE"
+#endif
+#ifndef INTL_DESK_FOOTER_PRESSURE
+#define INTL_DESK_FOOTER_PRESSURE "PRESSURE"
+#endif
+#ifndef INTL_DESK_BAND_GOOD
+#define INTL_DESK_BAND_GOOD "Good"
+#endif
+#ifndef INTL_DESK_BAND_ELEVATED
+#define INTL_DESK_BAND_ELEVATED "Elevated"
+#endif
+#ifndef INTL_DESK_BAND_HIGH
+#define INTL_DESK_BAND_HIGH "High"
+#endif
+#ifndef INTL_DESK_BAND_LOW
+#define INTL_DESK_BAND_LOW "Low"
+#endif
+#ifndef INTL_DESK_OUT
+#define INTL_DESK_OUT "Out"
+#endif
+#ifndef INTL_DESK_IN
+#define INTL_DESK_IN "In"
+#endif
 
 #ifndef INTL_NAV_MONITOR
 #define INTL_NAV_MONITOR "Data & status"

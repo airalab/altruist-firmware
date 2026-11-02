@@ -4,6 +4,7 @@
 #define _SCREENS_H
 
 #include "main_screen.h"
+#include "desk_screen.h"
 #include "analytics.h"
 #include "connecting.h"
 #include "graph.h"

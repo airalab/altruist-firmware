@@ -78,6 +78,10 @@ Bool		use_custom_urban
 Bool		standalone
 String		extra_urbans
 UInt		epd_refresh_mode
+UInt		main_layout
+UInt		desk_interval_s
+UInt		desk_pages
+UInt		desk_home
 Bool		analytics_sleep_add_urban
 Bool		analytics_morning_autoswitch
 UInt		analytics_morning_end_hour
