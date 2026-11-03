@@ -1,0 +1,21 @@
+Altruist firmware
+Copyright (C) 2016-2026 Code for Stuttgart a.o. and Sensor.Community contributors
+Copyright (C) 2020-2026 Airalab contributors and Pinout Limited (Altruist changes)
+
+This firmware is a fork of opendata-stuttgart/sensors-software (airrohr) and is
+licensed under the GNU General Public License v3.0 (see LICENSE.md), like the
+original project. Per-file copyright notices of the original authors are kept.
+
+Libraries in lib/ and git submodules keep their own licences.
+
+Measurement data
+----------------
+Open sensor measurements published on sensors.social are made available under
+the Open Database License (ODbL) 1.0:
+https://opendatacommons.org/licenses/odbl/1-0/
+Attribution: "© sensors.social contributors".
+
+Names
+-----
+The names "Altruist" and "sensors.social" and their logos are not licensed
+under the GPL. Modified firmware must not be distributed as "Altruist".
