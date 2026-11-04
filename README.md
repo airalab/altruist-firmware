@@ -191,3 +191,7 @@ To add a Connectivity Robonomics Server, fork this repository and edit `robonomi
 ```
 
 Available regions: `REGION_GLOBAL`, `REGION_EU`, `REGION_AS`, `REGION_AF`, `REGION_AU`, `REGION_NA`, `REGION_SA`.
+
+## License
+
+[GNU GPL v3.0](LICENSE.md). Based on [sensors-software](https://github.com/opendata-stuttgart/sensors-software) by Code for Stuttgart a.o. and Sensor.Community contributors; Altruist changes Copyright (C) 2020–2026 Airalab contributors and Pinout Limited. Details — [NOTICE](NOTICE).
