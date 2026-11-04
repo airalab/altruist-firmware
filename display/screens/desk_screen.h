@@ -9,6 +9,7 @@
 uint8_t deskEffectivePagesMask();
 uint8_t deskEnabledCount();
 uint8_t deskPageIdAt(uint8_t slot);
+uint8_t deskPageIdInOrder(uint8_t idx);
 uint8_t deskHomeSlot();
 unsigned deskIntervalMs();
 void deskNormalizeConfig();

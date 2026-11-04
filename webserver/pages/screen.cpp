@@ -89,15 +89,17 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 	page_content += F("<div class='form-group'><label for='desk_home'>" INTL_DESK_HOME "</label>"
 		"<select id='desk_home' name='desk_home'>");
 	const char *home_labels[] = {
-		INTL_DESK_TITLE_AIR, INTL_DESK_TITLE_CLIMATE, INTL_DESK_TITLE_CO2,
-		INTL_DESK_TITLE_NOISE, INTL_DESK_TITLE_PRESSURE
+		INTL_DESK_TITLE_AIR, INTL_DESK_TITLE_CLIMATE_URBAN, INTL_DESK_TITLE_CO2,
+		INTL_DESK_TITLE_NOISE, INTL_DESK_TITLE_PRESSURE, INTL_DESK_TITLE_CLIMATE_INSIGHT
 	};
 	unsigned shown_home = cfg::desk_home;
-	if (cfg::standalone && (shown_home == DESK_PAGE_AIR || shown_home == DESK_PAGE_NOISE)) {
+	if (cfg::standalone && (shown_home == DESK_PAGE_AIR || shown_home == DESK_PAGE_NOISE ||
+	                        shown_home == DESK_PAGE_CLIMATE)) {
 		shown_home = deskPageIdAt(deskHomeSlot());
 	}
-	for (unsigned i = 0; i < DESK_PAGE_COUNT; i++) {
-		if (cfg::standalone && (i == DESK_PAGE_AIR || i == DESK_PAGE_NOISE)) {
+	for (unsigned o = 0; o < DESK_PAGE_COUNT; o++) {
+		const unsigned i = deskPageIdInOrder(static_cast<uint8_t>(o));
+		if (cfg::standalone && (i == DESK_PAGE_AIR || i == DESK_PAGE_NOISE || i == DESK_PAGE_CLIMATE)) {
 			continue;
 		}
 		page_content += F("<option value='");
@@ -113,7 +115,8 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 	page_content += F("</select></div>");
 
 	auto deskPageBox = [&](unsigned bit, const char *name, const char *label) {
-		if (cfg::standalone && (bit == DESK_PAGE_AIR || bit == DESK_PAGE_NOISE)) {
+		if (cfg::standalone && (bit == DESK_PAGE_AIR || bit == DESK_PAGE_NOISE ||
+		                        bit == DESK_PAGE_CLIMATE)) {
 			return;
 		}
 		page_content += F("<label class='guest-option'><input type='checkbox' name='");
@@ -128,7 +131,8 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 	};
 	page_content += F("<p class='form-hint'>" INTL_DESK_PAGES "</p><div class='checkbox-grid'>");
 	deskPageBox(DESK_PAGE_AIR, "desk_page_air", INTL_DESK_TITLE_AIR);
-	deskPageBox(DESK_PAGE_CLIMATE, "desk_page_climate", INTL_DESK_TITLE_CLIMATE);
+	deskPageBox(DESK_PAGE_CLIMATE, "desk_page_climate", INTL_DESK_TITLE_CLIMATE_URBAN);
+	deskPageBox(DESK_PAGE_CLIMATE_INSIGHT, "desk_page_climate_insight", INTL_DESK_TITLE_CLIMATE_INSIGHT);
 	deskPageBox(DESK_PAGE_CO2, "desk_page_co2", INTL_DESK_TITLE_CO2);
 	deskPageBox(DESK_PAGE_NOISE, "desk_page_noise", INTL_DESK_TITLE_NOISE);
 	deskPageBox(DESK_PAGE_PRESSURE, "desk_page_pressure", INTL_DESK_TITLE_PRESSURE);
@@ -183,8 +187,11 @@ ScreenSaveResult webserver_screen_post(WebServer& server) {
 	if (server.hasArg(F("desk_page_air"))) {
 		pages |= (1u << DESK_PAGE_AIR);
 	}
-	if (server.hasArg(F("desk_page_climate"))) {
+	if (server.hasArg(F("desk_page_climate")) || server.hasArg(F("desk_page_temp"))) {
 		pages |= (1u << DESK_PAGE_CLIMATE);
+	}
+	if (server.hasArg(F("desk_page_climate_insight")) || server.hasArg(F("desk_page_humidity"))) {
+		pages |= (1u << DESK_PAGE_CLIMATE_INSIGHT);
 	}
 	if (server.hasArg(F("desk_page_co2"))) {
 		pages |= (1u << DESK_PAGE_CO2);
@@ -196,9 +203,10 @@ ScreenSaveResult webserver_screen_post(WebServer& server) {
 		pages |= (1u << DESK_PAGE_PRESSURE);
 	}
 	if (cfg::standalone) {
-		const unsigned urban = (1u << DESK_PAGE_AIR) | (1u << DESK_PAGE_NOISE);
+		const unsigned urban = (1u << DESK_PAGE_AIR) | (1u << DESK_PAGE_NOISE) |
+		                       (1u << DESK_PAGE_CLIMATE);
 		pages = (pages & ~urban) | (cfg::desk_pages & urban);
-		if (home == DESK_PAGE_AIR || home == DESK_PAGE_NOISE) {
+		if (home == DESK_PAGE_AIR || home == DESK_PAGE_NOISE || home == DESK_PAGE_CLIMATE) {
 			home = deskPageIdAt(deskHomeSlot());
 		}
 	}

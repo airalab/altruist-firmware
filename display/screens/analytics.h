@@ -35,6 +35,8 @@ struct analytics_screen_values_t {
     // Noise
     analytics_metric_t noise_avg;
     analytics_metric_t noise_max;
+    // VOC organic events today (−1 = sensor absent)
+    int16_t voc_spikes_today = -1;
 };
 
 analytics_view_t analyticsGetView();
@@ -49,7 +51,8 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
 void analyticsIngestHourSample(const analytics_screen_values_t &values);
 void analyticsDevLogStatus15m();
 void populateAnalyticsPeriodStats(analytics_screen_values_t &values);
-void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values);
+void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values,
+                       const String &sensor_ss58 = "");
 /** Clear PM2.5/noise night buckets that came from Urban (when switching to standalone). */
 void analyticsClearUrbanNightHistory();
 

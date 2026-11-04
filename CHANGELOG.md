@@ -8,7 +8,8 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Features
 
-- **Insight Desk main screen** — Local → Screen mode: **Default** (current all-metrics layout) or **Desk** (five large-number slides: air / climate / CO2 / noise / pressure). Header and sidebar stay the same. Desk flips on a timer (default 60 s); e-paper does 5 partial updates then 1 full. Settings: interval, home slide, and which slides to include (one slide = stay there, e.g. CO2 only). Standalone hides Urban-only air/noise slides.
+- **Insight Desk main screen** — Local → Screen mode: **Default** (current all-metrics layout) or **Desk** (large-number slides: air / climate Urban / climate Insight / CO2 / noise / pressure). Header and sidebar stay the same. Desk flips on a timer (default 60 s); e-paper does 5 partial updates then 1 full. Settings: interval, home slide, and which slides to include (one slide = stay there, e.g. CO2 only). Standalone hides Urban-only air/noise/climate slides.
+- **Night CO2 analysis (e-paper)** — Analytics screen is a night-window CO2 review: hourly **max** bars (full fill if the peak is ≥1000 ppm), large max, and minutes above 1000 from the sample ratio (≥90% of an hour counts as the whole hour). The night window is at most **12 hours** (a longer setting is clipped from the start so the bars fit). Right column: face with **Good / Elevated / High CO2** (High if max ≥2000, Elevated if ≥30 min over 1000), a short tip, then a QR to this sensor on [sensors.social](https://sensors.social/) (`type=co2`, date, coords, owner, sensor). VOC spikes are hidden on this screen for now. Switching from the main/Desk screen onto analytics does a **full** e-paper refresh.
 - **Timezone DST (#177)** — Timezone stays **UTC±N**. A second **DST** select (Off / Europe / UK / USA / Australia) turns summer/winter switching on. Off keeps the offset all year (Russia, UAE, Georgia…). Existing UTC±N settings stay Off.
 - **Sensor key API** — `POST /api/sensor-key` with JSON `{ "private_key": "<64 hex>" }` (or `hex`) installs the Robonomics seed, returns SS58 `address`, then restarts. `GET` returns the current address only. The key is not logged or echoed.
 - **Local key install** — Advanced → **Install sensor key** (`/provision`) hard-derives `MASTER_SEED//N` in the browser (ed25519, same as `cps id inspect`). The page does the hashes itself, so Chrome on `http://192.168…` works (no `crypto.subtle`). Only the 64-hex child key is POSTed. The mnemonic stays on the PC. Derive is safe; Install replaces the device key and restarts. Local LAN HTTP only (service page on the hub). Guest AP does not expose this page.
@@ -35,6 +36,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Improvements
 
+- **Desk climate slides** — Climate is two source slides (Urban outdoor T+H, Insight indoor T+H), same two-up layout as air / noise / pressure. Title-right 64×64 source icon on single-sensor slides. Temperature and humidity each have their own Good / Elevated / High / Low word under the shared line (a hot dry room is no longer a single “High”). Screen mode checkboxes: Climate Urban / Climate Insight.
 - **RWS Owner (legacy)** — Settings label is **RWS Owner Address (legacy)**. Hint: this is the old RWS subscription for datalog/encryption, not the device key and not the master seed (`//0`, `//1`). Same hint on Device group → Manual owner.
 - **Protobuf private sections (connectivity-protocol v1)** — `Urban.private` / `Insight.private` are opaque bytes. Encrypted measurements are still `EncryptedUrban` / `EncryptedInsight`, then AES-256-GCM. The bytes currently carry serialized `crypto.v1.Encrypted` so the live ingest can decode them (same blob as the old nested message). libcps SCALE wrapping waits until the backend accepts it. JSON `e.…` on the legacy map path is unchanged.
 - **GPS label** — English (and copied locale strings) use **Longitude**, not “Longtitude”.
@@ -74,6 +76,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
+- **Analytics QR reboot** — Opening the CO2 analysis screen could Guru-Meditation (stack smash in the QR library when a too-small version was tried for the long sensors.social URL). Encode uses version 12, same as the map screen.
 - **Urban PM units** — SDS011 PM10 / PM2.5 on Values / `/data.json` were labeled `ppm`; they are mass concentration, now `µg/m³`.
 - **SNTP after late Wi‑Fi (#178)** — NTP used to start only in `setup()` when STA was already up. After a power cut the router may still be down then, so time stayed unset, Map never sent, and datalog kept 1970 timestamps until a manual restart. SNTP now starts on STA connect / GOT_IP and retries every 30 s while Wi‑Fi is up and `getLocalTime()` fails. Urban LED treats missing time for >5 min as an error (same red latch as other faults).
 - **Urban protobuf pressure ×100** — After the BME280 JSON value became Pa, encode still treated it as hPa and wrote `deci_pascal` 100× too high (e.g. 100565094 instead of ~1005650). Same Pa × 10 path as Insight. Hits Meshtastic and map protobuf.

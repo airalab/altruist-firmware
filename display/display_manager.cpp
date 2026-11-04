@@ -168,6 +168,10 @@ void DisplayManager::setScreen(ScreenPage pageID) {
 
     if (pageID == ScreenPage::ANALYTICS && currentScreenID != ScreenPage::ANALYTICS) {
         analytics_refresh_cycle_pos = 0;
+        if (currentScreenID == ScreenPage::MAIN) {
+            // Desk/main ghosting: full refresh on the first analytics paint.
+            force_full_refresh = true;
+        }
     }
 #if defined(USE_SD_CARD)
     if (pageID == ScreenPage::GRAPHS && currentScreenID != ScreenPage::GRAPHS) {
@@ -680,7 +684,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 extractAnalyticsScreenValues(sensors_data, cached_analytics_values);
                 xSemaphoreGive(mutex);
             }
-            showAnalyticsPage(BlackImage, cached_analytics_values);
+            showAnalyticsPage(BlackImage, cached_analytics_values, robonomics_address);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
             drawGraphScreen();
             goto draw_complete;

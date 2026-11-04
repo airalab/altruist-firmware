@@ -195,6 +195,13 @@ void webserver_config_send_body_post(WebServer &server) {
 			cfg::analytics_night_end_hour = v;
 		}
 	}
+	{
+		unsigned s = cfgMinutesOfDay(cfg::analytics_night_start_hour, 22u * 60u);
+		unsigned e = cfgMinutesOfDay(cfg::analytics_night_end_hour, 7u * 60u);
+		cfgClampNightWindowToMaxHours(&s, &e, 12u);
+		cfg::analytics_night_start_hour = s;
+		cfg::analytics_night_end_hour = e;
+	}
 	if (cfg::analytics_morning_end_hour > 1439) {
 		cfg::analytics_morning_end_hour = 12 * 60;
 	}
@@ -685,10 +692,11 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_SLEEP_ANALYTICS "</h2>"
 		"<div class='config-section__body'>");
 	{
-		const String start_v =
-		    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_start_hour, 22u * 60u));
-		const String end_v =
-		    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_end_hour, 7u * 60u));
+		unsigned start_m = altruistNightCfgRawToMinutes(cfg::analytics_night_start_hour, 22u * 60u);
+		unsigned end_m = altruistNightCfgRawToMinutes(cfg::analytics_night_end_hour, 7u * 60u);
+		cfgClampNightWindowToMaxHours(&start_m, &end_m, 12u);
+		const String start_v = altruistFormatHHMM(start_m);
+		const String end_v = altruistFormatHHMM(end_m);
 		page_content += F("<div class='config-cluster'><h3 class='config-cluster__title'>");
 		page_content += FPSTR(INTL_ANALYTICS_GROUP_NIGHT);
 		page_content += F("</h3><div class='form-fields-pack'>"

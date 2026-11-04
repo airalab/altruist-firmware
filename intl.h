@@ -614,6 +614,12 @@
 #ifndef INTL_DESK_TITLE_CLIMATE
 #define INTL_DESK_TITLE_CLIMATE "CLIMATE"
 #endif
+#ifndef INTL_DESK_TITLE_CLIMATE_URBAN
+#define INTL_DESK_TITLE_CLIMATE_URBAN "CLIMATE URBAN"
+#endif
+#ifndef INTL_DESK_TITLE_CLIMATE_INSIGHT
+#define INTL_DESK_TITLE_CLIMATE_INSIGHT "CLIMATE INSIGHT"
+#endif
 #ifndef INTL_DESK_TITLE_CO2
 #define INTL_DESK_TITLE_CO2 "CO2 CONCENTRATION"
 #endif
@@ -705,13 +711,13 @@
 #define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
 #endif
 #ifndef INTL_ANALYTICS_NIGHT_START_TIME
-#define INTL_ANALYTICS_NIGHT_START_TIME "Sleep analytics night start (local, HH:MM)"
+#define INTL_ANALYTICS_NIGHT_START_TIME "Start (local, HH:MM)"
 #endif
 #ifndef INTL_ANALYTICS_NIGHT_END_TIME
-#define INTL_ANALYTICS_NIGHT_END_TIME "Sleep analytics night end (local, HH:MM)"
+#define INTL_ANALYTICS_NIGHT_END_TIME "End (local, HH:MM)"
 #endif
 #ifndef INTL_ANALYTICS_NIGHT_END_HINT
-#define INTL_ANALYTICS_NIGHT_END_HINT "End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx)."
+#define INTL_ANALYTICS_NIGHT_END_HINT "Used by the CO2 analytics screen. Default is night (22:00–07:00). The end hour is shown on the graph (10:00 → 10 o'clock bar). Window is at most 12 hours."
 #endif
 #ifndef INTL_ANALYTICS_MORNING_END_TIME
 #define INTL_ANALYTICS_MORNING_END_TIME "Morning display until (local, HH:MM)"

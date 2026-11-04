@@ -83,6 +83,44 @@ unsigned cfgMinutesOfDay(unsigned raw, unsigned fallback_minutes) {
 	return fallback_minutes;
 }
 
+unsigned cfgNightWindowSpanMinutes(unsigned start_m, unsigned end_m) {
+	if (start_m > 1439u) {
+		start_m = 0;
+	}
+	if (end_m > 1439u) {
+		end_m = 0;
+	}
+	if (start_m == end_m) {
+		return 1440u;
+	}
+	if (end_m > start_m) {
+		return end_m - start_m;
+	}
+	return 1440u - start_m + end_m;
+}
+
+void cfgClampNightWindowToMaxHours(unsigned *start_m, unsigned *end_m, unsigned max_hours) {
+	if (!start_m || !end_m) {
+		return;
+	}
+	if (max_hours == 0u || max_hours > 24u) {
+		max_hours = 12u;
+	}
+	const unsigned max_m = max_hours * 60u;
+	unsigned s = *start_m;
+	unsigned e = *end_m;
+	if (s > 1439u) {
+		s = 0;
+	}
+	if (e > 1439u) {
+		e = 0;
+	}
+	if (cfgNightWindowSpanMinutes(s, e) > max_m) {
+		*start_m = s;
+		*end_m = (s + max_m) % 1440u;
+	}
+}
+
 bool cfgInAnalyticsMorningWindow(const struct tm& timeinfo) {
 	if (!cfg::analytics_morning_autoswitch) {
 		return false;
@@ -580,6 +618,9 @@ void readConfig(bool oldconfig) {
 				cfg::desk_interval_s = DESK_INTERVAL_MIN_S;
 			} else if (cfg::desk_interval_s > DESK_INTERVAL_MAX_S) {
 				cfg::desk_interval_s = DESK_INTERVAL_MAX_S;
+			}
+			if (cfg::desk_pages == DESK_PAGES_ALL_V1) {
+				cfg::desk_pages = DESK_PAGES_ALL;
 			}
 			cfg::desk_pages &= DESK_PAGES_ALL;
 			if (cfg::desk_pages == 0) {

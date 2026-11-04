@@ -745,6 +745,14 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 		}
 	}
 
+	if (data.containsKey("BME680")) {
+		JsonObjectConst bme_voc = data["BME680"].as<JsonObjectConst>();
+		if (bme_voc.containsKey("voc_spikes_today")) {
+			const int v = bme_voc["voc_spikes_today"]["value"].as<int>();
+			values.voc_spikes_today = (int16_t)(v < 0 ? 0 : v);
+		}
+	}
+
 	if (data.containsKey("BME680") && use_bme680_for_temp_hum) {
 		JsonObjectConst bme = data["BME680"].as<JsonObjectConst>();
 		if (bme.containsKey("temperature")) {
