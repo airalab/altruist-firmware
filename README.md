@@ -1,5 +1,8 @@
 # Altruist Firmware
 
+[![License: GPL v3](https://img.shields.io/github/license/airalab/altruist-firmware)](LICENSE.md)
+[![Latest release](https://img.shields.io/github/v/release/airalab/altruist-firmware)](https://github.com/airalab/altruist-firmware/releases/latest)
+
 Firmware for the Altruist environmental sensor station, built on ESP32-C6 and
 legacy ESP32-C3 Urban hardware.
 
