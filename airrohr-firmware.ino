@@ -724,6 +724,7 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 	auto validCO2 = [](float v) { return v >= 150.0f; };
 	auto validPM = [](float v) { return v >= 0.0f && v <= 1500.0f; };
 	auto validNoise = [](float v) { return v >= 0.0f && v <= 120.0f; };
+	auto validPressureMmHg = [](float v) { return v >= 500.0f && v <= 1000.0f; };
 
 	const bool use_bme680_for_temp_hum = (system_metrics.uptime_sec < 360);
 
@@ -753,20 +754,33 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 		}
 	}
 
-	if (data.containsKey("BME680") && use_bme680_for_temp_hum) {
+	if (data.containsKey("BME680")) {
 		JsonObjectConst bme = data["BME680"].as<JsonObjectConst>();
-		if (bme.containsKey("temperature")) {
-			const float v = bme["temperature"]["value"].as<float>();
-			if (validTemp(v)) { values.temp_indoor.current = v; values.temp_indoor.has_current = true; }
+		if (use_bme680_for_temp_hum) {
+			if (bme.containsKey("temperature")) {
+				const float v = bme["temperature"]["value"].as<float>();
+				if (validTemp(v)) { values.temp_indoor.current = v; values.temp_indoor.has_current = true; }
+			}
+			if (bme.containsKey("humidity")) {
+				const float v = bme["humidity"]["value"].as<float>();
+				if (validHumidity(v)) { values.hum_indoor.current = v; values.hum_indoor.has_current = true; }
+			}
 		}
-		if (bme.containsKey("humidity")) {
-			const float v = bme["humidity"]["value"].as<float>();
-			if (validHumidity(v)) { values.hum_indoor.current = v; values.hum_indoor.has_current = true; }
+		if (bme.containsKey("pressure")) {
+			const float v = bme["pressure"]["value"].as<float>() * 0.0075f;
+			if (validPressureMmHg(v)) {
+				values.press_indoor.current = v;
+				values.press_indoor.has_current = true;
+			}
 		}
 	}
 
 	if (!cfg::standalone && data.containsKey(urban_key)) {
 		JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
+		if (urban.containsKey("SDS_P1")) {
+			const float v = urban["SDS_P1"]["value"].as<float>();
+			if (validPM(v)) { values.pm10.current = v; values.pm10.has_current = true; }
+		}
 		if (urban.containsKey("SDS_P2")) {
 			const float v = urban["SDS_P2"]["value"].as<float>();
 			if (validPM(v)) { values.pm25.current = v; values.pm25.has_current = true; }
@@ -778,6 +792,72 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 		if (urban.containsKey("PCBA_noiseMax")) {
 			const float v = urban["PCBA_noiseMax"]["value"].as<float>();
 			if (validNoise(v)) { values.noise_max.current = v; values.noise_max.has_current = true; }
+		}
+		if (urban.containsKey("BME280_temperature")) {
+			const float v = urban["BME280_temperature"]["value"].as<float>();
+			if (validTemp(v)) { values.temp_urban.current = v; values.temp_urban.has_current = true; }
+		}
+		if (urban.containsKey("BME280_humidity")) {
+			const float v = urban["BME280_humidity"]["value"].as<float>();
+			if (validHumidity(v)) { values.hum_urban.current = v; values.hum_urban.has_current = true; }
+		}
+		if (urban.containsKey("BME280_pressure")) {
+			const float v = urban["BME280_pressure"]["value"].as<float>() * 0.0075f;
+			if (validPressureMmHg(v)) {
+				values.press_urban.current = v;
+				values.press_urban.has_current = true;
+			}
+		}
+	}
+
+	// Same source as the Desk numbers slide (HTTP snap), so Urban climate/air
+	// hourly buckets fill even when sensors_data JSON is briefly empty.
+	if (!cfg::standalone) {
+		float snap_pm10 = -1, snap_pm25 = -1, snap_na = -1, snap_nm = -1;
+		float snap_temp = -1000, snap_hum = -1, snap_press_pa = -1;
+		if (httpUrbanCopyMainSnap(&snap_pm10, &snap_pm25, &snap_na, &snap_nm,
+		                          &snap_temp, &snap_hum, &snap_press_pa)) {
+			if (validPM(snap_pm10)) {
+				values.pm10.current = snap_pm10;
+				values.pm10.has_current = true;
+			}
+			if (validPM(snap_pm25)) {
+				values.pm25.current = snap_pm25;
+				values.pm25.has_current = true;
+			}
+			if (validNoise(snap_na)) {
+				values.noise_avg.current = snap_na;
+				values.noise_avg.has_current = true;
+			}
+			if (validNoise(snap_nm)) {
+				values.noise_max.current = snap_nm;
+				values.noise_max.has_current = true;
+			}
+			if (validTemp(snap_temp)) {
+				values.temp_urban.current = snap_temp;
+				values.temp_urban.has_current = true;
+			}
+			if (validHumidity(snap_hum)) {
+				values.hum_urban.current = snap_hum;
+				values.hum_urban.has_current = true;
+			}
+			const float press_mm = snap_press_pa * 0.0075f;
+			if (validPressureMmHg(press_mm)) {
+				values.press_urban.current = press_mm;
+				values.press_urban.has_current = true;
+			}
+		}
+	}
+
+	if (data.containsKey("SDS011")) {
+		JsonObjectConst sds = data["SDS011"].as<JsonObjectConst>();
+		if (sds.containsKey("P1")) {
+			const float v = sds["P1"]["value"].as<float>();
+			if (validPM(v)) { values.pm10_insight.current = v; values.pm10_insight.has_current = true; }
+		}
+		if (sds.containsKey("P2")) {
+			const float v = sds["P2"]["value"].as<float>();
+			if (validPM(v)) { values.pm25_insight.current = v; values.pm25_insight.has_current = true; }
 		}
 	}
 

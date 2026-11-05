@@ -662,6 +662,69 @@
 #ifndef INTL_DESK_IN
 #define INTL_DESK_IN "In"
 #endif
+#ifndef INTL_DESK_GRAPH_HOURS
+#define INTL_DESK_GRAPH_HOURS "6 HOURS"
+#endif
+#ifndef INTL_DESK_GRAPH_MAX
+#define INTL_DESK_GRAPH_MAX "max"
+#endif
+#ifndef INTL_DESK_GRAPH_COLLECTING
+#define INTL_DESK_GRAPH_COLLECTING "Collecting hourly data"
+#endif
+#ifndef INTL_DESK_GRAPH_STABLE_CO2
+#define INTL_DESK_GRAPH_STABLE_CO2 "Stable, below 1000"
+#endif
+#ifndef INTL_DESK_GRAPH_CO2_HIGH
+#define INTL_DESK_GRAPH_CO2_HIGH "Stayed high this window"
+#endif
+#ifndef INTL_DESK_GRAPH_ROSE
+#define INTL_DESK_GRAPH_ROSE "Rose %u in 6 hours"
+#endif
+#ifndef INTL_DESK_GRAPH_DROPPED
+#define INTL_DESK_GRAPH_DROPPED "Dropped %u in 6 hours"
+#endif
+#ifndef INTL_DESK_GRAPH_PEAK
+#define INTL_DESK_GRAPH_PEAK "Peak at %02u:00"
+#endif
+#ifndef INTL_DESK_GRAPH_WARMER
+#define INTL_DESK_GRAPH_WARMER "Warmer than 6h ago"
+#endif
+#ifndef INTL_DESK_GRAPH_COOLER
+#define INTL_DESK_GRAPH_COOLER "Cooler than 6h ago"
+#endif
+#ifndef INTL_DESK_GRAPH_IN_WARMER
+#define INTL_DESK_GRAPH_IN_WARMER "Indoor %d° warmer than outdoor"
+#endif
+#ifndef INTL_DESK_GRAPH_IN_COOLER
+#define INTL_DESK_GRAPH_IN_COOLER "Indoor %d° cooler than outdoor"
+#endif
+#ifndef INTL_DESK_GRAPH_PRESS_FALL
+#define INTL_DESK_GRAPH_PRESS_FALL "Pressure falling"
+#endif
+#ifndef INTL_DESK_GRAPH_PRESS_RISE
+#define INTL_DESK_GRAPH_PRESS_RISE "Pressure rising"
+#endif
+#ifndef INTL_DESK_GRAPH_PRESS_STEADY
+#define INTL_DESK_GRAPH_PRESS_STEADY "Pressure steady"
+#endif
+#ifndef INTL_DESK_GRAPH_CLEANER
+#define INTL_DESK_GRAPH_CLEANER "Now cleaner than 6h ago"
+#endif
+#ifndef INTL_DESK_GRAPH_DIRTIER
+#define INTL_DESK_GRAPH_DIRTIER "Dustier than 6h ago"
+#endif
+#ifndef INTL_DESK_GRAPH_QUIET
+#define INTL_DESK_GRAPH_QUIET "Mostly quiet"
+#endif
+#ifndef INTL_DESK_GRAPH_LOUD
+#define INTL_DESK_GRAPH_LOUD "Noisiest at %02u:00"
+#endif
+#ifndef INTL_DESK_GRAPH_HUM_LOW
+#define INTL_DESK_GRAPH_HUM_LOW "Humidity low"
+#endif
+#ifndef INTL_DESK_GRAPH_HUM_HIGH
+#define INTL_DESK_GRAPH_HUM_HIGH "Humidity high"
+#endif
 
 #ifndef INTL_NAV_MONITOR
 #define INTL_NAV_MONITOR "Data & status"

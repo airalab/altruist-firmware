@@ -71,7 +71,7 @@ static bool deskLayoutActive() {
 }
 
 static void deskClampSlot() {
-    const uint8_t n = deskEnabledCount();
+    const uint8_t n = deskCarouselCount();
     if (n == 0) {
         s_desk_slot = 0;
         return;
@@ -660,6 +660,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             uint8_t desk_page = 0;
             uint8_t desk_pos = 1;
             uint8_t desk_count = 1;
+            bool desk_graph = false;
+            uint8_t desk_graph_i = 0;
             if (deskLayoutActive()) {
                 if (s_desk_skip_advance) {
                     s_desk_slot = deskHomeSlot();
@@ -667,17 +669,16 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 deskClampSlot();
                 if (s_desk_advance) {
                     s_desk_advance = false;
-                    if (!s_desk_skip_advance && deskEnabledCount() > 1) {
-                        s_desk_slot = static_cast<uint8_t>((s_desk_slot + 1) % deskEnabledCount());
+                    if (!s_desk_skip_advance && deskCarouselCount() > 1) {
+                        s_desk_slot = static_cast<uint8_t>((s_desk_slot + 1) % deskCarouselCount());
                     }
                     s_desk_skip_advance = false;
                 }
-                desk_count = deskEnabledCount();
-                desk_page = deskPageIdAt(s_desk_slot);
-                desk_pos = static_cast<uint8_t>(s_desk_slot + 1);
+                deskCarouselDecode(s_desk_slot, &desk_page, &desk_graph, &desk_pos, &desk_count,
+                                   &desk_graph_i);
             }
             drawMainScreen(BlackImage, cached_main_values, deviceStatus.ip_address, robonomics_address, cached_urban_address,
-                           desk_page, desk_pos, desk_count);
+                           desk_page, desk_pos, desk_count, desk_graph, desk_graph_i);
         } else if (currentScreenID == ScreenPage::ANALYTICS) {
             // Snapshot live values with a short mutex hold; keep previous values if busy.
             if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
@@ -817,26 +818,31 @@ draw_complete:
             ota_display_refresh_count = 0;  // reset for next OTA session
         }
 
-        // For MAIN screen schedule the next refresh close to the next
-        // local minute boundary so that the displayed time is always
-        // up-to-date right after the minute changes.
+        // Default MAIN: next refresh near the local minute tick so the header
+        // clock changes when the minute changes. Desk slides wait until after
+        // epdDisplay() so the dwell (15 s graph / configured numbers) is the
+        // time the finished image stays on the panel, not including refresh.
+        bool desk_hold_until_epd = false;
+        bool desk_graph_slide = false;
         if (currentScreenID == ScreenPage::MAIN) {
-            if (deskLayoutActive()) {
-                next_main_refresh_ms = millis() + deskIntervalMs();
-            } else {
+            if (deskLayoutActive() &&
+                !deviceStatus.ota_in_progress && !deviceStatus.ota_failed &&
+                !deviceStatus.ota_success) {
+                uint8_t dummy_page = 0, dummy_pos = 1, dummy_count = 1;
+                deskCarouselDecode(s_desk_slot, &dummy_page, &desk_graph_slide,
+                                   &dummy_pos, &dummy_count);
+                desk_hold_until_epd = true;
+            } else if (!deskLayoutActive()) {
                 struct tm timeinfo;
                 if (getLocalTime(&timeinfo)) {
                     int sec = timeinfo.tm_sec;
-                    // How many seconds left until the next minute tick.
                     int seconds_to_next_minute = (sec == 0) ? 60 : (60 - sec);
                     unsigned long now_ms = millis();
                     unsigned long ms_to_next_minute = (unsigned long)seconds_to_next_minute * 1000UL;
-
                     const unsigned long safety_margin_ms = 200;
                     ms_to_next_minute += safety_margin_ms;
                     next_main_refresh_ms = now_ms + ms_to_next_minute;
                 } else {
-                    // If we cannot get time yet, keep simple behaviour.
                     next_main_refresh_ms = last_refresh_time + DISPLAY_REFRESH_INTERVAL;
                 }
             }
@@ -863,8 +869,10 @@ draw_complete:
             }
         } else if (currentScreenID == ScreenPage::MAIN && deskLayoutActive() &&
                    !deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
-            if (!epdPartialRefreshEnabled()) {
-                debug_outln_verbose(F("[EPD] Desk MAIN: FULL (safe screen mode)"));
+            // Graph slides always FULL: partial from the numbers slide ghosts into the plot.
+            if (!epdPartialRefreshEnabled() || desk_graph_slide) {
+                debug_outln_verbose(desk_graph_slide ? F("[EPD] Desk graph: FULL")
+                                                     : F("[EPD] Desk MAIN: FULL (safe screen mode)"));
                 epdResetPeriodPosition();
                 epdDisplay(DisplayMode::FULL, BlackImage);
                 s_desk_partial_count = 0;
@@ -907,6 +915,9 @@ draw_complete:
         s_epd_draw_depth--;
         if (epd_draw_mutex) {
             xSemaphoreGive(epd_draw_mutex);
+        }
+        if (desk_hold_until_epd) {
+            next_main_refresh_ms = millis() + deskSlideIntervalMs(desk_graph_slide);
         }
     }
 }

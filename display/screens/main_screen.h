@@ -48,7 +48,8 @@ void extractMainScreenValues(const JsonDocument &data, main_screen_values_t &val
 void overlayCurrentUrbanOnMain(main_screen_values_t &values);
 void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip_address, 
                     const String &insight_robonomics_address = "", const String &urban_robonomics_address = "",
-                    uint8_t desk_page = 0, uint8_t desk_pos = 1, uint8_t desk_count = 1);
+                    uint8_t desk_page = 0, uint8_t desk_pos = 1, uint8_t desk_count = 1,
+                    bool desk_graph = false, uint8_t desk_graph_i = 0);
 
 
 #endif // _MAIN_SCREEN_H

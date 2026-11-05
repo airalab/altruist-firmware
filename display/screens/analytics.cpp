@@ -49,7 +49,8 @@ analytics_view_t g_analytics_view = analytics_view_t::OVERVIEW_24H;
 struct RollingHourBucket {
     uint32_t hour_key = 0; // local hour key (day_key*24 + hour)
     float sum_v = 0.0f;
-    float max_v = 0.0f;    // peak sample in this hour (used for noise >45 dB)
+    float max_v = 0.0f;    // peak sample in this hour
+    float min_v = 0.0f;    // trough sample in this hour (cold / dry / low pressure)
     uint16_t count = 0;
     uint16_t above_count = 0; // samples at/above metric threshold (CO2 ≥ 1000)
 };
@@ -62,11 +63,18 @@ RollingHourHistory g_temp_hour_hist;
 RollingHourHistory g_hum_hour_hist;
 RollingHourHistory g_dew_hour_hist;
 RollingHourHistory g_pm25_hour_hist;
+RollingHourHistory g_pm10_hour_hist;
 RollingHourHistory g_co2_hour_hist;
 RollingHourHistory g_noise_hour_hist;
+RollingHourHistory g_noise_avg_hour_hist;
 RollingHourHistory g_voc_hour_hist; // hourly VOC organic-event counts (sum_v)
+RollingHourHistory g_temp_urban_hour_hist;
+RollingHourHistory g_hum_urban_hour_hist;
+RollingHourHistory g_press_in_hour_hist;
+RollingHourHistory g_press_urb_hour_hist;
 
-constexpr uint8_t kAnalyticsHistVersion = 6;
+constexpr uint8_t kAnalyticsHistVersion = 7;
+constexpr uint8_t kAnalyticsHistVersionV6 = 6;
 constexpr uint8_t kAnalyticsHistVersionV5 = 5;
 constexpr uint8_t kAnalyticsHistVersionPrev = 4; // pre-max_v buckets
 constexpr float kNoisePeakThresholdDb = 45.0f;
@@ -100,8 +108,19 @@ struct RollingHourBucketV4 {
 struct RollingHourHistoryV4 {
     RollingHourBucketV4 buckets[48];
 };
+struct RollingHourBucketV6 {
+    uint32_t hour_key = 0;
+    float sum_v = 0.0f;
+    float max_v = 0.0f;
+    uint16_t count = 0;
+    uint16_t above_count = 0;
+};
+struct RollingHourHistoryV6 {
+    RollingHourBucketV6 buckets[48];
+};
 static_assert(sizeof(RollingHourBucketV4) == 12, "v4 analytics bucket size");
-static_assert(sizeof(RollingHourBucket) == 16, "v5 analytics bucket size");
+static_assert(sizeof(RollingHourBucketV6) == 16, "v6 analytics bucket size");
+static_assert(sizeof(RollingHourBucket) == 20, "v7 analytics bucket size");
 
 static void migrateHourHistoryV4ToV5(RollingHourHistory &dst, const RollingHourHistoryV4 &src) {
     for (int i = 0; i < 48; i++) {
@@ -113,7 +132,21 @@ static void migrateHourHistoryV4ToV5(RollingHourHistory &dst, const RollingHourH
         // No true peak stored in v4 — use hourly average as provisional max until
         // fresh samples overwrite (noise peaks may under-count for one night).
         n.max_v = (o.count > 0) ? (o.sum_v / (float)o.count) : 0.0f;
+        n.min_v = n.max_v;
         n.above_count = 0;
+    }
+}
+
+static void migrateHourHistoryV6ToV7(RollingHourHistory &dst, const RollingHourHistoryV6 &src) {
+    for (int i = 0; i < 48; i++) {
+        const RollingHourBucketV6 &o = src.buckets[i];
+        RollingHourBucket &n = dst.buckets[i];
+        n.hour_key = o.hour_key;
+        n.sum_v = o.sum_v;
+        n.max_v = o.max_v;
+        n.count = o.count;
+        n.above_count = o.above_count;
+        n.min_v = (o.count > 0) ? (o.sum_v / (float)o.count) : o.max_v;
     }
 }
 
@@ -137,9 +170,18 @@ static void seedCo2AboveFromAvg(RollingHourHistory &hist) {
 }
 
 static bool loadHourHistoryV5(Preferences &prefs, const char *key, RollingHourHistory &hist) {
-    if (prefs.getBytesLength(key) != sizeof(hist)) return false;
-    prefs.getBytes(key, &hist, sizeof(hist));
-    return true;
+    const size_t n = prefs.getBytesLength(key);
+    if (n == sizeof(hist)) {
+        prefs.getBytes(key, &hist, sizeof(hist));
+        return true;
+    }
+    if (n == sizeof(RollingHourHistoryV6)) {
+        RollingHourHistoryV6 old{};
+        prefs.getBytes(key, &old, sizeof(old));
+        migrateHourHistoryV6ToV7(hist, old);
+        return true;
+    }
+    return false;
 }
 
 static bool loadHourHistoryMigratingV4(Preferences &prefs, const char *key, RollingHourHistory &hist) {
@@ -161,8 +203,8 @@ static void loadRollingHistoryIfNeeded() {
     }
 
     const uint8_t version = prefs.getUChar("ver", 0);
-    if (version != kAnalyticsHistVersion && version != kAnalyticsHistVersionV5 &&
-        version != kAnalyticsHistVersionPrev) {
+    if (version != kAnalyticsHistVersion && version != kAnalyticsHistVersionV6 &&
+        version != kAnalyticsHistVersionV5 && version != kAnalyticsHistVersionPrev) {
         prefs.end();
         return;
     }
@@ -186,7 +228,7 @@ static void loadRollingHistoryIfNeeded() {
         loadHourHistoryV5(prefs, "h_pm25", g_pm25_hour_hist);
         loadHourHistoryV5(prefs, "h_co2", g_co2_hour_hist);
         loadHourHistoryV5(prefs, "h_noise", g_noise_hour_hist);
-        if (version == kAnalyticsHistVersion) {
+        if (version == kAnalyticsHistVersion || version == kAnalyticsHistVersionV6) {
             loadHourHistoryV5(prefs, "h_voc", g_voc_hour_hist);
         } else {
             // v5 padding was unused — do not treat leftover bytes as minutes-above.
@@ -199,13 +241,22 @@ static void loadRollingHistoryIfNeeded() {
             migrated = true;
         }
     }
+    loadHourHistoryV5(prefs, "h_t_urb", g_temp_urban_hour_hist);
+    loadHourHistoryV5(prefs, "h_h_urb", g_hum_urban_hour_hist);
+    loadHourHistoryV5(prefs, "h_p_in", g_press_in_hour_hist);
+    loadHourHistoryV5(prefs, "h_p_urb", g_press_urb_hour_hist);
+    loadHourHistoryV5(prefs, "h_pm10", g_pm10_hour_hist);
+    loadHourHistoryV5(prefs, "h_n_avg", g_noise_avg_hour_hist);
+    if (version != kAnalyticsHistVersion) {
+        migrated = true;
+    }
     prefs.end();
 
     if (migrated) {
         g_hist_dirty = true;
         saveRollingHistoryIfNeeded(true);
 #if defined(ALTRUIST_BUILD_DEBUG)
-        debug_outln_info(F("[ANALYTICS] migrated hour history → v6"));
+        debug_outln_info(F("[ANALYTICS] migrated hour history → v7"));
 #endif
     }
 }
@@ -240,6 +291,12 @@ static void saveRollingHistoryIfNeeded(bool force) {
         prefs.putBytes("h_co2", &g_co2_hour_hist, sizeof(g_co2_hour_hist));
         prefs.putBytes("h_noise", &g_noise_hour_hist, sizeof(g_noise_hour_hist));
         prefs.putBytes("h_voc", &g_voc_hour_hist, sizeof(g_voc_hour_hist));
+        prefs.putBytes("h_t_urb", &g_temp_urban_hour_hist, sizeof(g_temp_urban_hour_hist));
+        prefs.putBytes("h_h_urb", &g_hum_urban_hour_hist, sizeof(g_hum_urban_hour_hist));
+        prefs.putBytes("h_p_in", &g_press_in_hour_hist, sizeof(g_press_in_hour_hist));
+        prefs.putBytes("h_p_urb", &g_press_urb_hour_hist, sizeof(g_press_urb_hour_hist));
+        prefs.putBytes("h_pm10", &g_pm10_hour_hist, sizeof(g_pm10_hour_hist));
+        prefs.putBytes("h_n_avg", &g_noise_avg_hour_hist, sizeof(g_noise_avg_hour_hist));
         prefs.end();
         persisted = true;
     }
@@ -328,6 +385,10 @@ static bool isValidPM10(float v) {
 
 static bool isValidNoise(float v) {
     return (v >= 0.0f && v <= 120.0f && fabsf(v - kNoData) > kEpsilon);
+}
+
+static bool isValidPressureMmHg(float v) {
+    return (v >= 500.0f && v <= 1000.0f && fabsf(v - kNoData) > kEpsilon);
 }
 
 // Civil-date day serial (Howard Hinnant's days_from_civil).
@@ -461,8 +522,10 @@ static void dumpAnalyticsToSdDev(uint32_t now_ts, bool forced_save) {
     appendHourlyDump(content, "hum", g_hum_hour_hist);
     appendHourlyDump(content, "dew", g_dew_hour_hist);
     appendHourlyDump(content, "pm25", g_pm25_hour_hist);
+    appendHourlyDump(content, "pm10", g_pm10_hour_hist);
     appendHourlyDump(content, "co2", g_co2_hour_hist);
     appendHourlyDump(content, "noise", g_noise_hour_hist);
+    appendHourlyDump(content, "noise_avg", g_noise_avg_hour_hist);
 
     const String path = String("/sensors_rollup/dev/analytics/analytics_") + String((uint32_t)hour_key) + ".txt";
     if (sdCardLogger.writeTextFile(path, content)) {
@@ -480,6 +543,7 @@ static void updateRollingHourMetric(RollingHourHistory &hist, float value, uint3
         b.hour_key = hour_key;
         b.sum_v = value;
         b.max_v = value;
+        b.min_v = value;
         b.count = 1;
         b.above_count = above ? 1 : 0;
         return;
@@ -493,6 +557,9 @@ static void updateRollingHourMetric(RollingHourHistory &hist, float value, uint3
     }
     if (value > b.max_v) {
         b.max_v = value;
+    }
+    if (value < b.min_v) {
+        b.min_v = value;
     }
 }
 
@@ -874,6 +941,13 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
                 }
             }
         }
+        if (bme.containsKey("pressure")) {
+            float p = bme["pressure"]["value"].as<float>() * 0.0075f;
+            if (isValidPressureMmHg(p)) {
+                values.press_indoor.current = p;
+                values.press_indoor.has_current = true;
+            }
+        }
     }
 
     if (!cfg::standalone) {
@@ -892,6 +966,20 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
                 if (isValidHumidity(h_urban)) {
                     values.hum_urban.current = h_urban;
                     values.hum_urban.has_current = true;
+                }
+            }
+            if (urban.containsKey("BME280_pressure")) {
+                float p_urban = urban["BME280_pressure"]["value"].as<float>() * 0.0075f;
+                if (isValidPressureMmHg(p_urban)) {
+                    values.press_urban.current = p_urban;
+                    values.press_urban.has_current = true;
+                }
+            }
+            if (urban.containsKey("SDS_P1")) {
+                float pm10 = urban["SDS_P1"]["value"].as<float>();
+                if (isValidPM10(pm10)) {
+                    values.pm10.current = pm10;
+                    values.pm10.has_current = true;
                 }
             }
             if (urban.containsKey("SDS_P2")) {
@@ -972,28 +1060,58 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
             updated = true;
             updated_metrics++;
         }
-        if (!cfg::standalone) {
-            if (cfg::analytics_sleep_add_urban) {
-                if (values.pm25.has_current) {
-                    updateRollingHourMetric(g_pm25_hour_hist, values.pm25.current, hour_key);
-                    updated = true;
-                    updated_metrics++;
-                }
-                if (values.noise_max.has_current) {
-                    // Peak model uses hourly max of Urban noiseMax samples.
-                    updateRollingHourMetric(g_noise_hour_hist, values.noise_max.current, hour_key);
-                    updated = true;
-                    updated_metrics++;
-                } else if (values.noise_avg.has_current) {
-                    updateRollingHourMetric(g_noise_hour_hist, values.noise_avg.current, hour_key);
-                    updated = true;
-                    updated_metrics++;
-                }
-            }
-        } else if (values.pm25_insight.has_current) {
-            updateRollingHourMetric(g_pm25_hour_hist, values.pm25_insight.current, hour_key);
+        if (values.press_indoor.has_current) {
+            updateRollingHourMetric(g_press_in_hour_hist, values.press_indoor.current, hour_key);
             updated = true;
             updated_metrics++;
+        }
+        if (!cfg::standalone) {
+            if (values.temp_urban.has_current) {
+                updateRollingHourMetric(g_temp_urban_hour_hist, values.temp_urban.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+            if (values.hum_urban.has_current) {
+                updateRollingHourMetric(g_hum_urban_hour_hist, values.hum_urban.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+            if (values.press_urban.has_current) {
+                updateRollingHourMetric(g_press_urb_hour_hist, values.press_urban.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+            if (values.pm25.has_current) {
+                updateRollingHourMetric(g_pm25_hour_hist, values.pm25.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+            if (values.pm10.has_current) {
+                updateRollingHourMetric(g_pm10_hour_hist, values.pm10.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+            if (values.noise_max.has_current) {
+                updateRollingHourMetric(g_noise_hour_hist, values.noise_max.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+            if (values.noise_avg.has_current) {
+                updateRollingHourMetric(g_noise_avg_hour_hist, values.noise_avg.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+        } else {
+            if (values.pm25_insight.has_current) {
+                updateRollingHourMetric(g_pm25_hour_hist, values.pm25_insight.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+            if (values.pm10_insight.has_current) {
+                updateRollingHourMetric(g_pm10_hour_hist, values.pm10_insight.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
         }
         if (values.co2.has_current) {
             updateRollingHourMetric(g_co2_hour_hist, values.co2.current, hour_key, kCo2CurveBandPpm);
@@ -1045,7 +1163,12 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
 void analyticsClearUrbanNightHistory() {
     loadRollingHistoryIfNeeded();
     memset(&g_pm25_hour_hist, 0, sizeof(g_pm25_hour_hist));
+    memset(&g_pm10_hour_hist, 0, sizeof(g_pm10_hour_hist));
     memset(&g_noise_hour_hist, 0, sizeof(g_noise_hour_hist));
+    memset(&g_noise_avg_hour_hist, 0, sizeof(g_noise_avg_hour_hist));
+    memset(&g_temp_urban_hour_hist, 0, sizeof(g_temp_urban_hour_hist));
+    memset(&g_hum_urban_hour_hist, 0, sizeof(g_hum_urban_hour_hist));
+    memset(&g_press_urb_hour_hist, 0, sizeof(g_press_urb_hour_hist));
     g_hist_dirty = true;
     saveRollingHistoryIfNeeded(true);
     debug_outln_info(F("[ANALYTICS] Cleared Urban PM/noise night history"));
@@ -1082,7 +1205,9 @@ void analyticsDevLogStatus15m() {
 
     log_metric("co2", g_co2_hour_hist);
     log_metric("pm25", g_pm25_hour_hist);
+    log_metric("pm10", g_pm10_hour_hist);
     log_metric("noise", g_noise_hour_hist);
+    log_metric("noise_avg", g_noise_avg_hour_hist);
     log_metric("temp", g_temp_hour_hist);
     log_metric("hum", g_hum_hour_hist);
 #endif
@@ -1322,6 +1447,48 @@ static const RollingHourBucket *findHourBucket(const RollingHourHistory &hist, u
         }
     }
     return nullptr;
+}
+
+void analyticsReadLastHours(analytics_hour_series_t series, analytics_last_hours_t &out) {
+    loadRollingHistoryIfNeeded();
+    out = analytics_last_hours_t{};
+    out.n = DESK_GRAPH_HOURS;
+    const RollingHourHistory *hist = nullptr;
+    switch (series) {
+    case analytics_hour_series_t::TempIndoor: hist = &g_temp_hour_hist; break;
+    case analytics_hour_series_t::HumIndoor: hist = &g_hum_hour_hist; break;
+    case analytics_hour_series_t::TempUrban: hist = &g_temp_urban_hour_hist; break;
+    case analytics_hour_series_t::HumUrban: hist = &g_hum_urban_hour_hist; break;
+    case analytics_hour_series_t::Pm25: hist = &g_pm25_hour_hist; break;
+    case analytics_hour_series_t::Pm10: hist = &g_pm10_hour_hist; break;
+    case analytics_hour_series_t::Co2: hist = &g_co2_hour_hist; break;
+    case analytics_hour_series_t::Noise: hist = &g_noise_hour_hist; break;
+    case analytics_hour_series_t::NoiseAvg: hist = &g_noise_avg_hour_hist; break;
+    case analytics_hour_series_t::PressIndoor: hist = &g_press_in_hour_hist; break;
+    case analytics_hour_series_t::PressUrban: hist = &g_press_urb_hour_hist; break;
+    default: break;
+    }
+    if (!hist) {
+        return;
+    }
+    const time_t now = time(nullptr);
+    if (now <= 0) {
+        return;
+    }
+    const uint32_t hk = currentLocalHourKey(now);
+    for (uint8_t i = 0; i < DESK_GRAPH_HOURS; i++) {
+        const uint32_t key = hk - (uint32_t)(DESK_GRAPH_HOURS - 1u - i);
+        out.hour[i] = (uint8_t)(key % 24U);
+        const RollingHourBucket *b = findHourBucket(*hist, key);
+        if (!b || b->count == 0) {
+            continue;
+        }
+        out.has[i] = true;
+        out.avg[i] = b->sum_v / (float)b->count;
+        out.maxv[i] = b->max_v;
+        out.minv[i] = b->min_v;
+        out.found++;
+    }
 }
 
 /** Fill CO2 series for the configured analytics window (default 22:00–07:00). */
@@ -1728,6 +1895,14 @@ static void analyticsDrawCachedQr(int x, int y) {
         return;
     }
     Paint_DrawImage(g_analytics_qr_bmp, x, y, g_analytics_qr_w, g_analytics_qr_h);
+}
+
+int analyticsPrepareMapQr(const char *qr_url, int max_w, int max_h) {
+    return analyticsMakeMapQr(qr_url, max_w, max_h);
+}
+
+void analyticsDrawPreparedMapQr(int x, int y) {
+    analyticsDrawCachedQr(x, y);
 }
 
 static void drawNightSinglePage(int content_left, int content_top, int content_width,

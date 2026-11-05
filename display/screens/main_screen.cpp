@@ -1001,7 +1001,7 @@ static void drawMainStyleMetric(uint16_t col_x, uint16_t y,
 
 // Draw the full main screen with card-based main content layout
 void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip, const String &insight_robonomics_address, const String &urban_robonomics_address,
-                    uint8_t desk_page, uint8_t desk_pos, uint8_t desk_count) {
+                    uint8_t desk_page, uint8_t desk_pos, uint8_t desk_count, bool desk_graph, uint8_t desk_graph_i) {
 
     // Clear screen first to remove any white lines
     Paint_Clear(WHITE);
@@ -1050,7 +1050,8 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t body_top = header_bottom_border_y + 4;
 
     if (cfg::main_layout == MAIN_LAYOUT_DESK) {
-        drawDeskMainBody(values, body_top, content_left, content_right, desk_page, desk_pos, desk_count);
+        drawDeskMainBody(values, body_top, content_left, content_right, desk_page, desk_pos, desk_count,
+                         desk_graph, desk_graph_i, insight_robonomics_address, urban_robonomics_address);
         return;
     }
 

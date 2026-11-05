@@ -137,6 +137,8 @@ void firmwareBlockingYieldHook(void);
 #define DESK_INTERVAL_MIN_S 15u
 #define DESK_INTERVAL_MAX_S 300u
 #define DESK_INTERVAL_DEFAULT_S 60u
+#define DESK_GRAPH_INTERVAL_S 15u
+#define DESK_GRAPH_HOURS 6u
 
 #define LEN_ROBONOMICS_PUBLIC_NODE 70
 #define LEN_PRIVATE_KEY 65
