@@ -24,8 +24,8 @@ Please describe the tests that you ran to verify your changes. Provide instructi
 
 **Test Configuration(s)**:
 
-* Your OS and its version:
-* What controller do you use:
+* Hardware:
+* Firmware setup:
 
 ## Checklist:
 

@@ -3,10 +3,12 @@
 
 ## IMPORTANT Information
 
-All new development changes should be done as pull requests against the **beta** branch.
+Submit development changes as pull requests against the **esp32-dev** branch.
+After they are validated, they are promoted to **esp32**, the Stable release branch.
 
-The default **master** branch is only used as a source reference for the
-currently active (enrolled) firmware version.
+By submitting a pull request you agree that your contribution is licensed under
+the GNU General Public License v3.0, the licence of this project (see
+[LICENSE.md](LICENSE.md) and [NOTICE](NOTICE)).
 
 
 ## Reporting bugs
@@ -100,6 +102,6 @@ consistency accross and within the particular translation.
 
 ## TODOs
 
-* [Bug fixes](https://github.com/opendata-stuttgart/sensors-software/issues?q=is%3Aopen+label%3Abug+sort%3Aupdated-desc)
-* [Enhancements (New Sensors, Larger Efforts)](https://github.com/opendata-stuttgart/sensors-software/issues?q=is%3Aopen+label%3Aenhancement+sort%3Aupdated-desc)
+* [Bug fixes](https://github.com/airalab/altruist-firmware/issues?q=is%3Aopen+label%3Abug+sort%3Aupdated-desc)
+* [Enhancements (New Sensors, Larger Efforts)](https://github.com/airalab/altruist-firmware/issues?q=is%3Aopen+label%3Aenhancement+sort%3Aupdated-desc)
 * Optimisations
