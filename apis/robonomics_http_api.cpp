@@ -11,16 +11,19 @@ namespace
 
 	void logConnectivityAttempt(uint32_t seq, const String &region, const String &host)
 	{
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] attempt channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" region="));
 		Serial.print(region);
 		Serial.print(F(" host="));
 		Serial.println(host);
+#endif
 	}
 
 	void logConnectivitySuccess(uint32_t seq, const String &host, int code, const String &region)
 	{
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] success channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" region="));
@@ -29,45 +32,60 @@ namespace
 		Serial.print(host);
 		Serial.print(F(" code="));
 		Serial.println(code);
+#endif
 	}
 
 	void logConnectivityFailure(uint32_t seq, const String &reason)
 	{
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" reason="));
 		Serial.println(reason);
+#endif
 	}
 
 	void logConnectivityFailure(uint32_t seq, const String &reason, const String &host, int code, size_t response_len = 0)
 	{
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" reason="));
 		Serial.print(reason);
+#endif
 		if (host.length() > 0)
 		{
+#if defined(ALTRUIST_BUILD_DEBUG)
 			Serial.print(F(" host="));
 			Serial.print(host);
+#endif
 		}
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F(" code="));
 		Serial.print(code);
+#endif
 		if (response_len > 0)
 		{
+#if defined(ALTRUIST_BUILD_DEBUG)
 			Serial.print(F(" response_len="));
 			Serial.print(response_len);
+#endif
 		}
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.println();
+#endif
 	}
 
 	void logConnectivityNoServer(uint32_t seq, const String &region, const String &hosts)
 	{
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" reason=no_server_available region="));
 		Serial.print(region);
 		Serial.print(F(" host="));
 		Serial.println(hosts.length() > 0 ? hosts : String(F("-")));
+#endif
 	}
 
 	bool isRuRegion(const String &reg)

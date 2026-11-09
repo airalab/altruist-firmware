@@ -218,7 +218,9 @@ bool epdDisplay(DisplayMode mode, UBYTE *Image) {
     epdIncrementUpdateCount();
 
     if (!ok) {
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.println(F("[EPD] Display stuck detected — recovering and retrying with FULL refresh"));
+#endif
         logSubsystemError(F("display"), F("epd_stuck"), String(F("action=recover_full_refresh mode=")) + String(static_cast<int>(mode)));
         epdRecoverFromStuck();
         epdInit(DisplayMode::FULL);

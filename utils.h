@@ -181,6 +181,7 @@ extern void debugRedirectConsoleToUsb();
 extern unsigned int effectiveRuntimeLogLevel();
 /** Mute USB CDC logs while Improv Serial owns the port (webflasher). */
 extern void debugSetUsbQuiet(bool quiet);
+#if defined(ALTRUIST_BUILD_DEBUG)
 extern void debug_out(const String& text, unsigned int level);
 extern void debug_out(const __FlashStringHelper* text, unsigned int level);
 extern void debug_outln(const String& text, unsigned int level);
@@ -197,6 +198,26 @@ extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStr
 extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
 extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
 extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
+
+#else
+inline void debug_out(const String& , unsigned int) {}
+inline void debug_out(const __FlashStringHelper* , unsigned int) {}
+inline void debug_outln(const String& , unsigned int) {}
+inline void debug_outln_info(const String&) {}
+inline void debug_outln_verbose(const String&) {}
+inline void debug_outln_error(const __FlashStringHelper*) {}
+inline void debug_outln_info(const __FlashStringHelper*) {}
+inline void debug_outln_verbose(const __FlashStringHelper*) {}
+inline void debug_outln_info(const __FlashStringHelper* , const String&) {}
+inline void debug_outln_info(const __FlashStringHelper* , float) {}
+inline void debug_outln_verbose(const __FlashStringHelper* , const String&) {}
+inline void debug_outln_info_bool(const __FlashStringHelper* , const bool) {}
+inline void logSubsystemEvent(const __FlashStringHelper* , const __FlashStringHelper* , const __FlashStringHelper*) {}
+inline void logSubsystemEvent(const __FlashStringHelper* , const __FlashStringHelper* , const __FlashStringHelper* , const String&) {}
+inline void logSubsystemError(const __FlashStringHelper* , const __FlashStringHelper*) {}
+inline void logSubsystemError(const __FlashStringHelper* , const __FlashStringHelper* , const String&) {}
+
+#endif
 
 
 extern bool isNumeric(const String& str);

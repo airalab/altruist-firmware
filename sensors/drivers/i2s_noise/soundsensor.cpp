@@ -65,13 +65,17 @@ bool SoundSensor::begin(){
  // printf("_err=%d\n", _err);
 //  printf("%d, %d, %d, %d\n", pin_config.bck_io_num, pin_config.ws_io_num, pin_config.data_out_num, pin_config.data_in_num);
   if (_err != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.printf("Failed installing I2S driver: %d\r\n", _err);
+#endif
     return false;
   }
   
   _err = i2s_set_pin(I2S_PORT, &pin_config);
   if (_err != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.printf("Failed setting pin: %d\r\n", _err);
+#endif
     return false;
   }
   // Serial.printf("I2S driver installed.\r\n");
@@ -109,7 +113,9 @@ float* SoundSensor::readSamples(){
   );    // no timeout
 
    if(_err != ESP_OK){
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.printf("%d err\r\n",_err);
+#endif
   }
  
   integerToFloat(_samples, _real, _imag, SAMPLES);

@@ -5,6 +5,7 @@
 #include "../../defines.h"
 
 static void append_debug_log(String &page_content) {
+#if defined(ALTRUIST_BUILD_DEBUG)
 	page_content += F("<pre id='slog' class='debug-log'>");
 	page_content += Debug.popLines();
 	page_content += F("</pre>"
@@ -26,12 +27,14 @@ static void append_debug_log(String &page_content) {
 		"setInterval(slog_update,2000);"
 		"})();"
 		"</script>");
+#endif
 }
 
 /*****************************************************************
  * Webserver set debug level                                     *
  *****************************************************************/
 void webserver_debug_level(WebServer &server, String &page_content, bool hub_embed) {
+#if defined(ALTRUIST_BUILD_DEBUG)
 
 	if (server.hasArg("lvl")) {
 		debug_outln_info(F("ws: debug level ..."));
@@ -88,6 +91,9 @@ void webserver_debug_level(WebServer &server, String &page_content, bool hub_emb
 			"<a class='debug-level-btn' href='/debug?lvl=5'>" INTL_MAX_INFO "</a>"
 			"</div></section>");
 	}
+#else
+	page_content += F("<p>Diagnostics are available in debug firmware.</p>");
+#endif
 }
 
 void webserver_debug_log_embed(String &page_content) {
@@ -95,6 +101,7 @@ void webserver_debug_log_embed(String &page_content) {
 }
 
 void webserver_debug_hub_section(WebServer &server, String &page_content) {
+#if defined(ALTRUIST_BUILD_DEBUG)
 	if (server.hasArg("lvl")) {
 		debug_outln_info(F("ws: debug level ..."));
 
@@ -137,4 +144,7 @@ void webserver_debug_hub_section(WebServer &server, String &page_content) {
 		"<a class='debug-level-btn' href='/advanced?lvl=3'>" INTL_MIN_INFO "</a>"
 		"<a class='debug-level-btn' href='/advanced?lvl=5'>" INTL_MAX_INFO "</a>"
 		"</div>");
+#else
+	page_content += F("<p>Diagnostics are available in debug firmware.</p>");
+#endif
 }

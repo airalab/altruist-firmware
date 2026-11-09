@@ -112,7 +112,7 @@ legacy `inside` environment name builds Insight firmware.
 - Use `esp32c3_urban_en_debug` to debug old ESP32-C3 Urban hardware with the
   same reduced feature set as the C3 release build.
 
-Local builds infer the channel from the branch, enable health telemetry, and
+Local builds infer the channel from the branch, enable health telemetry only in debug, and
 read the source commit from Git. Detached or no-Git local builds fall back to
 Stable unless `ALTRUIST_CHANNEL_TESTING=1` is set explicitly. The build output
 prints the resolved branch, channel, profile, telemetry state, and commit before
@@ -123,11 +123,13 @@ channel controls firmware identity, artifact names, and OTA policy; the build
 profile controls diagnostic verbosity. Debug builds force verbose project logs
 with `ALTRUIST_FORCE_LOG_LEVEL=4`.
 
-The tester UART contract is independent from runtime project logs: `[BOOT]`,
-`[BUILD]`, `[LOG]`, `[HEALTH]`, `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`, and
-`[SUBSYSTEM]` are emitted directly to Serial in release builds, while full
-transport payloads, sensor internals, and HTTP details stay behind verbose/debug
-logging.
+USB acceptance diagnostics require a `_debug` target. Project logs, sensor JSON,
+`[BOOT]`, `[BUILD]`, `[LOG]`, `[HEALTH]`, `[PAYLOAD]`, `[DATALOG]`,
+`[CONNECTIVITY]`, and `[SUBSYSTEM]` are debug-only. Release cannot enable them
+through runtime levels, forced levels or the Testing channel. Web diagnostic
+logs and new SD boot/runtime logs are also debug-only; normal UI/API,
+provisioning, SD sensor CSV and network payloads remain available.
+See [diagnostic policy, inventory and remaining verification](DIAGNOSTICS.md).
 
 CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
 `ALTRUIST_BUILD_COMMIT` explicitly, so published builds do not depend on local
@@ -139,7 +141,7 @@ external compatibility and point to the same Testing firmware.
 
 Stable firmware keeps the base version, for example `R-URB_2026-06.1`. Testing
 firmware includes its source revision, for example
-`R-URB_2026-06.1-testing+7445b03`. UART startup logs and the status page expose
+`R-URB_2026-06.1-testing+7445b03`. Debug UART startup logs and the status page expose
 the channel, commit, model, target, language, and profile.
 
 Insight builds use the `ALTRUIST_INSIGHT` compile-time flag. The previous

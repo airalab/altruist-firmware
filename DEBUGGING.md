@@ -112,12 +112,15 @@ pio run -e esp32c3_urban_ru_debug -t upload
 
 ### 3. Serial logging
 
-The firmware has three independent logging layers:
+The firmware has three logging layers, all gated by `ALTRUIST_BUILD_DEBUG`.
+Release has no project diagnostic UART/web/SD output. See [DIAGNOSTICS.md](DIAGNOSTICS.md)
+for the inventory, system-output boundary, static checks and pending hardware checks.
+
 
 1. **Project logs** use `debug_outln_error`, `debug_outln_info`, and
    `debug_outln_verbose` from `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` initializes
    `cfg::debug`, while `ALTRUIST_FORCE_LOG_LEVEL` sets its minimum effective value.
-   Stable and Testing release builds use the same runtime logging behavior.
+   Stable and Testing release builds both disable project diagnostics.
    Debug builds force level 4, so an older saved configuration cannot suppress
    verbose project diagnostics.
 2. **Arduino core logs** are controlled at compile time by `CORE_DEBUG_LEVEL`.
@@ -135,9 +138,9 @@ Project log lines are prefixed with a level:
 - `[ERROR]` – errors and failures
 - `[DEBUG]` – extra verbose / development information
 
-Each line also contains a millisecond timestamp in square brackets (time since boot). See the Quick Start section above for example output.
+Each debug line also contains a millisecond timestamp in square brackets (time since boot). See the Quick Start section above for example output.
 
-Every boot emits one stable UART boot snapshot before Wi-Fi and sensor startup:
+Every debug boot emits one stable UART boot snapshot before Wi-Fi and sensor startup:
 
 ```text
 [BOOT] reset_reason=power_on_reset reset_code=1 boot=4 crash_valid=0 prev_uptime=0 prev_heap=0 last_section_id=0 last_section=Idle/MainLoop heap=219584
@@ -146,7 +149,7 @@ Every boot emits one stable UART boot snapshot before Wi-Fi and sensor startup:
 This line is intended for automated testers. It is printed directly to Serial
 and does not depend on the saved runtime project log level.
 
-Builds with `ALTRUIST_HEALTH_TELEMETRY` emit a stable UART health snapshot once
+Debug builds with `ALTRUIST_HEALTH_TELEMETRY` emit a stable UART health snapshot once
 per minute:
 
 ```text
@@ -158,11 +161,11 @@ the Wi-Fi link state, per-subsystem error counters, and the boot/reset context
 captured at startup. This lets automated testers recover reset diagnostics even
 when they start after the one-time `[BOOT]` line has already been printed.
 
-At boot, firmware reports the effective project and framework levels after the
+At debug boot, firmware reports the effective project and framework levels after the
 saved configuration has been loaded:
 
 ```text
-[BUILD] version=R-INS_2026-06.1-testing+abcdef0 channel=testing commit=abcdef0 model=insight target=esp32c6 language=en profile=release
+[BUILD] version=R-INS_2026-06.1-testing+abcdef0 channel=testing commit=abcdef0 model=insight target=esp32c6 language=en profile=debug
 [LOG] runtime=4 configured=1 forced=4 core=4
 ```
 
@@ -180,8 +183,8 @@ signed and sent:
 
 `payload_len` describes the transport payload. `sample`, when present, is the
 local plaintext measurement snapshot and is not necessarily identical to the
-transport bytes. Release builds expose `sample` only for plain payloads. Debug
-builds may expose `sample` for encrypted payloads too. The payload line does not
+transport bytes. These lines are debug-only. Debug builds may expose `sample`
+for encrypted payloads too. The payload line does not
 mean that a network or on-chain upload has succeeded.
 
 On-chain Robonomics datalog sends emit stable machine-readable UART events:
@@ -209,7 +212,7 @@ The `[CONNECTIVITY]` lines describe the HTTP upload attempt and final result.
 `[Map#...]` lines are verbose diagnostics for host selection and HTTP details,
 not part of the automated tester contract.
 
-Important subsystem failures and recovery events emit stable release-level
+Important subsystem failures and recovery events emit stable debug-only
 lines:
 
 ```text
@@ -221,16 +224,15 @@ lines:
 Stable tester contract lines are printed directly to Serial and are intended for
 acceptance testing. They cover boot/build identity, health telemetry, payload
 metadata, upload results, and critical storage, sensor payload, Wi-Fi recovery,
-display, configuration, and OTA failures without requiring a `_debug` build.
+display, configuration, and OTA failures in `_debug` builds.
 
-Release/tester logs should stay small and machine-readable. Keep raw JSON
-snapshots, full HTTP response bodies, signing internals, sensor internals, and
-memory traces behind verbose/debug logging unless they are promoted to a stable
-tagged contract such as `[BOOT]`, `[BUILD]`, `[LOG]`, `[HEALTH]`, `[PAYLOAD]`,
-`[DATALOG]`, `[CONNECTIVITY]`, or `[SUBSYSTEM]`.
+All project diagnostics require debug, including stable tagged lines, raw JSON,
+HTTP bodies, signing internals and memory traces. Runtime/forced log levels
+and the Testing channel cannot enable them in release.
 
 Some signing/extrinsic lines such as `Signature size: ...` can still be emitted
-directly by `ESPRobonomicsClient`. They are library diagnostics, not part of the
+directly by `ESPRobonomicsClient` in debug. Its release Serial output is muted
+by a scoped build middleware; libc printf/puts are wrapped. These are not part of the
 stable tester contract.
 
 To view these logs live:
@@ -661,13 +663,16 @@ pio run -e esp32c3_urban_ru_debug -t upload
 
 ### 3. Логирование через serial
 
-В прошивке есть три независимых уровня логирования:
+Все три уровня логирования доступны только при `ALTRUIST_BUILD_DEBUG`.
+В release проектная диагностика UART/web/SD отключена. Инвентаризация,
+системные исключения и оставшиеся проверки — в [DIAGNOSTICS.md](DIAGNOSTICS.md).
+
 
 1. **Логи проекта** используют `debug_outln_error`, `debug_outln_info` и
    `debug_outln_verbose` из `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` задает
    начальное значение `cfg::debug`, а `ALTRUIST_FORCE_LOG_LEVEL` — минимальный
    эффективный уровень. Stable и Testing release-сборки используют одинаковое
-   runtime-поведение логирования. В Debug-сборках уровень 4 принудителен,
+   отсутствие проектной диагностики. В Debug-сборках уровень 4 принудителен,
    поэтому старое сохраненное значение не может отключить подробные
    диагностические сообщения.
 2. **Логи Arduino core** управляются compile-time флагом `CORE_DEBUG_LEVEL`.
@@ -687,7 +692,7 @@ pio run -e esp32c3_urban_ru_debug -t upload
 
 Каждая строка содержит метку времени в миллисекундах (с момента загрузки). Пример вывода см. в разделе «Быстрый старт» выше.
 
-Сборки с `ALTRUIST_HEALTH_TELEMETRY` раз в минуту выводят стабильную строку
+Debug-сборки с `ALTRUIST_HEALTH_TELEMETRY` раз в минуту выводят стабильную строку
 состояния в UART:
 
 ```text
@@ -699,7 +704,7 @@ pio run -e esp32c3_urban_ru_debug -t upload
 перезагрузки.
 
 Важные ошибки подсистем и события восстановления выводятся в стабильном
-release-level формате:
+debug-only формате:
 
 ```text
 [SUBSYSTEM] error subsystem=sd reason=open_append_failed path=/data/SDS011/2026-07-24.csv
@@ -710,20 +715,16 @@ release-level формате:
 Стабильные строки контракта тестера печатаются напрямую в Serial и предназначены
 для приемочного тестера. Они покрывают boot/build identity, health telemetry,
 payload metadata, результаты отправки и критичные ошибки SD/config, sensor
-payload, Wi-Fi recovery, display и OTA без необходимости собирать `_debug`
-прошивку.
+payload, Wi-Fi recovery, display и OTA; для их получения требуется `_debug` прошивка.
 
-Release/tester логи должны оставаться короткими и машинно-читаемыми. Сырые JSON
-snapshots, полные HTTP response bodies, детали подписи, sensor internals и memory
-traces нужно держать за verbose/debug логированием, если они не оформлены как
-стабильный tagged-контракт: `[BOOT]`, `[BUILD]`, `[LOG]`, `[HEALTH]`,
-`[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]` или `[SUBSYSTEM]`.
+Вся проектная диагностика, включая стабильные tagged-строки и открытые JSON,
+требует debug. Runtime/forced log level и канал Testing не включают её в release.
 
-После загрузки сохраненной конфигурации прошивка сообщает фактически применяемые
+После загрузки сохраненной конфигурации debug-прошивка сообщает фактически применяемые
 уровни:
 
 ```text
-[BUILD] version=R-INS_2026-06.1-testing+abcdef0 channel=testing commit=abcdef0 model=insight target=esp32c6 language=ru profile=release
+[BUILD] version=R-INS_2026-06.1-testing+abcdef0 channel=testing commit=abcdef0 model=insight target=esp32c6 language=ru profile=debug
 [LOG] runtime=4 configured=1 forced=4 core=4
 ```
 
@@ -739,8 +740,8 @@ Payload выводится в структурированном формате:
 ```
 
 `payload_len` относится к отправляемому payload. Поле `sample` содержит локальный
-plaintext-снимок измерений. Release-сборки выводят `sample` только для plain
-payload. Debug-сборки могут выводить `sample` и для encrypted payload. Наличие
+plaintext-снимок измерений. PAYLOAD доступен только в debug; `sample` может
+содержать открытые значения и для encrypted payload. Наличие
 `[PAYLOAD]` не подтверждает успешную сетевую или on-chain отправку.
 
 Для просмотра логов в реальном времени:

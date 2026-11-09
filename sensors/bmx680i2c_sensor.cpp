@@ -202,6 +202,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
 
 #if defined(ALTRUIST_BUILD_DEBUG)
     serializeJson(data, Serial);
+    Serial.println();
 #endif
 }
 

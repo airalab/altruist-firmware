@@ -195,7 +195,7 @@ uint32_t Adafruit_BME680::beginReading(void) {
   }
 
   int8_t rslt = bme68x_set_op_mode(BME68X_FORCED_MODE, &gas_sensor);
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("Opmode Result: "));
   Serial.println(rslt);
 #endif
@@ -233,7 +233,7 @@ bool Adafruit_BME680::endReading(void) {
   int remaining_millis = remainingReadingMillis();
 
   if (remaining_millis > 0) {
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
     Serial.print(F("Waiting (ms) "));
     Serial.println(remaining_millis);
 #endif
@@ -243,7 +243,7 @@ bool Adafruit_BME680::endReading(void) {
   _meas_start = 0; /* Allow new measurement to begin */
   _meas_period = 0;
 
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("t_fine = "));
   Serial.println(gas_sensor.calib.t_fine);
 #endif
@@ -251,13 +251,13 @@ bool Adafruit_BME680::endReading(void) {
   struct bme68x_data data;
   uint8_t n_fields;
 
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.println(F("Getting sensor data"));
 #endif
 
   int8_t rslt =
       bme68x_get_data(BME68X_FORCED_MODE, &data, &n_fields, &gas_sensor);
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("GetData Result: "));
   Serial.println(rslt);
 #endif
@@ -269,7 +269,7 @@ bool Adafruit_BME680::endReading(void) {
     humidity = data.humidity;
     pressure = data.pressure;
 
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
     Serial.print(F("data.status 0x"));
     Serial.println(data.status, HEX);
 #endif
@@ -321,7 +321,7 @@ bool Adafruit_BME680::setGasHeater(uint16_t heaterTemp, uint16_t heaterTime) {
 
   int8_t rslt =
       bme68x_set_heatr_conf(BME68X_FORCED_MODE, &gas_heatr_conf, &gas_sensor);
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("SetHeaterConf Result: "));
   Serial.println(rslt);
 #endif
@@ -344,7 +344,7 @@ bool Adafruit_BME680::setODR(uint8_t odr) {
   gas_conf.odr = odr;
 
   int8_t rslt = bme68x_set_conf(&gas_conf, &gas_sensor);
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("SetConf Result: "));
   Serial.println(rslt);
 #endif
@@ -367,7 +367,7 @@ bool Adafruit_BME680::setTemperatureOversampling(uint8_t oversample) {
   gas_conf.os_temp = oversample;
 
   int8_t rslt = bme68x_set_conf(&gas_conf, &gas_sensor);
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("SetConf Result: "));
   Serial.println(rslt);
 #endif
@@ -389,7 +389,7 @@ bool Adafruit_BME680::setHumidityOversampling(uint8_t oversample) {
   gas_conf.os_hum = oversample;
 
   int8_t rslt = bme68x_set_conf(&gas_conf, &gas_sensor);
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("SetConf Result: "));
   Serial.println(rslt);
 #endif
@@ -411,7 +411,7 @@ bool Adafruit_BME680::setPressureOversampling(uint8_t oversample) {
   gas_conf.os_pres = oversample;
 
   int8_t rslt = bme68x_set_conf(&gas_conf, &gas_sensor);
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("SetConf Result: "));
   Serial.println(rslt);
 #endif
@@ -433,7 +433,7 @@ bool Adafruit_BME680::setIIRFilterSize(uint8_t filtersize) {
   gas_conf.filter = filtersize;
 
   int8_t rslt = bme68x_set_conf(&gas_conf, &gas_sensor);
-#ifdef BME680_DEBUG
+#if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("SetConf Result: "));
   Serial.println(rslt);
 #endif

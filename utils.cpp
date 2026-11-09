@@ -28,6 +28,7 @@
 #include "./intl.h"
 #include "./utils.h"
 #include "./defines.h"
+#include "diagnostics.h"
 //#include "./ext_def.h"
 #include <SPIFFS.h>
 #include <Preferences.h>
@@ -210,10 +211,15 @@ float readCorrectionOffset(const char* correction) {
 LoggingSerial Debug;
 
 static volatile bool s_usb_log_quiet = false;
+#if defined(ALTRUIST_BUILD_DEBUG)
+static constexpr bool project_diagnostics_enabled = true;
+#else
+static constexpr bool project_diagnostics_enabled = false;
+#endif
 
 static void rom_putc_to_usb(char c)
 {
-	if (!c || s_usb_log_quiet) {
+	if (!project_diagnostics_enabled || !c || s_usb_log_quiet) {
 		return;
 	}
 	Serial.write(static_cast<uint8_t>(c));
@@ -225,7 +231,7 @@ static ssize_t usb_vfs_write(int fd, const void *data, size_t size)
 	if (!data || size == 0) {
 		return 0;
 	}
-	if (s_usb_log_quiet) {
+	if (!project_diagnostics_enabled || s_usb_log_quiet) {
 		return static_cast<ssize_t>(size);
 	}
 	return static_cast<ssize_t>(Serial.write(static_cast<const uint8_t *>(data), size));
@@ -262,7 +268,7 @@ static int usb_esp_log_vprintf(const char *fmt, va_list args)
 	if (n <= 0) {
 		return n;
 	}
-	if (!s_usb_log_quiet) {
+	if (project_diagnostics_enabled && !s_usb_log_quiet) {
 		const size_t w = static_cast<size_t>(n) < (sizeof(buf) - 1) ? static_cast<size_t>(n) : (sizeof(buf) - 1);
 		Serial.write(reinterpret_cast<const uint8_t *>(buf), w);
 	}
@@ -277,7 +283,7 @@ extern "C" int __wrap_printf(const char *fmt, ...)
 	char buf[256];
 	const int n = vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
-	if (n > 0 && !s_usb_log_quiet) {
+	if (project_diagnostics_enabled && n > 0 && !s_usb_log_quiet) {
 		const size_t w = static_cast<size_t>(n) < (sizeof(buf) - 1) ? static_cast<size_t>(n) : (sizeof(buf) - 1);
 		Serial.write(reinterpret_cast<const uint8_t *>(buf), w);
 	}
@@ -289,7 +295,7 @@ extern "C" int __wrap_puts(const char *s)
 	if (!s) {
 		return EOF;
 	}
-	if (!s_usb_log_quiet) {
+	if (project_diagnostics_enabled && !s_usb_log_quiet) {
 		Serial.write(reinterpret_cast<const uint8_t *>(s), strlen(s));
 		Serial.write(static_cast<uint8_t>('\n'));
 	}
@@ -309,7 +315,7 @@ static void redirectLibcConsoleToUsb()
 		vfs.close = &usb_vfs_close;
 		vfs.fstat = &usb_vfs_fstat;
 		if (esp_vfs_register("/dev/usbout", &vfs, nullptr) != ESP_OK) {
-			Serial.println(F("[LoRa UART] console redirect failed; printf may still hit GPIO22"));
+			ALTRUIST_DIAGNOSTIC(Serial.println(F("[LoRa UART] console redirect failed; printf may still hit GPIO22")));
 			return;
 		}
 		registered = true;
@@ -321,7 +327,7 @@ static void redirectLibcConsoleToUsb()
 		stdout = out;
 		stderr = out;
 	} else if (!freopen("/dev/usbout", "w", stdout) || !freopen("/dev/usbout", "w", stderr)) {
-		Serial.println(F("[LoRa UART] stdout rebind failed; printf may still hit GPIO22"));
+		ALTRUIST_DIAGNOSTIC(Serial.println(F("[LoRa UART] stdout rebind failed; printf may still hit GPIO22")));
 	} else {
 		setvbuf(stdout, nullptr, _IONBF, 0);
 		setvbuf(stderr, nullptr, _IONBF, 0);
@@ -345,12 +351,18 @@ void debugRedirectConsoleToUsb()
 LoggingSerial::LoggingSerial()
     : HardwareSerial(0)
 {
+	m_buffer = nullptr;
+#if defined(ALTRUIST_BUILD_DEBUG)
 	m_buffer = xQueueCreate(LARGE_STR, sizeof(uint8_t));
+#endif
 	m_write_mutex = xSemaphoreCreateMutex();
 }
 
 size_t LoggingSerial::write(uint8_t c)
 {
+#if !defined(ALTRUIST_BUILD_DEBUG)
+	return 1;
+#else
 	if (m_write_mutex) {
 		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
 	}
@@ -360,10 +372,14 @@ size_t LoggingSerial::write(uint8_t c)
 		xSemaphoreGive(m_write_mutex);
 	}
 	return n;
+#endif
 }
 
 size_t LoggingSerial::write(const uint8_t *buffer, size_t size)
 {
+#if !defined(ALTRUIST_BUILD_DEBUG)
+	return size;
+#else
 	if (m_write_mutex) {
 		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
 	}
@@ -375,6 +391,7 @@ size_t LoggingSerial::write(const uint8_t *buffer, size_t size)
 		xSemaphoreGive(m_write_mutex);
 	}
 	return n;
+#endif
 }
 
 void LoggingSerial::beginStructuredOutput(unsigned long baud, int8_t rx_pin, int8_t tx_pin)
@@ -393,9 +410,9 @@ void LoggingSerial::beginStructuredOutput(unsigned long baud, int8_t rx_pin, int
 	if (m_write_mutex) {
 		xSemaphoreGive(m_write_mutex);
 	}
-	Serial.setDebugOutput(true);
+	Serial.setDebugOutput(project_diagnostics_enabled);
 	redirectLibcConsoleToUsb();
-	Serial.printf("[LoRa UART] console on USB, Meshtastic PROTO on GPIO%d\r\n", static_cast<int>(tx_pin));
+	ALTRUIST_DIAGNOSTIC(Serial.printf("[LoRa UART] console on USB, Meshtastic PROTO on GPIO%d\r\n", static_cast<int>(tx_pin)));
 }
 
 bool LoggingSerial::writeStructuredBytes(const uint8_t *data, size_t len)
@@ -447,6 +464,7 @@ int LoggingSerial::readStructured()
 String LoggingSerial::popLines()
 {
 	String r;
+#if defined(ALTRUIST_BUILD_DEBUG)
 	uint8_t c;
 	// Drain several lines per poll so the web log keeps up at max debug level.
 	unsigned lines = 0;
@@ -462,17 +480,23 @@ String LoggingSerial::popLines()
 			break;
 		}
 	}
+#endif
 	return r;
 }
 
 unsigned int effectiveRuntimeLogLevel() {
+#if defined(ALTRUIST_BUILD_DEBUG)
 	return max(static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL), cfg::debug);
+#else
+	return 0;
+#endif
 }
 
 void debugSetUsbQuiet(bool quiet) {
 	s_usb_log_quiet = quiet;
 }
 
+#if defined(ALTRUIST_BUILD_DEBUG)
 #define debug_level_check(level) { if (level > effectiveRuntimeLogLevel()) return; }
 
 void debug_out(const String& text, unsigned int level) {
@@ -599,6 +623,8 @@ void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashString
 	logSubsystemEvent(F("error"), subsystem, reason, details);
 }
 
+#endif
+
 /*****************************************************************
  * helper to see if a given string is numeric                    *
  *****************************************************************/
@@ -679,20 +705,20 @@ void initESPTemperatureSensor() {
 			
 			esp_err_t ret = temperature_sensor_install(&temp_sensor_config, &temp_sensor_handle);
 			if (ret != ESP_OK) {
-				Serial.printf("[ESP][Temp] Failed to install temperature sensor: %s\n", esp_err_to_name(ret));
+				ALTRUIST_DIAGNOSTIC(Serial.printf("[ESP][Temp] Failed to install temperature sensor: %s\n", esp_err_to_name(ret)));
 				return;
 			}
 			
 			ret = temperature_sensor_enable(temp_sensor_handle);
 			if (ret != ESP_OK) {
-				Serial.printf("[ESP][Temp] Failed to enable temperature sensor: %s\n", esp_err_to_name(ret));
+				ALTRUIST_DIAGNOSTIC(Serial.printf("[ESP][Temp] Failed to enable temperature sensor: %s\n", esp_err_to_name(ret)));
 				temperature_sensor_uninstall(temp_sensor_handle);
 				temp_sensor_handle = NULL;
 				return;
 			}
 			
 			temp_sensor_initialized = true;
-			Serial.println(F("[ESP][Temp] ESP32-C6 temperature sensor initialized"));
+			ALTRUIST_DIAGNOSTIC(Serial.println(F("[ESP][Temp] ESP32-C6 temperature sensor initialized")));
 		#endif
 	#endif
 }
@@ -742,7 +768,7 @@ void incrementTXCounter() {
 
 // Log a stable, machine-readable health snapshot to UART.
 void logMetrics() {
-#if defined(ALTRUIST_HEALTH_TELEMETRY)
+#if defined(ALTRUIST_BUILD_DEBUG) && defined(ALTRUIST_HEALTH_TELEMETRY)
 	updateMetrics();
 	const bool wifi_connected = WiFi.status() == WL_CONNECTED;
 	const int rssi = wifi_connected ? WiFi.RSSI() : 0;

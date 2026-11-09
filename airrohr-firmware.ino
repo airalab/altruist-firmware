@@ -317,6 +317,7 @@ static void logBootStatus() {
 	system_metrics.last_section_id = last_section;
 	copyMetricText(system_metrics.last_section, sizeof(system_metrics.last_section), last_section_name);
 
+#if defined(ALTRUIST_BUILD_DEBUG)
 	Serial.print(F("[BOOT] reset_reason="));
 	Serial.print(system_metrics.reset_reason);
 	Serial.print(F(" reset_code="));
@@ -335,6 +336,7 @@ static void logBootStatus() {
 	Serial.print(system_metrics.last_section);
 	Serial.print(F(" heap="));
 	Serial.println(ESP.getFreeHeap());
+#endif
 #if !defined(USE_SD_CARD) || !defined(ALTRUIST_INSIGHT)
 	clearCrashContext();
 #endif
@@ -404,6 +406,7 @@ void watchdogWorker(void *pvParameters) {
 }
 
 #if defined(USE_SD_CARD) && defined(ALTRUIST_INSIGHT)
+#if defined(ALTRUIST_BUILD_DEBUG)
 // Write a boot diagnostic file to SD card with crash context from NVS
 void writeBootFile() {
 	if (!deviceStatus.sd_card_connected) return;
@@ -475,6 +478,8 @@ void writeBootFile() {
 		debug_outln_error(F("[Boot] Failed to write crash diagnostic"));
 	}
 }
+
+#endif
 
 #if defined(ALTRUIST_BUILD_DEBUG)
 // Background worker that continuously drains Debug logs to SD card so we
@@ -1371,7 +1376,7 @@ void buttonsWorker(void *pvParameters) {
 }
 #endif // ALTRUIST_INSIGHT || ALTRUIST_URBAN_HW_UI
 
-#if defined(ALTRUIST_BUILD_DEBUG) || defined(ALTRUIST_HEALTH_TELEMETRY)
+// This worker also saves crash context used by recovery/status in release.
 void metricsWorker(void *pvParameters) {
 	// Wait a bit for system to stabilize
 	vTaskDelay(2000 / portTICK_PERIOD_MS);
@@ -1380,7 +1385,7 @@ void metricsWorker(void *pvParameters) {
 
 	unsigned long last_crash_save_ms = millis();
 	const unsigned long CRASH_SAVE_INTERVAL_MS = 30UL * 1000UL; // save every 30s
-#if defined(ALTRUIST_HEALTH_TELEMETRY)
+#if defined(ALTRUIST_BUILD_DEBUG) && defined(ALTRUIST_HEALTH_TELEMETRY)
 	unsigned long last_health_log_ms = millis();
 	const unsigned long HEALTH_LOG_INTERVAL_MS = 60UL * 1000UL;
 #endif
@@ -1390,7 +1395,7 @@ void metricsWorker(void *pvParameters) {
 
 		updateMetrics();
 
-#if defined(ALTRUIST_HEALTH_TELEMETRY)
+#if defined(ALTRUIST_BUILD_DEBUG) && defined(ALTRUIST_HEALTH_TELEMETRY)
 		if (msSince(last_health_log_ms) >= HEALTH_LOG_INTERVAL_MS) {
 			last_health_log_ms = millis();
 			logMetrics();
@@ -1431,7 +1436,6 @@ void metricsWorker(void *pvParameters) {
 		}
 	}
 }
-#endif
 
 
 void setup(void) {
@@ -1440,6 +1444,10 @@ void setup(void) {
 #endif
 	delay(300);
 	Serial.begin(115200);
+#if !defined(ALTRUIST_BUILD_DEBUG)
+	Serial.setDebugOutput(false);
+	debugRedirectConsoleToUsb();
+#endif
 	delay(500);
 	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIGHT)
@@ -1542,8 +1550,8 @@ void setup(void) {
 	#elif defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] Initializing metrics system...\r\n"));
 	#endif
-	#endif
 	Serial.flush();
+	#endif
 	delay(10);
 	initMetrics();
 	logBootStatus();
@@ -1555,8 +1563,8 @@ void setup(void) {
 	#endif
 	Serial.print(system_metrics.boot_counter);
 	Serial.println();
-	#endif
 	Serial.flush();
+	#endif
 	delay(10);
 	
 	// Initialize ESP32-C6 temperature sensor
@@ -1576,11 +1584,12 @@ void setup(void) {
 	#elif defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT][Setup] ESP temperature sensor initialized\r\n"));
 	#endif
-	#endif
 	Serial.flush();
+	#endif
 	delay(10);
 
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
+#if defined(ALTRUIST_BUILD_DEBUG)
 	Serial.printf(
 		"[BUILD] version=%s channel=%s commit=%s model=%s target=%s language=%s profile=%s\r\n",
 		SOFTWARE_VERSION_STR,
@@ -1591,9 +1600,11 @@ void setup(void) {
 		ALTRUIST_BUILD_LANGUAGE,
 		ALTRUIST_BUILD_PROFILE
 	);
+#endif
 
 	init_config();
 	setupLoRaUart();
+#if defined(ALTRUIST_BUILD_DEBUG)
 #if defined(CORE_DEBUG_LEVEL)
 	constexpr unsigned int core_log_level = CORE_DEBUG_LEVEL;
 #else
@@ -1606,6 +1617,7 @@ void setup(void) {
 		static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL),
 		core_log_level
 	);
+#endif
 	repairInconsistentRwsRegistrationState();
 #ifdef ALTRUIST_URBAN_HW_UI
 	leds_controller_urban.setMode(wifiHasSavedStationCredentials() ? LedMode::GREEN : LedMode::PROVISIONING);
@@ -1730,7 +1742,15 @@ void setup(void) {
 
 #if defined(USE_SD_CARD) && defined(ALTRUIST_INSIGHT)
 	// Write boot diagnostic file immediately after SD init - captures RTC crash context
+#if defined(ALTRUIST_BUILD_DEBUG)
 	writeBootFile();
+#else
+	// writeBootFile consumed this context after a successful SD mount.
+	// Preserve that lifecycle without producing a diagnostic file in release.
+	if (deviceStatus.sd_card_connected) {
+		clearCrashContext();
+	}
+#endif
 
 	// SD retention cleanup worker (production + dev):
 	// keeps exceptions and sensor CSV history bounded.
@@ -1808,8 +1828,7 @@ void setup(void) {
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
 	
-	// Keep health telemetry independent from heavyweight debug diagnostics.
-	#if defined(ALTRUIST_BUILD_DEBUG) || defined(ALTRUIST_HEALTH_TELEMETRY)
+	// This worker also saves crash context used by recovery/status in release.
 	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT][Setup] Creating metrics worker task...\r\n"));
@@ -1830,9 +1849,11 @@ void setup(void) {
 		0                    // core 0
 	);
 	if (metricsTaskResult != pdPASS) {
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[HEALTH][ERROR] Failed to create metrics worker: "));
 		Serial.println(metricsTaskResult);
 		Serial.flush();
+#endif
 	}
 	#if defined(ALTRUIST_BUILD_DEBUG)
 	else {
@@ -1846,7 +1867,6 @@ void setup(void) {
 	}
 	#endif
 	delay(10);
-	#endif
 	
 	markMainLoopAlive();
 	debug_outln_info(F("Setup finished"));

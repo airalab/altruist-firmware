@@ -65,6 +65,7 @@ void SCD4xSensor::_fetch(JsonDocument &data) {
         addValueToJSON(data, F("humidity"), last_humidity_value, INTL_HUMIDITY, F("%"));
 #if defined(ALTRUIST_BUILD_DEBUG)
         serializeJson(data, Serial);
+        Serial.println();
 #endif
     }
 }

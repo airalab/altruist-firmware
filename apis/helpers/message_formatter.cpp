@@ -190,6 +190,7 @@ static const String *plainSampleForLog(const String &plain, bool encrypted) {
 
 static void logPayload(const __FlashStringHelper *channel, const char *encoding, bool encrypted,
 			       size_t payload_len, const String *sample) {
+#if defined(ALTRUIST_BUILD_DEBUG)
 	String line;
 	line.reserve(112 + (sample ? sample->length() : 0));
 	line = F("[PAYLOAD] channel=");
@@ -207,6 +208,7 @@ static void logPayload(const __FlashStringHelper *channel, const char *encoding,
 		line += *sample;
 	}
 	Serial.println(line);
+#endif
 }
 
 bool formatRobonomicsString(JsonDocument &data, String &datalog_data, const __FlashStringHelper *channel) {
