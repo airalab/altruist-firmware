@@ -58,6 +58,7 @@
  ************************************************************************/
 #include <WString.h>
 #include <pgmspace.h>
+#include <string.h>
 
 /*****************************************************************
  * Includes                                                      *
@@ -95,6 +96,7 @@
 #include <Robonomics.h>
 #include "sensors/sensor_factory.h"
 #include "apis/apis.h"
+#include "apis/helpers/lora_uart.h"
 #include "apis/rws_devices_registry.h"
 #include "config_manager/config_helpers.h"
 #include "wifi_manager.h"
@@ -184,8 +186,12 @@ struct CrashContextData {
 };
 
 static uint8_t crash_last_section = 0;
+static volatile bool crash_section_frozen = false;
 
 void markCrashSection(uint8_t section) {
+	if (crash_section_frozen) {
+		return;
+	}
 	crash_last_section = section;
 }
 
@@ -204,6 +210,13 @@ const char* getCrashSectionName(uint8_t section) {
 	}
 }
 
+static void clearCrashContext() {
+	Preferences prefs;
+	prefs.begin("crash", false);
+	prefs.putBool("valid", false);
+	prefs.end();
+}
+
 void saveCrashContext() {
 	Preferences prefs;
 	prefs.begin("crash", false);
@@ -214,7 +227,7 @@ void saveCrashContext() {
 	prefs.end();
 }
 
-CrashContextData loadCrashContext() {
+static CrashContextData readCrashContext(bool clear_after_read) {
 	CrashContextData ctx;
 	ctx.valid = false;
 	ctx.section = 0;
@@ -231,15 +244,101 @@ CrashContextData loadCrashContext() {
 	}
 	prefs.end();
 	
-	Preferences prefs2;
-	prefs2.begin("crash", false);
-	prefs2.putBool("valid", false);
-	prefs2.end();
+	if (clear_after_read) {
+		clearCrashContext();
+	}
 	
 	return ctx;
 }
 
-static void markMainLoopAlive() {
+CrashContextData loadCrashContext() {
+	return readCrashContext(true);
+}
+
+static CrashContextData peekCrashContext() {
+	return readCrashContext(false);
+}
+
+static String machineToken(const char* text) {
+	String token;
+	token.reserve(strlen(text));
+	bool last_separator = false;
+	for (const char* p = text; *p; ++p) {
+		char c = *p;
+		if (c >= 'A' && c <= 'Z') {
+			c = c - 'A' + 'a';
+		}
+		if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+			token += c;
+			last_separator = false;
+		} else if (!last_separator && token.length() > 0) {
+			token += '_';
+			last_separator = true;
+		}
+	}
+	if (token.endsWith("_")) {
+		token.remove(token.length() - 1);
+	}
+	return token.length() > 0 ? token : String(F("unknown"));
+}
+
+static void copyMetricText(char* destination, size_t destination_size, const String& source) {
+	if (destination_size == 0) {
+		return;
+	}
+	source.toCharArray(destination, destination_size);
+	destination[destination_size - 1] = '\0';
+}
+
+static void copyMetricText(char* destination, size_t destination_size, const char* source) {
+	if (destination_size == 0) {
+		return;
+	}
+	strncpy(destination, source, destination_size - 1);
+	destination[destination_size - 1] = '\0';
+}
+
+static void logBootStatus() {
+	const esp_reset_reason_t reason = esp_reset_reason();
+	const CrashContextData ctx = peekCrashContext();
+	const String reset_reason_token = machineToken(get_reset_reason_text());
+	const uint8_t last_section = ctx.valid ? ctx.section : CRASH_SECTION_IDLE;
+	const char* last_section_name = getCrashSectionName(last_section);
+	const uint32_t prev_uptime = ctx.valid ? ctx.uptime_sec : 0;
+	const uint32_t prev_heap = ctx.valid ? ctx.free_heap : 0;
+
+	system_metrics.reset_reason_code = static_cast<int>(reason);
+	copyMetricText(system_metrics.reset_reason, sizeof(system_metrics.reset_reason), reset_reason_token);
+	system_metrics.crash_context_valid = ctx.valid;
+	system_metrics.prev_uptime_sec = prev_uptime;
+	system_metrics.prev_free_heap = prev_heap;
+	system_metrics.last_section_id = last_section;
+	copyMetricText(system_metrics.last_section, sizeof(system_metrics.last_section), last_section_name);
+
+	Serial.print(F("[BOOT] reset_reason="));
+	Serial.print(system_metrics.reset_reason);
+	Serial.print(F(" reset_code="));
+	Serial.print(system_metrics.reset_reason_code);
+	Serial.print(F(" boot="));
+	Serial.print(system_metrics.boot_counter);
+	Serial.print(F(" crash_valid="));
+	Serial.print(system_metrics.crash_context_valid ? 1 : 0);
+	Serial.print(F(" prev_uptime="));
+	Serial.print(system_metrics.prev_uptime_sec);
+	Serial.print(F(" prev_heap="));
+	Serial.print(system_metrics.prev_free_heap);
+	Serial.print(F(" last_section_id="));
+	Serial.print(system_metrics.last_section_id);
+	Serial.print(F(" last_section="));
+	Serial.print(system_metrics.last_section);
+	Serial.print(F(" heap="));
+	Serial.println(ESP.getFreeHeap());
+#if !defined(USE_SD_CARD) || !defined(ALTRUIST_INSIGHT)
+	clearCrashContext();
+#endif
+}
+
+void markMainLoopAlive() {
 	main_loop_last_ms = millis();
 }
 
@@ -253,9 +352,13 @@ static void datalogSendWatchdogEnd() {
 
 static void watchdogReboot(const __FlashStringHelper* reason, uint8_t crash_section) {
 	debug_outln_error(reason);
+	// Freeze the section breadcrumb so other tasks can't overwrite it back to Idle
+	// while we are about to reboot (Insight has multiple tasks that may still run briefly).
+	crash_section_frozen = true;
 	markCrashSection(crash_section);
 	saveCrashContext();
-	delay(100);
+	set_restart_reason(RESTART_REASON_WATCHDOG);
+	delay(10);
 	esp_restart();
 }
 
@@ -594,7 +697,7 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 
 	auto validTemp = [](float v) { return v > -40.0f && v < 80.0f; };
 	auto validHumidity = [](float v) { return v >= 0.0f && v <= 100.0f; };
-	auto validCO2 = [](float v) { return v >= 300.0f && v <= 5000.0f; };
+	auto validCO2 = [](float v) { return v >= 150.0f; };
 	auto validPM = [](float v) { return v >= 0.0f && v <= 1500.0f; };
 	auto validNoise = [](float v) { return v >= 0.0f && v <= 120.0f; };
 
@@ -640,6 +743,10 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 			const float v = urban["PCBA_noiseAvg"]["value"].as<float>();
 			if (validNoise(v)) { values.noise_avg.current = v; values.noise_avg.has_current = true; }
 		}
+		if (urban.containsKey("PCBA_noiseMax")) {
+			const float v = urban["PCBA_noiseMax"]["value"].as<float>();
+			if (validNoise(v)) { values.noise_max.current = v; values.noise_max.has_current = true; }
+		}
 	}
 
 	if (values.temp_indoor.has_current && values.hum_indoor.has_current && values.hum_indoor.current > 0.0f) {
@@ -678,11 +785,31 @@ bool fetchSensors() {
 					if (sensor_json_updated) {
 						any_sensor_json_updated = true;
 					}
+					// ArduinoJson 6 orphans replaced strings/arrays; reclaim before hard overflow
+					// (Insight SCD4x+BME680+Urban filled 4096 after hours).
+					const size_t used = sensors_data.memoryUsage();
+					const size_t cap = sensors_data.capacity();
+					if (sensors_data.overflowed() || (cap > 0 && used * 5 >= cap * 4)) {
+						const size_t before = used;
+						if (sensors_data.garbageCollect()) {
+							debug_outln_info(F("[Sensors] JSON garbageCollect "),
+							                 String(before) + F(" -> ") +
+							                     String(sensors_data.memoryUsage()) + F("/") +
+							                     String(sensors_data.capacity()));
+						}
+					}
 					if (sensors_data.overflowed()) {
 						debug_outln_error(F("[Sensors] JSON overflow after fetch"));
 						debug_outln_info(F("[Sensors] sensor: "), String(activeSensors[i]->sensor_name));
 						debug_outln_info(F("[Sensors] memory/capacity: "),
 						                 String(sensors_data.memoryUsage()) + "/" + String(sensors_data.capacity()));
+						logSubsystemError(
+							F("sensor"),
+							F("json_overflow"),
+							String(F("sensor=")) + activeSensors[i]->sensor_name +
+								F(" memory=") + String(sensors_data.memoryUsage()) +
+								F(" capacity=") + String(sensors_data.capacity())
+						);
 					}
 					xSemaphoreGive(mutex);
 				}
@@ -766,6 +893,8 @@ void sensorAndAPIWorker(void *pvParameters) {
 					if (WIFI_STA_REBOOT_AFTER_MS != 0 && wifiHasSavedStationCredentials() &&
 					    msSince(sta_down_since_ms) >= WIFI_STA_REBOOT_AFTER_MS) {
 						debug_outln_info(F("[WiFi] STA link down too long; rebooting for recovery"));
+						set_restart_reason(RESTART_REASON_WIFI);
+						logSubsystemEvent(F("event"), F("wifi"), F("sta_recovery_reboot"), String(F("down_ms=")) + String(msSince(sta_down_since_ms)));
 						delay(100);
 						esp_restart();
 					}
@@ -792,6 +921,12 @@ void sensorAndAPIWorker(void *pvParameters) {
 		// Mark that we're about to fetch sensor data
 		markCrashSection(CRASH_SECTION_FETCH_SENSORS);
 		const bool sensors_updated = fetchSensors();
+#if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
+		if (sensors_updated && xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
+			sendLoRaTelemetryIfDue(sensors_data, &robonomics);
+			xSemaphoreGive(mutex);
+		}
+#endif
 #if defined(ALTRUIST_INSIGHT)
 		// Keep analytics history collection independent from Analytics screen rendering.
 		if (xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
@@ -839,6 +974,12 @@ void sensorAndAPIWorker(void *pvParameters) {
 					debug_outln_error(F("[API] JSON snapshot overflow; skipping send"));
 					debug_outln_info(F("[API] memory/capacity: "),
 					                 String(api_snapshot.memoryUsage()) + "/" + String(api_snapshot.capacity()));
+					logSubsystemError(
+						F("api"),
+						F("json_snapshot_overflow"),
+						String(F("memory=")) + String(api_snapshot.memoryUsage()) +
+							F(" capacity=") + String(api_snapshot.capacity())
+					);
 				}
 				xSemaphoreGive(mutex);
 			}
@@ -1056,9 +1197,13 @@ void buttonsWorker(void *pvParameters) {
 				btn_press.pressed = false;
 				btn_press.double_long = false;
 				WiFi.disconnect(true);
-				displayManager.setScreen(ScreenPage::LOGO);
-				displayManager.process(btn_press);
-				delay(2500);
+				displayManager.requestWifiClearConfirmScreen();
+				const unsigned long deadline = millis() + 30000UL;
+				while ((int32_t)(deadline - millis()) > 0) {
+					displayManager.process(btn_press);
+					btn_press.pressed = false;
+					vTaskDelay(10 / portTICK_PERIOD_MS);
+				}
 				set_restart_reason(RESTART_REASON_CONFIG);
 				esp_restart();
 			}
@@ -1157,12 +1302,12 @@ void setup(void) {
 	});
 
 	// Give Improv Serial time to receive and respond to initial queries from webflasher.
-	// Announce AUTHORIZED state periodically so webflasher detects the device even on late connect.
+	// State is sent once in improv_serial_setup(); do not spam USB CDC with more IMPROV packets.
 	for (int i = 0; i < 30; i++) {
 		improv_serial_loop();
+		wifiProcessImprovProvisionRestart();
 		delay(100);
 	}
-	improv_start_announce(20);
 
 	// If button(s) pressed while turning on, factory-reset configuration (Insight / Urban C6 HW).
 #if defined(ALTRUIST_INSIGHT) || defined(ALTRUIST_URBAN_HW_UI)
@@ -1240,6 +1385,7 @@ void setup(void) {
 	Serial.flush();
 	delay(10);
 	initMetrics();
+	logBootStatus();
 	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT][Setup] Metrics initialized. Boot counter: "));
@@ -1286,6 +1432,7 @@ void setup(void) {
 	);
 
 	init_config();
+	setupLoRaUart();
 #if defined(CORE_DEBUG_LEVEL)
 	constexpr unsigned int core_log_level = CORE_DEBUG_LEVEL;
 #else
@@ -1332,7 +1479,11 @@ void setup(void) {
 		"ButtonWorker",   // name
 		2048,                // stack size
 		NULL,                // parameters
+#if defined(ALTRUIST_INSIGHT)
+		3,                   // above sensor/API worker (2)
+#else
 		1,                   // priority (>=1 to not be preempted too much)
+#endif
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
@@ -1543,26 +1694,37 @@ void setup(void) {
 
 #if defined(ALTRUIST_INSIGHT)
 void firmwareBlockingYieldHook(void) {
-	// EPD updates block loop() for seconds; service HTTP while the panel is busy.
+	// EPD busy-wait / SD waits only: keep HTTP alive. Do NOT call displayManager.process()
+	// here — painting from nested web/SD stacks can stick s_epd_draw_depth and freeze the UI.
 	if (!wifiIsConfigPortalRunning()) {
 		webserver.handleClient();
 	}
+	markMainLoopAlive();
 	yield();
 }
 #endif
 
 void loop(void) {
+#if defined(ALTRUIST_INSIGHT)
+	markCrashSection(CRASH_SECTION_DISPLAY_UPDATE);
+	displayManager.process(btn_press);
+	markCrashSection(CRASH_SECTION_IDLE);
+#endif
 	// During captive portal setup we run a dedicated HTTP loop inside wifiConfig().
 	// Avoid calling WebServer from multiple tasks (can crash in NetworkClient).
 	if (!wifiIsConfigPortalRunning()) {
 		webserver.handleClient();
 	}
 	improv_serial_loop();
+	wifiProcessImprovProvisionRestart();
 #if defined(ALTRUIST_INSIGHT)
 	markCrashSection(CRASH_SECTION_DISPLAY_UPDATE);
 	displayManager.process(btn_press);
 	markCrashSection(CRASH_SECTION_IDLE);
 #endif
+	if (!wifiIsConfigPortalRunning()) {
+		webserver.handleClient();
+	}
 	markMainLoopAlive();
 	yield();
 }

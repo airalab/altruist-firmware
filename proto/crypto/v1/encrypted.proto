@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package crypto.v1;
+
+// Encrypted blob stored in Urban.private / Insight.private (connectivity-protocol v1
+// types those fields as bytes). Same AEAD layout the ingest currently decodes.
+message Encrypted {
+  uint32 version = 1;
+  string algorithm = 2;
+  bytes from = 3;
+  bytes nonce = 4;
+  bytes ciphertext = 5;
+}

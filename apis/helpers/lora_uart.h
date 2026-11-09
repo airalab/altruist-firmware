@@ -1,0 +1,15 @@
+#ifndef ALTRUIST_LORA_UART_H
+#define ALTRUIST_LORA_UART_H
+
+#define ARDUINOJSON_ENABLE_ARDUINO_STREAM 0
+#define ARDUINOJSON_ENABLE_ARDUINO_PRINT 0
+#define ARDUINOJSON_DECODE_UNICODE 0
+#include <ArduinoJson.h>
+
+class Robonomics;
+
+void setupLoRaUart();
+/* Prototype: crypto.v1.SignedEnvelope in a Meshtastic DM. SINGLE 0x01, or FRAGMENT 0x41 if >218 bytes. */
+void sendLoRaTelemetryIfDue(JsonDocument &data, Robonomics *robonomics = nullptr);
+
+#endif

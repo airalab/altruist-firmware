@@ -61,6 +61,7 @@ const char INTL_LEDS_BRIGHTNESS[] PROGMEM = "";
 const char INTL_LEDS_ON[] PROGMEM = "";
 const char INTL_LEDS_OFF_HOUR[] PROGMEM = "";
 const char INTL_LEDS_ON_HOUR[] PROGMEM = "";
+const char INTL_LEDS_SCHEDULE_HINT[] PROGMEM = "";
 const char INTL_DURATION_ROUTER_MODE[] PROGMEM = "";
 const char INTL_MORE_APIS[] PROGMEM = "";
 const char INTL_SEND_TO_OWN_API[] PROGMEM = "";

@@ -74,7 +74,11 @@ void Measurement::calculate() {
 }
 
 float Measurement::decibel(float v) {
-  return 10.0 * log10(v);                    // for energy this should be 20.0 * log...  to be checked!
+  // Absolute SPL reference for ICS-43434 normalized to ±1.0 FS.
+  // Sensitivity: -26 dBFS @ 94 dB SPL → REF_ENERGY = (10^(-26/20))^2
+  // v is octave energy after Hann compensation, FFT→MS scale, and A-weighting.
+  const float REF_ENERGY = 0.0025119f;
+  return 94.0f + 10.0f * log10f(v / REF_ENERGY);
 }
 
 void Measurement::print() {

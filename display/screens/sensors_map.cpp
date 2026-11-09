@@ -185,7 +185,7 @@ void showSensorsMapPage(const String& robonomics_address) {
 
     if (getLocalTime(&timeinfo)) {
         char date_buf[12], time_buf[8];
-        strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
+        cfgFormatDate(date_buf, sizeof(date_buf), &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M", &timeinfo);
         int tw = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         Paint_DrawString_Display((DISPLAY_WIDTH - tw) / 2, header_top_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);

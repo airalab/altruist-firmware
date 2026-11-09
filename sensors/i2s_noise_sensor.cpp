@@ -39,8 +39,8 @@ void I2SNoiseSensor::_fetch(JsonDocument &data) {
     // debug_outln_info(F("Noise mean: "), last_value_DBMETER_mean);
     // String noise_mean(last_value_DBMETER_mean, 0);
     uint8_t last_value_DBMETER_mean_round = (uint8_t)last_value_DBMETER_mean;
-    addValueToJSON(data, F("noiseMax"), last_value_DBMETER_max, INTL_NOISE_MAX, F("dB"));
-    addValueToJSON(data, F("noiseAvg"), last_value_DBMETER_mean_round, INTL_NOISE_MEAN, F("dB"));
+    addValueToJSON(data, F("noiseMax"), last_value_DBMETER_max, INTL_NOISE_MAX, F("dBA"));
+    addValueToJSON(data, F("noiseAvg"), last_value_DBMETER_mean_round, INTL_NOISE_MEAN, F("dBA"));
 
     debug_outln_verbose(F("Noise sum: "), String(last_value_DBMETER_sum));
     debug_outln_verbose(F("Noise count: "), String(last_value_DBMETER_count));

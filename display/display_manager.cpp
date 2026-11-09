@@ -15,14 +15,31 @@
 #include <WiFi.h>
 #include "../leds/leds_controller_insight.h"
 #include "../config_manager/config_helpers.h"
+#include "../utils.h"
+#include "../buttons/button_manager.h"
+#include "../sensors/http_altruist_sensor.h"
 #ifdef DISPLAY_4IN2
 #include "driver/EPD_4in2_SSD1683.h"
 #endif
 
 extern LedControllerInsight leds_controller_insight;
+extern ButtonManager button_manager;
+extern bool wificonfig_loop;
 #if defined(USE_SD_CARD)
 extern SDCard sdCardLogger;
 #endif
+
+static SemaphoreHandle_t epd_draw_mutex = nullptr;
+/** Nested process() must not start another paint while EPD/SD work is in progress. */
+static uint8_t s_epd_draw_depth = 0;
+
+static void delayWithYield(unsigned long ms) {
+    const unsigned long deadline = millis() + ms;
+    while ((int32_t)(deadline - millis()) > 0) {
+        firmwareBlockingYieldHook();
+        delay(10);
+    }
+}
 
 // Sensor map Urban ID waiting policy:
 // If Urban ID is not yet known, we will perform up to 3 checks,
@@ -41,6 +58,9 @@ static unsigned long next_main_refresh_ms = 0;
 static uint8_t analytics_refresh_cycle_pos = 0;
 static bool analytics_priority_autoswitch_done = false;
 static bool analytics_priority_prev_window_state = false;
+/** Urban page switch on MAIN: partial refresh (full every 5th). */
+static bool s_urban_page_partial = false;
+static uint8_t s_urban_page_partial_count = 0;
 
 // Cycle order for screens when navigating with UP/SET
 // Order: MAIN -> ANALYTICS -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
@@ -81,6 +101,9 @@ void DisplayManager::setup() {
     if (cached_urban_address.length() > 0) {
         refresh_now = true;
     }
+    if (!epd_draw_mutex) {
+        epd_draw_mutex = xSemaphoreCreateMutex();
+    }
     // Initialize display and show loading screen immediately
     // initAndClearScreen();
     // Paint_SelectImage(BlackImage);
@@ -105,6 +128,11 @@ void DisplayManager::requestEpdFullRefresh() {
     epdResetPeriodPosition();
 }
 
+void DisplayManager::requestWifiClearConfirmScreen() {
+    wifi_clear_confirm_pending = true;
+    refresh_now = true;
+}
+
 void DisplayManager::setScreen(ScreenPage pageID) {
     // If we are leaving analytics 4-circle overview, force a full refresh on the next screen
     // to clean residual ghosting from dense black arc rendering.
@@ -124,11 +152,52 @@ void DisplayManager::setScreen(ScreenPage pageID) {
         graphClearDeferOnScreenEntry();
     }
 #endif
+    if (pageID == ScreenPage::MAIN && currentScreenID != ScreenPage::MAIN) {
+        httpUrbanResetToMainPage();
+    }
     currentScreenID = pageID;
     refresh_now = true;
 }
 
 void DisplayManager::process(button_pressed_t &btn_press) {
+    // Do not nest a second paint while one is in progress. Still accept buttons
+    // so presses are not dropped during a slow e-paper update.
+    const bool paint_busy = (s_epd_draw_depth > 0);
+    if (paint_busy) {
+        if (epd_draw_mutex && xSemaphoreTake(epd_draw_mutex, 0) == pdTRUE) {
+            xSemaphoreGive(epd_draw_mutex);
+            debug_outln_info(F("[EPD] Recovered stuck draw depth"), String(s_epd_draw_depth));
+            s_epd_draw_depth = 0;
+        }
+    }
+
+    if (wifi_clear_confirm_pending) {
+        wifi_clear_confirm_pending = false;
+        debug_outln_info(F("[EPD] WiFi credentials cleared — showing confirm screen"));
+        display_sleeping = false;
+        wake_loading_active = false;
+        currentScreenID = ScreenPage::LOGO;
+        refresh_now = false;
+        force_full_refresh = false;
+        if (epd_draw_mutex) {
+            xSemaphoreTake(epd_draw_mutex, portMAX_DELAY);
+        }
+        s_epd_draw_depth++;
+        Paint_SelectImage(BlackImage);
+        Paint_Clear(WHITE);
+        showLogoPage();
+        epdResetPeriodPosition();
+        epdDisplay(DisplayMode::FULL, BlackImage);
+        last_refresh_time = millis();
+        s_epd_draw_depth--;
+        if (epd_draw_mutex) {
+            xSemaphoreGive(epd_draw_mutex);
+        }
+        delayWithYield(5000);
+        set_restart_reason(RESTART_REASON_CONFIG);
+        esp_restart();
+    }
+
     if (btn_press.pressed && !btn_press.double_long) {
         btn_press.pressed = false;
 
@@ -153,13 +222,18 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             // Draw and display loading screen immediately to avoid white screen flash
             Paint_SelectImage(BlackImage);
             showLoadingPage(BlackImage);
+            s_epd_draw_depth++;
             epdDisplay(DisplayMode::FULL, BlackImage);
+            s_epd_draw_depth--;
             
             return;
         }
         else {
-            // Global: long DOWN to sleep from any screen (works on MAIN, GRAPHS, SENSOR_MAP, SETTINGS, SETUP, CONNECTING, LOADING, LOGO)
+            // Global: long DOWN to sleep from any screen (not SET+DOWN Wi-Fi reset combo)
             if (btn_press.button_num == ButtonNum::DOWN && btn_press.press_type == PressType::LONG) {
+                if (button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE) {
+                    return;
+                }
                 debug_outln_info(F("[EPD] Going to sleep - starting sleep cycle"));
                 initAndClearScreen();
                 // Clear the image buffer to white before drawing sleep message
@@ -168,80 +242,91 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 Paint_DrawString_Display_Center(INTL_DISP_GOING_TO_SLEEP, &Font24, &font_24_cyrillic, &font_24_ascii, WHITE, BLACK);
                 // Full cycle: init (FULL) -> display -> clear -> sleep.
                 epdInit(DisplayMode::FULL);
-                DEV_Delay_ms(200);
+                delayWithYield(200);
+                s_epd_draw_depth++;
                 epdDisplay(DisplayMode::FULL, BlackImage);
                 // Also count full clear as additional update.
-                DEV_Delay_ms(700);
+                delayWithYield(700);
                 debug_outln_info(F("[EPD] Clear screen before sleep"));
                 EPD_4IN2_V2_Clear();
                 epdIncrementUpdateCount();
-                DEV_Delay_ms(300);
+                delayWithYield(300);
                 // Turn off LEDs during sleep
                 leds_controller_insight.setSleepMode(true);
                 epdSleep();
-                DEV_Delay_ms(100);
+                s_epd_draw_depth--;
+                delayWithYield(100);
                 display_sleeping = true;
                 return;
             }
             if (currentScreenID == ScreenPage::MAIN) {
-                // Short presses: navigate screens
-                if (btn_press.press_type == PressType::SHORT) {
-                    if (btn_press.button_num == ButtonNum::UP) {
-                        ScreenPage target = getPrevScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-                        return;
-                    } else if (btn_press.button_num == ButtonNum::SET) {
-                        ScreenPage target = getNextScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-                        return;
-                    }
-                }
-            } 
-            else if (currentScreenID == ScreenPage::ANALYTICS) {
-                bool analytics_has_sd = false;
-#if defined(USE_SD_CARD)
-                analytics_has_sd = deviceStatus.sd_card_connected && sdCardLogger.checkInserted();
+#if defined(ALTRUIST_INSIGHT)
+                const bool urban_can_cycle = httpUrbanCanCycleOnMain();
+#else
+                const bool urban_can_cycle = false;
 #endif
-                // If analytics storage is unavailable, behave like Graphs:
-                // skip internal pages and navigate screens directly on short presses.
-                if (!analytics_has_sd && btn_press.press_type == PressType::SHORT) {
-                    if (btn_press.button_num == ButtonNum::UP) {
-                        ScreenPage target = getPrevScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-                        return;
-                    } else if (btn_press.button_num == ButtonNum::SET) {
-                        ScreenPage target = getNextScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-                        return;
-                    }
-                }
-                if (btn_press.press_type == PressType::LONG) {
-                    if (btn_press.button_num == ButtonNum::UP) {
-                        ScreenPage target = getPrevScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-                        return;
-                    } else if (btn_press.button_num == ButtonNum::SET) {
-                        ScreenPage target = getNextScreen(currentScreenID);
-                        epdIncrementScreenCounter(target);
-                        setScreen(target);
-                        return;
+                if (urban_can_cycle) {
+                    if (btn_press.press_type == PressType::LONG) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            ScreenPage target = getPrevScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            ScreenPage target = getNextScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
+                        }
+                    } else if (btn_press.press_type == PressType::SHORT) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            if (httpUrbanCyclePrevView()) {
+                                ScreenPage target = getPrevScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
+                            } else {
+                                overlayCurrentUrbanOnMain(cached_main_values);
+                                s_urban_page_partial = true;
+                                refresh_now = true;
+                            }
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            if (httpUrbanCycleNextView()) {
+                                ScreenPage target = getNextScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
+                            } else {
+                                overlayCurrentUrbanOnMain(cached_main_values);
+                                s_urban_page_partial = true;
+                                refresh_now = true;
+                            }
+                        }
                     }
                 } else if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+                    }
+                }
+            } 
+            else if (currentScreenID == ScreenPage::ANALYTICS) {
+                // Night analytics uses NVS (not SD). Do not call checkInserted() here:
+                // a failed remount used to set analytics_has_sd=false and then the old
+                // "no SD" + SHORT handlers both ran → double setScreen (e.g. Analytics→Main→Settings).
+                if (btn_press.press_type == PressType::LONG ||
+                    btn_press.press_type == PressType::SHORT) {
+                    if (btn_press.button_num == ButtonNum::UP) {
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
+
+                    } else if (btn_press.button_num == ButtonNum::SET) {
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
+
                     }
                 }
             }
@@ -255,9 +340,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 // to avoid SD mutex contention during CSV reads on button press.
                 bool graphs_can_cycle = false;
 #if defined(USE_SD_CARD)
-                const bool graphs_storage_ok =
-                    deviceStatus.sd_card_connected && sdCardLogger.checkInserted();
-                graphs_can_cycle = graphs_storage_ok && graphsNavigationCanCycle();
+                // Cached at last graph draw — do not touch SD here (blocks enter/leave).
+                graphs_can_cycle = graphsNavigationCanCycle();
 #endif
                 if (!graphs_can_cycle) {
                     // No graph data yet - navigate to next/prev screen on any button press
@@ -265,12 +349,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 } else {
                     // Graphs available - normal behavior
@@ -279,12 +363,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                             ScreenPage target = getPrevScreen(currentScreenID);
                             epdIncrementScreenCounter(target);
                             setScreen(target);
-                            return;
+
                         } else if (btn_press.button_num == ButtonNum::SET) {
                             ScreenPage target = getNextScreen(currentScreenID);
                             epdIncrementScreenCounter(target);
                             setScreen(target);
-                            return;
+
                         }
                     } else if (btn_press.press_type == PressType::SHORT) {
                         if (btn_press.button_num == ButtonNum::UP) {
@@ -293,24 +377,22 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                                 ScreenPage target = getPrevScreen(currentScreenID);
                                 epdIncrementScreenCounter(target);
                                 setScreen(target);
-                                return;
+                            } else {
+                                graphMarkValueSwitch();
+                                epdIncrementScreenCounter(ScreenPage::GRAPHS);
+                                refresh_now = true;
                             }
-                            graphMarkValueSwitch();
-                            epdIncrementScreenCounter(ScreenPage::GRAPHS);
-                            refresh_now = true;
-                            return;
                         } else if (btn_press.button_num == ButtonNum::SET) {
                             // If at last graph, switch to next screen instead of looping
                             if (setNextGraphValue()) {
                                 ScreenPage target = getNextScreen(currentScreenID);
                                 epdIncrementScreenCounter(target);
                                 setScreen(target);
-                                return;
+                            } else {
+                                graphMarkValueSwitch();
+                                epdIncrementScreenCounter(ScreenPage::GRAPHS);
+                                refresh_now = true;
                             }
-                            graphMarkValueSwitch();
-                            epdIncrementScreenCounter(ScreenPage::GRAPHS);
-                            refresh_now = true;
-                            return;
                         }
                     }
                 }
@@ -321,12 +403,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 }
             }
@@ -336,30 +418,33 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 }
             }
         }
+    }
+    if (s_epd_draw_depth > 0) {
+        return;
     }
     // Skip all refresh logic when display is sleeping - only wake on button press
     if (display_sleeping) {
         return;
     }
 
-    // Between 06:00 and 12:00 (local) analytics is the default screen.
+    // Between 06:00 and configured end time (local) analytics is the default screen.
     // Auto-switch only once per window so user can still navigate back to MAIN.
     // Only evaluate when getLocalTime() succeeds: if time is not synced yet, do not
     // treat "unknown" as "outside the window" (avoids a brief ANALYTICS flash then MAIN on boot).
     struct tm timeinfo;
     const bool time_valid = getLocalTime(&timeinfo);
     const bool in_analytics_priority_window =
-        time_valid && (timeinfo.tm_hour >= 6 && timeinfo.tm_hour < 12);
+        time_valid && cfgInAnalyticsMorningWindow(timeinfo);
     if (time_valid) {
         if (!in_analytics_priority_window) {
             // Leaving the priority window: if analytics is still open, return to MAIN once.
@@ -397,7 +482,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             wake_loading_active = false;
             bool wifi_connected = (WiFi.status() == WL_CONNECTED);
             if (wifi_connected) {
-                // Allow morning rule (MAIN -> ANALYTICS 06:00-12:00) on the next process() pass;
+                // Allow morning rule (MAIN -> ANALYTICS) on the next process() pass;
                 // autoswitch_done may still be true from before sleep.
                 analytics_priority_autoswitch_done = false;
                 setScreen(ScreenPage::MAIN);
@@ -416,7 +501,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     // Acquire mutex to safely read sensors_data (it may be modified by sensor task)
     bool need_spiffs_save = false;
     bool need_spiffs_remove = false;
-    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
+    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(20))) {
         if (sensors_data.containsKey("service_data")) {
             auto service = sensors_data["service_data"].as<JsonObject>();
             if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
@@ -479,10 +564,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             } else {
                 time_based_refresh = (int32_t)(millis() - next_main_refresh_ms) >= 0;
             }
-        } else {
-            time_based_refresh = msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL;
-            next_main_refresh_ms = 0;
-        }
+    } else {
+        const unsigned long refresh_interval =
+            (wificonfig_loop && currentScreenID == ScreenPage::SETUP)
+                ? 300000UL
+                : DISPLAY_REFRESH_INTERVAL;
+        time_based_refresh = msSince(last_refresh_time) > refresh_interval;
+        next_main_refresh_ms = 0;
+    }
     }
     prev_ota_in_progress = deviceStatus.ota_in_progress;
 
@@ -493,6 +582,11 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                           (currentScreenID == ScreenPage::GRAPHS && graphScreenSdRetryDue());
     
     if (should_refresh) {
+        if (epd_draw_mutex && xSemaphoreTake(epd_draw_mutex, 0) != pdTRUE) {
+            refresh_now = true;
+            return;
+        }
+        s_epd_draw_depth++;
         debug_outln_verbose(F("[Display] Starting refresh cycle for screen "), String((int)currentScreenID));
         refresh_now = false;
         Paint_SelectImage(BlackImage);
@@ -517,13 +611,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         }
         
         if (currentScreenID == ScreenPage::MAIN) {
-            // Acquire mutex only to copy required fields into cached_main_values.
-            // This keeps lock hold time short and reduces stale display risk.
-            if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
+            // Don't block the button-to-paint path on Urban HTTP (can hold this mutex for seconds).
+            if (xSemaphoreTake(mutex, pdMS_TO_TICKS(20))) {
                 extractMainScreenValues(sensors_data, cached_main_values);
                 xSemaphoreGive(mutex);
             }
-            // If mutex failed, cached_main_values still has previous data - display stays consistent.
+            overlayCurrentUrbanOnMain(cached_main_values);
             debug_outln_verbose(F("[Display] Refresh MAIN screen"));
             drawMainScreen(BlackImage, cached_main_values, deviceStatus.ip_address, robonomics_address, cached_urban_address);
         } else if (currentScreenID == ScreenPage::ANALYTICS) {
@@ -688,9 +781,22 @@ draw_complete:
         // After wake use FULL mode for first update
         if (force_full_refresh) {
             force_full_refresh = false; // Reset flag after use
+            s_urban_page_partial = false;
             epdResetPeriodPosition(); // Reset period counter after full refresh
             debug_outln_verbose(F("[EPD] FULL refresh (watchdog/wake/main) pushed to panel"));
             epdDisplay(DisplayMode::FULL, BlackImage);
+        } else if (s_urban_page_partial) {
+            s_urban_page_partial = false;
+            s_urban_page_partial_count++;
+            if (s_urban_page_partial_count >= 5) {
+                s_urban_page_partial_count = 0;
+                debug_outln_verbose(F("[EPD] Extra Urban page: FULL (every 5th)"));
+                epdResetPeriodPosition();
+                epdDisplay(DisplayMode::FULL, BlackImage);
+            } else {
+                debug_outln_verbose(F("[EPD] Extra Urban page: PARTIAL"));
+                epdDisplay(DisplayMode::PARTIAL, BlackImage);
+            }
         } else if (currentScreenID == ScreenPage::ANALYTICS &&
                    !deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
             if (!epdPartialRefreshEnabled()) {
@@ -714,6 +820,10 @@ draw_complete:
         } else if (!deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
             debug_outln_verbose(F("[EPD] FAST/partial refresh pushed for screen "), String((int)currentScreenID));
             showImageFast(BlackImage, currentScreenID);
+        }
+        s_epd_draw_depth--;
+        if (epd_draw_mutex) {
+            xSemaphoreGive(epd_draw_mutex);
         }
     }
 }

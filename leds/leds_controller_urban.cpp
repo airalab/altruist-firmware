@@ -17,7 +17,7 @@ void LedControllerUrban::init() {
         debug_outln_info(F("LEDs disabled; strip forced off"));
         return;
     }
-    uint8_t brightness = cfg::leds_brightness * 255 / 100;
+    uint8_t brightness = _brightnessFromConfig();
     pixels.begin();
     pixels.clear();
     pixels.setBrightness(brightness);
@@ -56,6 +56,7 @@ void LedControllerUrban::process() {
         _forceOff();
         return;
     }
+    _applyBrightness();
     mode_changed = false;
     switch (current_mode) {
         case LedMode::NONE:
@@ -109,6 +110,33 @@ void LedControllerUrban::_forceOff() {
     }
     mode_changed = false;
     current_mode = LedMode::NONE;
+}
+
+uint8_t LedControllerUrban::_brightnessFromConfig() {
+    unsigned pct = cfg::leds_brightness;
+    if (pct > 100) {
+        pct = 100;
+    }
+    return (uint8_t)((pct * 255UL) / 100UL);
+}
+
+void LedControllerUrban::_applyBrightness() {
+    if (LED_PIN == -1) {
+        return;
+    }
+    const uint8_t brightness = _brightnessFromConfig();
+    if (!pixels_initialized) {
+        pixels.begin();
+        pixels_initialized = true;
+    }
+    pixels.setBrightness(brightness);
+    if (_hasBoardRgbHardware()) {
+        if (!board_initialized) {
+            board_pixels.begin();
+            board_initialized = true;
+        }
+        board_pixels.setBrightness(brightness);
+    }
 }
 
 String LedControllerUrban::_modeName(LedMode mode) {

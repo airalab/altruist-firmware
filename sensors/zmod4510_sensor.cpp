@@ -21,16 +21,16 @@ bool ZMOD4510Sensor::begin()
 {
     debug_outln_info(F("Begin ZMOD4510Sensor"));
 
-    if (i2c_master_init() != ESP_OK)
+    I2cBusLock bus;
+    if (!bus.ok())
     {
-        debug_outln_error(F("ZMOD4510 i2c_master_init failed"));
+        debug_outln_error(F("ZMOD4510 I2C bus lock failed"));
         return false;
     }
 
     if (zmod4510_fill_interface(&hal) != 0)
     {
         debug_outln_error(F("ZMOD4510 HAL init failed"));
-        deinit_i2c();
         return false;
     }
 
@@ -47,7 +47,6 @@ bool ZMOD4510Sensor::begin()
     {
         debug_outln_error(F("zmod4xxx_init failed"));
         debug_outln_info(F("zmod4xxx_init error code: "), String(last_error));
-        deinit_i2c();
         return false;
     }
 
@@ -57,7 +56,6 @@ bool ZMOD4510Sensor::begin()
     {
         debug_outln_error(F("zmod4xxx_read_sensor_info failed: "));
         debug_outln_info(F("zmod4xxx_read_sensor_info error code: "), String(last_error));
-        deinit_i2c();
         return false;
     }
 
@@ -66,7 +64,6 @@ bool ZMOD4510Sensor::begin()
     {
         debug_outln_error(F("zmod4xxx_prepare_sensor failed: "));
         debug_outln_info(F("zmod4xxx_prepare_sensor error code: "), String(last_error));
-        deinit_i2c();
         return false;
     }
 
@@ -76,7 +73,6 @@ bool ZMOD4510Sensor::begin()
     {
         debug_outln_error(F("init_no2_o3 failed"));
         debug_outln_info(F("init_no2_o3 error code: "), String(last_error));
-        deinit_i2c();
         return false;
     }
 
@@ -85,7 +81,6 @@ bool ZMOD4510Sensor::begin()
 
     debug_outln_info(F("ZMOD4510 started with fetch interval (sec): "), String(timeout / 1000));
 
-    deinit_i2c();
     return true;
 }
 
@@ -100,9 +95,10 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
 
     debug_outln_verbose(F("fetch ZMOD4510"));
 
-    if (i2c_master_init() != ESP_OK)
+    I2cBusLock bus;
+    if (!bus.ok())
     {
-        debug_outln_error(F("ZMOD4510 i2c_master_init failed in fetch"));
+        debug_outln_error(F("ZMOD4510 I2C bus lock failed in fetch"));
         return;
     }
 
@@ -112,7 +108,6 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
     {
         debug_outln_error(F("ZMOD4510 start_measurement failed"));
         debug_outln_info(F("ZMOD4510 start_measurement error code: "), String(ret));
-        deinit_i2c();
         return;
     }
 
@@ -126,7 +121,6 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
     {
         debug_outln_error(F("ZMOD4510 read_status failed"));
         debug_outln_info(F("ZMOD4510 read_status error code: "), String(ret));
-        deinit_i2c();
         return;
     }
 
@@ -148,7 +142,6 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
             debug_outln_info(F("ZMOD4510 error code: "), String(ret));
             break;
         }
-        deinit_i2c();
         return;
     }
 
@@ -158,7 +151,6 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
     {
         debug_outln_error(F("ZMOD4510 read_adc_result failed"));
         debug_outln_info(F("ZMOD4510 read_adc_result error code: "), String(ret));
-        deinit_i2c();
         return;
     }
 
@@ -260,5 +252,4 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
     }
 
     addValueToJSON(data, F("status"), sensor_status, F("Status"), F(""));
-    deinit_i2c();
 }

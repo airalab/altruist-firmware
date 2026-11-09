@@ -5,8 +5,11 @@
 #include <HTTPClient.h>
 #include "defines.h"
 #include "config_manager/config_helpers.h"
+#include "utils.h"
 #include <MD5Builder.h>
 #include <Update.h>
+#include <cstring>
+#include <strings.h>
 
 /*****************************************************************
  * OTAUpdate                                                     *
@@ -15,6 +18,23 @@
 static const char* const FW_HOSTS[] = { FW_DOWNLOAD_HOST, FW_DOWNLOAD_HOST_ALTERNATIVE };
 static constexpr int FW_HOST_COUNT = 2;
 static constexpr unsigned long FW_HOST_TIMEOUT_MS = 30000;  // 30s per host attempt
+static constexpr unsigned long FW_CHECK_TIMEOUT_MS = 8000;   // keep web UI responsive
+
+/** Auto-set connectivity region from successful OTA host unless a stronger signal exists. */
+static void applyRegionFromOtaHostIfAuto(const char* host) {
+	if (!host || cfg::region_manual || cfgHasValidMapCoords()) {
+		return;
+	}
+	const bool from_ru = (strcmp(host, FW_DOWNLOAD_HOST_ALTERNATIVE) == 0);
+	const char* want = from_ru ? REGION_RU : REGION_GLOBAL;
+	if (strcmp(cfg::current_reg, want) == 0) {
+		return;
+	}
+	strncpy(cfg::current_reg, want, sizeof(cfg::current_reg) - 1);
+	cfg::current_reg[sizeof(cfg::current_reg) - 1] = '\0';
+	writeConfig();
+	debug_outln_info(F("Region auto-set from OTA host: "), String(want) + F(" (") + String(host) + F(")"));
+}
 
 static String buildFirmwarePath() {
 	String language(cfg::current_lang);
@@ -40,6 +60,15 @@ static String buildFirmwarePath() {
 	return path;
 }
 
+static String buildVersionPath(const String& firmware_path) {
+	String path(firmware_path);
+	if (path.endsWith(F(".bin"))) {
+		path.remove(path.length() - 4);
+	}
+	path += F(".version");
+	return path;
+}
+
 static String buildUserAgent() {
 	String agent(SOFTWARE_VERSION_STR);
 	agent += ' ';
@@ -51,13 +80,13 @@ static String buildUserAgent() {
 	return agent;
 }
 
-static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostream, device_status_t &deviceStatus) {
+static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostream, device_status_t &deviceStatus, const char** used_host = nullptr, unsigned long timeout_ms = FW_HOST_TIMEOUT_MS) {
 
 	String agent = buildUserAgent();
 
 	for (int h = 0; h < FW_HOST_COUNT; h++) {
 		HTTPClient http;
-		http.setTimeout(FW_HOST_TIMEOUT_MS);
+		http.setTimeout(timeout_ms);
 		http.setUserAgent(agent);
 		http.setReuse(false);
 
@@ -70,7 +99,12 @@ static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostr
 			if (r == HTTP_CODE_OK) {
 				int bytes_written = http.writeToStream(ostream);
 				http.end();
-				if (bytes_written > 0) return true;
+				if (bytes_written > 0) {
+					if (used_host) {
+						*used_host = FW_HOSTS[h];
+					}
+					return true;
+				}
 			} else {
 				http.end();
 			}
@@ -95,11 +129,13 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 
         if (millis() - totalStartTime > OTA_TOTAL_TIMEOUT_MS) {
             debug_outln_error(F("OTA total timeout exceeded"));
+            logSubsystemError(F("ota"), F("total_timeout"));
             return false;
         }
 
         if (WiFi.status() != WL_CONNECTED) {
             debug_outln_error(F("WiFi not connected, aborting OTA"));
+            logSubsystemError(F("ota"), F("wifi_not_connected"));
             return false;
         }
 
@@ -113,12 +149,14 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 
         if (!http.begin(client, host, FW_DOWNLOAD_PORT, url)) {
             debug_outln_error(F("HTTP begin failed"));
+            logSubsystemError(F("ota"), F("http_begin_failed"), String(F("host=")) + host + F(" path=") + url);
             continue;
         }
 
         int httpCode = http.GET();
         if (httpCode != HTTP_CODE_OK) {
             debug_outln_info(F("HTTP GET failed, code: "), String(httpCode));
+            logSubsystemError(F("ota"), F("http_get_failed"), String(F("host=")) + host + F(" code=") + String(httpCode));
             http.end();
             continue;
         }
@@ -126,6 +164,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
         int contentLength = http.getSize();
         if (contentLength <= 0) {
             debug_outln_error(F("Invalid content length"));
+            logSubsystemError(F("ota"), F("invalid_content_length"), String(F("host=")) + host);
             http.end();
             continue;
         }
@@ -134,6 +173,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 
         if (!Update.begin(contentLength)) {
             debug_outln_error(F("Not enough space for OTA"));
+            logSubsystemError(F("ota"), F("not_enough_space"), String(F("size=")) + String(contentLength));
             http.end();
             return false;
         }
@@ -153,6 +193,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 
             if (millis() - totalStartTime > OTA_TOTAL_TIMEOUT_MS) {
                 debug_outln_error(F("OTA total timeout exceeded during download"));
+                logSubsystemError(F("ota"), F("download_total_timeout"), String(F("written=")) + String(written));
                 Update.abort();
                 http.end();
                 return false;
@@ -160,6 +201,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 
             if (WiFi.status() != WL_CONNECTED) {
                 debug_outln_error(F("WiFi disconnected during OTA"));
+                logSubsystemError(F("ota"), F("wifi_disconnected"), String(F("written=")) + String(written));
                 Update.abort();
                 http.end();
                 return false;
@@ -176,6 +218,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 
                     if (Update.write(buffer, bytesRead) != (size_t)bytesRead) {
                         debug_outln_error(F("Update.write failed"));
+                        logSubsystemError(F("ota"), F("write_failed"), String(F("written=")) + String(written));
                         Update.abort();
                         http.end();
                         return false;
@@ -195,6 +238,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
             } else {
                 if (millis() - lastDataTime > FW_HOST_TIMEOUT_MS) {
                     debug_outln_error(F("OTA stalled, switching host..."));
+                    logSubsystemError(F("ota"), F("stalled"), String(F("host=")) + host + F(" written=") + String(written));
                     download_ok = false;
                     break;
                 }
@@ -214,6 +258,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 
         if (!Update.end()) {
             debug_outln_error(F("Update.end failed"));
+            logSubsystemError(F("ota"), F("update_end_failed"));
             Update.abort();
             http.end();
             continue;
@@ -221,6 +266,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 
         if (!Update.isFinished()) {
             debug_outln_error(F("Update not finished properly"));
+            logSubsystemError(F("ota"), F("not_finished"));
             http.end();
             continue;
         }
@@ -228,6 +274,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
         String md5String = Update.md5String();
         if (!md5String.equalsIgnoreCase(expectedMD5)) {
             debug_outln_error(F("MD5 mismatch!"));
+            logSubsystemError(F("ota"), F("md5_mismatch"));
             debug_outln_info(F("Expected: "), expectedMD5);
             debug_outln_info(F("Actual: "), md5String);
             http.end();
@@ -235,12 +282,66 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
         }
 
         debug_outln_info(F("OTA successful and verified"));
+		applyRegionFromOtaHostIfAuto(host);
         http.end();
         return true;
     }
 
     debug_outln_error(F("OTA failed after all attempts"));
+    logSubsystemError(F("ota"), F("all_attempts_failed"));
     return false;
+}
+
+void otaCheckForUpdate(device_status_t &deviceStatus) {
+	deviceStatus.ota_remote_version[0] = '\0';
+	deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_Failed;
+
+	String fetch_name = buildFirmwarePath();
+	debug_outln_info(F("OTA check: "), fetch_name);
+
+	WiFiClient client;
+	String fetch_md5_name(fetch_name);
+	fetch_md5_name += F(".md5");
+
+	StreamString newFwmd5;
+	const char* md5_host = nullptr;
+	if (!fwDownloadStream(client, fetch_md5_name, &newFwmd5, deviceStatus, &md5_host, FW_CHECK_TIMEOUT_MS)) {
+		debug_outln_info(F("OTA check: md5 download failed"));
+		logSubsystemError(F("ota"), F("check_md5_failed"), String(F("path=")) + fetch_md5_name);
+		deviceStatus.last_update_attempt = millis();
+		return;
+	}
+	if (md5_host) {
+		applyRegionFromOtaHostIfAuto(md5_host);
+	}
+
+	newFwmd5.trim();
+	// Optional human-readable version next to the binary (may be missing on older mirrors).
+	{
+		StreamString ver;
+		if (fwDownloadStream(client, buildVersionPath(fetch_name), &ver, deviceStatus, nullptr, FW_CHECK_TIMEOUT_MS)) {
+			ver.trim();
+			ver.replace(F("\r"), emptyString);
+			ver.replace(F("\n"), emptyString);
+			if (ver.length() > 0 && ver.length() < sizeof(deviceStatus.ota_remote_version)) {
+				strncpy(deviceStatus.ota_remote_version, ver.c_str(), sizeof(deviceStatus.ota_remote_version) - 1);
+				deviceStatus.ota_remote_version[sizeof(deviceStatus.ota_remote_version) - 1] = '\0';
+			}
+		}
+	}
+
+	deviceStatus.last_update_attempt = millis();
+	if (newFwmd5.equalsIgnoreCase(ESP.getSketchMD5())) {
+		deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_UpToDate;
+		debug_outln_info(F("OTA check: up to date"));
+		return;
+	}
+
+	deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_Available;
+	debug_outln_info(F("OTA check: update available md5="), newFwmd5);
+	if (deviceStatus.ota_remote_version[0]) {
+		debug_outln_info(F("OTA check: remote version="), String(deviceStatus.ota_remote_version));
+	}
 }
 
 void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
@@ -262,10 +363,15 @@ void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
 	debug_outln_info(F("download md5 begin"));
 
 	StreamString newFwmd5;
-	if (!fwDownloadStream(client, fetch_md5_name, &newFwmd5, deviceStatus)){
+	const char* md5_host = nullptr;
+	if (!fwDownloadStream(client, fetch_md5_name, &newFwmd5, deviceStatus, &md5_host)){
 		debug_outln_info(F("download md5 fail"));
+		logSubsystemError(F("ota"), F("md5_download_failed"), String(F("path=")) + fetch_md5_name);
 		return;}
 	debug_outln_info(F("download md5 end"));
+	if (md5_host) {
+		applyRegionFromOtaHostIfAuto(md5_host);
+	}
 
 	newFwmd5.trim();
 	if (newFwmd5 == ESP.getSketchMD5()) {

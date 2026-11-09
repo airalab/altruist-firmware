@@ -87,8 +87,13 @@ BMX280Sensor::BMX280Sensor(unsigned long sending_timeout)
 }
 
 bool BMX280Sensor::begin() {
+    I2cBusLock bus;
+    if (!bus.ok()) {
+        debug_outln_error(F("BMX280 I2C bus lock failed"));
+        return false;
+    }
+
     bool res;
-    i2c_master_init();
     if (!begin(0x76, I2C_MASTER_NUM) && !begin(0x77, I2C_MASTER_NUM)) {
         debug_outln_error(F("Check BMx280 wiring"));
         res = false;
@@ -97,16 +102,22 @@ bool BMX280Sensor::begin() {
         res = true;
         debug_outln_info(F("BMx280 started with fetch interval (sec): "), String(timeout/1000));
     }
-    deinit_i2c();
     last_fetch_time = millis() - timeout;
     return res;
 }
 
 void BMX280Sensor::_fetch(JsonDocument &data) {
-    i2c_master_init();
-    if (!begin(0x76, I2C_MASTER_NUM) && !begin(0x77, I2C_MASTER_NUM)) {
-        debug_outln_error(F("Check BMx280 wiring"));
+    I2cBusLock bus;
+    if (!bus.ok()) {
+        debug_outln_error(F("BMX280 I2C bus lock failed in fetch"));
         return;
+    }
+
+    if (_sensorID != BMP280_SENSOR_ID && _sensorID != BME280_SENSOR_ID) {
+        if (!begin(0x76, I2C_MASTER_NUM) && !begin(0x77, I2C_MASTER_NUM)) {
+            debug_outln_error(F("Check BMx280 wiring"));
+            return;
+        }
     }
 	delay(100);
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(sensor_name));
@@ -126,7 +137,8 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
 		debug_outln_error(F("BMP/BME280 read failed"));
 	} else {
 		temperature = t + readCorrectionOffset(cfg::temp_correction);
-		pressure = p;
+		// Field is hPa; BME280 readPressure() returns Pa.
+		pressure = p + readCorrectionOffset(cfg::pressure_correction) * 100.0f;
     last_temperature_str = String(temperature, 1);
     last_humidity_str = String(humidity, 1);
     last_pressure_str = String(pressure, 1);
@@ -149,7 +161,6 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
     debug_outln_verbose(F("\r\nJSON memory usage: "), String(data.memoryUsage()));
 	debug_outln_verbose(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
-	deinit_i2c();
 
   // Update last fetch time
   updateFetchTime();

@@ -9,7 +9,8 @@
 class SensorWebServer {
 
 public:
-    SensorWebServer(JsonDocument &_data, device_status_t &_deviceStatus, SemaphoreHandle_t _mutex) : server(80), sensors_data(_data), deviceStatus(_deviceStatus), mutex{_mutex} {}
+    SensorWebServer(JsonDocument &_data, device_status_t &_deviceStatus, SemaphoreHandle_t _mutex)
+        : server(80), sensors_data(_data), deviceStatus(_deviceStatus), mutex{_mutex}, wifiInfo(nullptr), wifiInfoCount(0) {}
     void setup();
     /** After STA gets a usable IP again (post-outage); re-open listen socket — some lwIP stacks keep a dead listener. */
     void notifyStaIpRestored();
@@ -33,19 +34,30 @@ private:
     String robonomics_address;
     String esp_chipid;
 
+    String backup_upload_body;
+    size_t backup_upload_size = 0;
+    bool backup_upload_overflow = false;
+
     struct_wifiInfo* wifiInfo;
     uint8_t wifiInfoCount;
 
     bool webserver_request_auth();
     void sendHttpRedirectGuest();
     void sendHttpRedirectConnected(String &address);
-    void start_html_page(String& page_content, const String& title);
+    void stream_html_page_head(const String& title, bool guest_page = false, const char* app_page = nullptr, bool app_config_layout = false);
+    void start_html_page(String& page_content, const String& title, bool guest_page = false, const char* app_page = nullptr, bool app_config_layout = false);
     void end_html_page(String& page_content);
+    void end_html_page_guest(String& page_content);
     void end_html_page_root(String& page_content);
+    void end_html_page_app(String& page_content);
     
     // Web Pages
     void _webserver_guest();
-    void _webserver_root();
+    void _webserver_hub_local();
+    void _webserver_hub_social();
+    void _webserver_hub_custom();
+    void _webserver_hub_advanced();
+    void _webserver_hub_warnings_redirect();
     void _webserver_config();
     void _webserver_wifi();
     void _webserver_values();
@@ -57,9 +69,19 @@ private:
     void _webserver_data_json();
     void _webserver_metrics_endpoint();
     void _webserver_favicon();
+    void _webserver_favicon_dark();
+    void _webserver_device_info_json();
+    void _webserver_owner_access_json();
+    void _webserver_backup_json();
+    void _webserver_restore_backup_post();
+    void _webserver_restore_backup_upload();
     void _webserver_static();
     void _webserver_not_found();
     void _webserver_ota();
+    void _webserver_ota_check_json();
+    void _webserver_ota_install_json();
+    void _webserver_ota_progress_json();
+    void _webserver_finish_setup();
 
     void _webserver_group();
 

@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <time.h>
 #include "airrohr-cfg.h"
 #include "defines.h"
 
@@ -20,14 +21,59 @@ void removeWebUiCredentials();
 bool config_set_string_by_key(const char* key, const char* value);
 /** sensors.social map deep link (type, date, coords, owner, sensor). */
 String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type = "pm10");
+/**
+ * Auto connectivity region when not set manually:
+ * valid coords_gps → RU if inside Russia polygon, else Global.
+ * OTA host is a weaker fallback (see OTA_Update).
+ * Returns true if cfg::current_reg changed.
+ */
+bool cfgApplyAutoRegion();
+/** True when coords_gps parses to a non-zero lat/lon. */
+bool cfgHasValidMapCoords(double* lat_out = nullptr, double* lon_out = nullptr);
+/** True when Settings → pressure unit is hPa (default is mmHg). */
+bool cfgPressureDisplayHpa();
+/** Short unit for Values / e-ink / graphs: `hPa` or `mmHg`. */
+const char *cfgPressureDisplayUnit();
+/** Convert sensor Pa to the configured display unit. */
+float pressurePaToDisplay(float pa);
+/** Convert an internal mmHg value (e-ink / graph CSV) to the configured display unit. */
+float pressureMmHgToDisplay(float mmhg);
+/** True when Settings → temperature unit is °F (default is °C). */
+bool cfgTempDisplayFahrenheit();
+/** `°C` or `°F`. */
+const char *cfgTempDisplayUnit();
+/** Convert °C to the configured display unit. No-data sentinels (≤ −200) are unchanged. */
+float tempCToDisplay(float celsius);
+/** strftime pattern for the configured display date (`%m/%d/%Y`, `%d.%m.%Y`, `%Y-%m-%d`). */
+const char *cfgDateStrftimeFmt();
+/** Write the local date into buf using Settings → date format. */
+void cfgFormatDate(char *buf, size_t n, const struct tm *ti);
+/** Date plus ` HH:MM:SS` in the same display format. */
+void cfgFormatDateTime(char *buf, size_t n, const struct tm *ti);
 
 #if defined(ALTRUIST_INSIGHT)
+struct ExtraUrbanItem {
+	char ip[LEN_CHOSEN_ALTRUIS_ADDRESS];
+	char name[LEN_URBAN_NAME];
+};
+/** Parse cfg::extra_urbans (`ip|name;ip|name`). Returns how many entries were written. */
+uint8_t extraUrbansParse(ExtraUrbanItem *out, uint8_t maxn);
+/** IP of the paired main Urban (custom or chosen). Empty if none. */
+void extraUrbansMainIp(char *out, size_t out_len);
+/** True when ip is the current main Urban. */
+bool extraUrbansIpIsMain(const char *ip);
+/** Drop extra entries whose IP matches the main Urban. */
+void extraUrbansSanitize();
 /** Drop cached Urban SS58 / HTTP telemetry when pairing target changes. */
 void clearUrbanPairingTelemetry(JsonDocument &data);
 /** Standalone mode: turn off Urban night analytics and drop stale Urban PM/noise history. */
 void cfgApplyStandaloneModeEnabled();
 /** Paired mode: enable Urban PM/noise in sleep analytics when leaving standalone. */
 void cfgOnStandaloneModeDisabled();
+/** Normalize cfg UInt that may be legacy 0..23 hour or minutes 0..1439. */
+unsigned cfgMinutesOfDay(unsigned raw, unsigned fallback_minutes);
+/** True when local time is inside the morning analytics auto-display window (Insight). */
+bool cfgInAnalyticsMorningWindow(const struct tm& timeinfo);
 #endif
 
 #endif // __CONFIG_HELPERS_H__

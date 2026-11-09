@@ -31,6 +31,8 @@ private:
     ButtonController up_button;
     ButtonController down_button;
     ButtonController set_button;
+    unsigned long combo_hold_start_ms = 0;
+    bool combo_wifi_reset_fired = false;
 #elif defined(ALTRUIST_URBAN_HW_UI)
     ButtonController set_button;
 #endif

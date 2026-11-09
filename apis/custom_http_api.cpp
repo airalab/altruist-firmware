@@ -24,18 +24,25 @@ void CustomHTTPAPI::_send(JsonDocument &data) {
 		is_ok = false;
 		return;
 	}
-	formatDataToSend(data_to_send, data);
-    debug_outln_info(F("custom api data: "), data_to_send);
+	if (!formatDataToSend(data_to_send, data)) {
+		debug_outln_error(F("[Custom API] Payload encryption failed; send aborted"));
+		is_ok = false;
+		return;
+	}
+    debug_outln_verbose(F("custom api data: "), data_to_send);
 	is_ok = false;
     is_ok = POSTRequest(data_to_send);
 }
 
-void CustomHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &data) {
+bool CustomHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &data) {
 	double last_value_GPS_lat;
 	double last_value_GPS_lon;
 	String datalog_data;
 	sscanf(cfg::coords_gps, "%lf,%lf", &last_value_GPS_lat, &last_value_GPS_lon);
-	formatRobonomicsString(data, datalog_data);
+	if (!formatRobonomicsString(data, datalog_data, F("custom-http"))) {
+		data_to_send = "";
+		return false;
+	}
     String signature;
 	addTimeAndSign(datalog_data, signature, robonomics);
     data_to_send = F("{\"robonomics_address\": \"");
@@ -51,6 +58,7 @@ void CustomHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &data) {
     data_to_send += "\", \"sensordatavalues\": \"";
     data_to_send += datalog_data;
     data_to_send += "\"}";
+	return true;
 }
 
 bool CustomHTTPAPI::POSTRequest(const String& data) {
@@ -75,10 +83,10 @@ bool CustomHTTPAPI::POSTRequest(const String& data) {
 			return true;
 		} else if (result >= HTTP_CODE_BAD_REQUEST) {
 			debug_outln_info(F("Request failed with error: "), String(result));
-			debug_outln_info(F("Details:"), _http.getString());
+			debug_outln_verbose(F("Details:"), _http.getString());
 		} else {
 			debug_outln_info(F("Request failed with error: "), String(result));
-			debug_outln_info(F("Details:"), HTTPClient::errorToString(result));
+			debug_outln_verbose(F("Details:"), HTTPClient::errorToString(result));
 		}
         _http.end();
     } else {

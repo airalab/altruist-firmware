@@ -49,7 +49,6 @@ SoundSensor::SoundSensor() {
   _fft = new arduinoFFT(_real, _imag, SAMPLES, SAMPLES);
   _runningDC = 0.0;
   _runningN = 0;
-  offset( 0.0);
   _i2s = false;
 }
 
@@ -127,25 +126,23 @@ float* SoundSensor::readSamples(){
   // sum up energy in bin for each octave
   sumEnergy(_real, _energy);
 
+  // Absolute SPL needs mean-square in ±1.0 FS units (REF_ENERGY in Measurement).
+  // arduinoFFT forward transform is unnormalized: sum |X[k]|^2 = N * sum x[n]^2,
+  // so mean-square = sum|X|^2 / N^2. Octave bins already cover the positive half
+  // used by this pipeline; divide by N^2 here so quiet-room levels land near the
+  // ICS-43434 expectation (~36-38 dBA).
+  // Hann window mean power is 0.375 of true power → compensate by 1/0.375.
+  const float FFT_ENERGY_TO_MS = 1.0f / ((float)SAMPLES * (float)SAMPLES);
+  const float HANN_ENERGY_COMPENSATION = 2.6666667f;
+  for (uint8_t i = 0; i < OCTAVES; i++) {
+    _energy[i] *= FFT_ENERGY_TO_MS * HANN_ENERGY_COMPENSATION;
+  }
+
   return _energy;
 }
 
-// convert WAV integers to float
-// convert 24 High bits from I2S buffer to float and divide * 256 
-// remove DC offset, necessary for some MEMS microphones 
-/*void SoundSensor::integerToFloat(int32_t * samples, float *vReal, float *vImag, uint16_t size) {
-  float sum = 0.0;
-  for (uint16_t i = 0; i < size; i++) {
-    int32_t val = (samples[i] >> 8);            // move 24 value bits on the correct place in a long
-    sum += (float)val;
-    samples[i] = (val - _offset ) << 8;         // DC component removed, and move back to original buffer
-    vReal[i] = (float)val / (256.0 * FACTOR);   // adjustment
-    vImag[i] = 0.0;
-  }
-  _offset = sum / size;   //dc component
-  //printf("DC offset %d\n", offset);
-}*/
-
+// Convert 24-bit I2S samples to float normalized to Full Scale ±1.0 (ICS-43434).
+// DC removal kept for MEMS offset; absolute SPL uses FS = 2^23.
 void SoundSensor::integerToFloat(int32_t * samples, float *vReal, float *vImag, uint16_t size) {
   float sum = 0.0;
   // calculate offset
@@ -160,11 +157,11 @@ void SoundSensor::integerToFloat(int32_t * samples, float *vReal, float *vImag, 
   float newDC = _runningDC + (offs - _runningDC)/_runningN;
   _runningDC = newDC;
 
+  const float FS = 8388608.0f;  // ±2^23 LSB full scale
   for (uint16_t i = 0; i < size; i++) {
-    vReal[i] = (vReal[i] - newDC) / (256.0 * FACTOR / _factor);   // 30.0 adjustment
-    vImag[i] = 0.0;
+    vReal[i] = (vReal[i] - newDC) / FS;
+    vImag[i] = 0.0f;
   }
-  //printf("DC offset %f\n", newDC);
 }
 
 // calculates energy from Re and Im parts and places it back in the Re part (Im part is zeroed)
@@ -174,11 +171,6 @@ void SoundSensor::calculateEnergy(float *vReal, float *vImag, uint16_t samples)
     vReal[i] = sq(vReal[i]) + sq(vImag[i]);
     vImag[i] = 0.0;
   }
-}
-
-// convert dB offset to factor
-void SoundSensor::offset( float dB) {
-   _factor = pow(10, dB / 20.0);    // convert dB to factor 
 }
 
 // sums up energy in whole octave bins

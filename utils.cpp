@@ -21,7 +21,10 @@
  */
 
 #include <WString.h>
-
+#include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <sys/stat.h>
 #include "./intl.h"
 #include "./utils.h"
 #include "./defines.h"
@@ -30,6 +33,15 @@
 #include <Preferences.h>
 #include <esp_system.h>
 #include <esp_attr.h>
+#include <esp_log.h>
+#include "esp32-hal-uart.h"
+#include "esp_vfs.h"
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#include "esp_rom_sys.h"
+#endif
+
+extern "C" void ets_install_putc1(void (*p)(char));
+extern "C" void ets_install_putc2(void (*p)(char));
 
 #define RESTART_REASON_MAGIC 0xA5C6F012
 RTC_NOINIT_ATTR static uint32_t rtc_restart_magic;
@@ -86,9 +98,11 @@ const char* get_reset_reason_text() {
         uint32_t custom = rtc_restart_reason;
         rtc_restart_magic = 0;
         switch (custom) {
-            case RESTART_REASON_OTA:    cached = "OTA firmware update"; return cached;
-            case RESTART_REASON_CONFIG: cached = "Configuration saved"; return cached;
-            case RESTART_REASON_USER:   cached = "User restart (web)"; return cached;
+            case RESTART_REASON_OTA:       cached = "OTA firmware update"; return cached;
+            case RESTART_REASON_CONFIG:    cached = "Configuration saved"; return cached;
+            case RESTART_REASON_USER:      cached = "User restart (web)"; return cached;
+            case RESTART_REASON_WATCHDOG:  cached = "Automatic recovery restart"; return cached;
+            case RESTART_REASON_WIFI:      cached = "WiFi recovery reboot"; return cached;
         }
     }
     rtc_restart_magic = 0;
@@ -195,35 +209,258 @@ float readCorrectionOffset(const char* correction) {
 
 LoggingSerial Debug;
 
+static volatile bool s_usb_log_quiet = false;
+
+static void rom_putc_to_usb(char c)
+{
+	if (!c || s_usb_log_quiet) {
+		return;
+	}
+	Serial.write(static_cast<uint8_t>(c));
+}
+
+static ssize_t usb_vfs_write(int fd, const void *data, size_t size)
+{
+	(void)fd;
+	if (!data || size == 0) {
+		return 0;
+	}
+	if (s_usb_log_quiet) {
+		return static_cast<ssize_t>(size);
+	}
+	return static_cast<ssize_t>(Serial.write(static_cast<const uint8_t *>(data), size));
+}
+
+static int usb_vfs_open(const char *path, int flags, int mode)
+{
+	(void)path;
+	(void)flags;
+	(void)mode;
+	return 0;
+}
+
+static int usb_vfs_close(int fd)
+{
+	(void)fd;
+	return 0;
+}
+
+static int usb_vfs_fstat(int fd, struct stat *st)
+{
+	(void)fd;
+	if (st) {
+		memset(st, 0, sizeof(*st));
+		st->st_mode = S_IFCHR;
+	}
+	return 0;
+}
+
+static int usb_esp_log_vprintf(const char *fmt, va_list args)
+{
+	char buf[192];
+	const int n = vsnprintf(buf, sizeof(buf), fmt, args);
+	if (n <= 0) {
+		return n;
+	}
+	if (!s_usb_log_quiet) {
+		const size_t w = static_cast<size_t>(n) < (sizeof(buf) - 1) ? static_cast<size_t>(n) : (sizeof(buf) - 1);
+		Serial.write(reinterpret_cast<const uint8_t *>(buf), w);
+	}
+	return n;
+}
+
+#if defined(ALTRUIST_WRAP_LIBC_PRINTF)
+extern "C" int __wrap_printf(const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	char buf[256];
+	const int n = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+	if (n > 0 && !s_usb_log_quiet) {
+		const size_t w = static_cast<size_t>(n) < (sizeof(buf) - 1) ? static_cast<size_t>(n) : (sizeof(buf) - 1);
+		Serial.write(reinterpret_cast<const uint8_t *>(buf), w);
+	}
+	return n;
+}
+
+extern "C" int __wrap_puts(const char *s)
+{
+	if (!s) {
+		return EOF;
+	}
+	if (!s_usb_log_quiet) {
+		Serial.write(reinterpret_cast<const uint8_t *>(s), strlen(s));
+		Serial.write(static_cast<uint8_t>('\n'));
+	}
+	return 0;
+}
+#endif
+
+static void redirectLibcConsoleToUsb()
+{
+	static bool registered = false;
+	static esp_vfs_t vfs;
+	if (!registered) {
+		memset(&vfs, 0, sizeof(vfs));
+		vfs.flags = ESP_VFS_FLAG_DEFAULT | ESP_VFS_FLAG_STATIC;
+		vfs.write = &usb_vfs_write;
+		vfs.open = &usb_vfs_open;
+		vfs.close = &usb_vfs_close;
+		vfs.fstat = &usb_vfs_fstat;
+		if (esp_vfs_register("/dev/usbout", &vfs, nullptr) != ESP_OK) {
+			Serial.println(F("[LoRa UART] console redirect failed; printf may still hit GPIO22"));
+			return;
+		}
+		registered = true;
+	}
+
+	FILE *out = fopen("/dev/usbout", "w");
+	if (out) {
+		setvbuf(out, nullptr, _IONBF, 0);
+		stdout = out;
+		stderr = out;
+	} else if (!freopen("/dev/usbout", "w", stdout) || !freopen("/dev/usbout", "w", stderr)) {
+		Serial.println(F("[LoRa UART] stdout rebind failed; printf may still hit GPIO22"));
+	} else {
+		setvbuf(stdout, nullptr, _IONBF, 0);
+		setvbuf(stderr, nullptr, _IONBF, 0);
+	}
+
+	uartSetDebug(NULL);
+	ets_install_putc1(rom_putc_to_usb);
+	ets_install_putc2(rom_putc_to_usb);
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+	esp_rom_install_channel_putc(1, rom_putc_to_usb);
+#endif
+	esp_log_set_vprintf(usb_esp_log_vprintf);
+	(void)esp_vfs_unregister("/dev/console");
+}
+
+void debugRedirectConsoleToUsb()
+{
+	redirectLibcConsoleToUsb();
+}
+
 LoggingSerial::LoggingSerial()
     : HardwareSerial(0)
 {
 	m_buffer = xQueueCreate(LARGE_STR, sizeof(uint8_t));
+	m_write_mutex = xSemaphoreCreateMutex();
 }
 
 size_t LoggingSerial::write(uint8_t c)
 {
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
 	xQueueSendToBack(m_buffer, ( void * ) &c, ( TickType_t ) 1);
-	return HardwareSerial::write(c);
+	const size_t n = m_structured_output ? 1 : HardwareSerial::write(c);
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return n;
 }
 
 size_t LoggingSerial::write(const uint8_t *buffer, size_t size)
 {
-	for(int i = 0; i < size; i++) {
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	for (size_t i = 0; i < size; i++) {
 		xQueueSendToBack(m_buffer, ( void * ) &buffer[i], ( TickType_t ) 1);
 	}
-	return HardwareSerial::write(buffer, size);
+	const size_t n = m_structured_output ? size : HardwareSerial::write(buffer, size);
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return n;
+}
+
+void LoggingSerial::beginStructuredOutput(unsigned long baud, int8_t rx_pin, int8_t tx_pin)
+{
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	if (uartGetDebug() == 0) {
+		uartSetDebug(NULL);
+	}
+	HardwareSerial::end();
+	HardwareSerial::begin(baud, SERIAL_8N1, rx_pin, tx_pin);
+	setDebugOutput(false);
+	uartSetDebug(NULL);
+	m_structured_output = true;
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	Serial.setDebugOutput(true);
+	redirectLibcConsoleToUsb();
+	Serial.printf("[LoRa UART] console on USB, Meshtastic PROTO on GPIO%d\r\n", static_cast<int>(tx_pin));
+}
+
+bool LoggingSerial::writeStructuredBytes(const uint8_t *data, size_t len)
+{
+	if (!m_structured_output || !data || len == 0) {
+		return false;
+	}
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	const size_t written = HardwareSerial::write(data, len);
+	HardwareSerial::flush();
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return written == len;
+}
+
+int LoggingSerial::structuredAvailable()
+{
+	if (!m_structured_output) {
+		return 0;
+	}
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	const int n = HardwareSerial::available();
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return n;
+}
+
+int LoggingSerial::readStructured()
+{
+	if (!m_structured_output) {
+		return -1;
+	}
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	const int b = HardwareSerial::read();
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return b;
 }
 
 String LoggingSerial::popLines()
 {
 	String r;
 	uint8_t c;
-	while (xQueueReceive(m_buffer, &(c ), (TickType_t) 1 )) {
+	// Drain several lines per poll so the web log keeps up at max debug level.
+	unsigned lines = 0;
+	while (lines < 40 && xQueueReceive(m_buffer, &(c), (TickType_t) 1)) {
 		r += (char) c;
-
-		if (c == '\n' && r.length() > 10)
+		if (c == '\n') {
+			++lines;
+			if (r.length() > 1200) {
+				break;
+			}
+		}
+		if (r.length() > 1800) {
 			break;
+		}
 	}
 	return r;
 }
@@ -232,18 +469,22 @@ unsigned int effectiveRuntimeLogLevel() {
 	return max(static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL), cfg::debug);
 }
 
+void debugSetUsbQuiet(bool quiet) {
+	s_usb_log_quiet = quiet;
+}
+
 #define debug_level_check(level) { if (level > effectiveRuntimeLogLevel()) return; }
 
 void debug_out(const String& text, unsigned int level) {
-	debug_level_check(level); Debug.print(text); Serial.print(text);
+	debug_level_check(level); Debug.print(text); if (!s_usb_log_quiet) Serial.print(text);
 }
 
 void debug_out(const __FlashStringHelper* text, unsigned int level) {
-	debug_level_check(level); Debug.print(text); Serial.print(text);
+	debug_level_check(level); Debug.print(text); if (!s_usb_log_quiet) Serial.print(text);
 }
 
 void debug_outln(const String& text, unsigned int level) {
-	debug_level_check(level); Debug.println(text); Serial.println(text);
+	debug_level_check(level); Debug.println(text); if (!s_usb_log_quiet) Serial.println(text);
 }
 
 void debug_outln_info(const String& text) {
@@ -251,11 +492,11 @@ void debug_outln_info(const String& text) {
 	String dated_text = "[" + String(millis()) + "] " + tagged; 
 	debug_level_check(DEBUG_MIN_INFO);
 	Debug.println(tagged);
-	Serial.println(dated_text);
+	if (!s_usb_log_quiet) Serial.println(dated_text);
 }
 
 void debug_outln_verbose(const String& text) {
-	debug_level_check(DEBUG_MED_INFO); Debug.println(text); Serial.println(text);
+	debug_level_check(DEBUG_MED_INFO); Debug.println(text); if (!s_usb_log_quiet) Serial.println(text);
 }
 
 void debug_outln_error(const __FlashStringHelper* text) {
@@ -263,14 +504,14 @@ void debug_outln_error(const __FlashStringHelper* text) {
 	String tagged = "[ERROR] ";
 	tagged += String(text);
 	Debug.println(tagged);
-	Serial.println(tagged);
+	if (!s_usb_log_quiet) Serial.println(tagged);
 }
 
 void debug_outln_info(const __FlashStringHelper* text) {
 	String tagged = "[INFO] ";
 	tagged += String(text);
 	String dated_text = "[" + String(millis()) + "] " + tagged; 
-	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); Serial.println(dated_text);
+	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); if (!s_usb_log_quiet) Serial.println(dated_text);
 }
 
 void debug_outln_verbose(const __FlashStringHelper* text) {
@@ -278,7 +519,7 @@ void debug_outln_verbose(const __FlashStringHelper* text) {
 	String tagged = "[DEBUG] ";
 	tagged += String(text);
 	Debug.println(tagged);
-	Serial.println(tagged);
+	if (!s_usb_log_quiet) Serial.println(tagged);
 }
 
 void debug_outln_info(const __FlashStringHelper* text, const String& option) {
@@ -288,8 +529,10 @@ void debug_outln_info(const __FlashStringHelper* text, const String& option) {
 	debug_level_check(DEBUG_MIN_INFO);
 	Debug.print(tagged);
 	Debug.println(": " + option);
-	Serial.print(dated_text);
-	Serial.println(": " + option);
+	if (!s_usb_log_quiet) {
+		Serial.print(dated_text);
+		Serial.println(": " + option);
+	}
 }
 
 void debug_outln_info(const __FlashStringHelper* text, float value) {
@@ -302,8 +545,10 @@ void debug_outln_verbose(const __FlashStringHelper* text, const String& option) 
 	tagged += String(text);
 	Debug.print(tagged);
 	Debug.println(": " + option);
-	Serial.print(tagged);
-	Serial.println(": " + option);
+	if (!s_usb_log_quiet) {
+		Serial.print(tagged);
+		Serial.println(": " + option);
+	}
 }
 
 void debug_outln_info_bool(const __FlashStringHelper* text, const bool option) {
@@ -312,11 +557,47 @@ void debug_outln_info_bool(const __FlashStringHelper* text, const bool option) {
 	tagged += String(text);
 	Debug.print(tagged);
 	Debug.println(": " + String(option));
-	Serial.print(tagged);
-	Serial.println(": " + String(option));
+	if (!s_usb_log_quiet) {
+		Serial.print(tagged);
+		Serial.println(": " + String(option));
+	}
 }
 
 #undef debug_level_check
+
+void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason) {
+	logSubsystemEvent(level, subsystem, reason, String());
+}
+
+void logSubsystemEvent(
+	const __FlashStringHelper* level,
+	const __FlashStringHelper* subsystem,
+	const __FlashStringHelper* reason,
+	const String& details
+) {
+	if (s_usb_log_quiet) {
+		return;
+	}
+	Serial.print(F("[SUBSYSTEM] "));
+	Serial.print(level);
+	Serial.print(F(" subsystem="));
+	Serial.print(subsystem);
+	Serial.print(F(" reason="));
+	Serial.print(reason);
+	if (details.length() > 0) {
+		Serial.print(' ');
+		Serial.print(details);
+	}
+	Serial.println();
+}
+
+void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason) {
+	logSubsystemEvent(F("error"), subsystem, reason);
+}
+
+void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details) {
+	logSubsystemEvent(F("error"), subsystem, reason, details);
+}
 
 /*****************************************************************
  * helper to see if a given string is numeric                    *
@@ -398,20 +679,20 @@ void initESPTemperatureSensor() {
 			
 			esp_err_t ret = temperature_sensor_install(&temp_sensor_config, &temp_sensor_handle);
 			if (ret != ESP_OK) {
-				Serial.printf("[URBAN][Temp] Failed to install temperature sensor: %s\n", esp_err_to_name(ret));
+				Serial.printf("[ESP][Temp] Failed to install temperature sensor: %s\n", esp_err_to_name(ret));
 				return;
 			}
 			
 			ret = temperature_sensor_enable(temp_sensor_handle);
 			if (ret != ESP_OK) {
-				Serial.printf("[URBAN][Temp] Failed to enable temperature sensor: %s\n", esp_err_to_name(ret));
+				Serial.printf("[ESP][Temp] Failed to enable temperature sensor: %s\n", esp_err_to_name(ret));
 				temperature_sensor_uninstall(temp_sensor_handle);
 				temp_sensor_handle = NULL;
 				return;
 			}
 			
 			temp_sensor_initialized = true;
-			Serial.println(F("[URBAN][Temp] ESP32-C6 temperature sensor initialized"));
+			Serial.println(F("[ESP][Temp] ESP32-C6 temperature sensor initialized"));
 		#endif
 	#endif
 }
@@ -494,6 +775,20 @@ void logMetrics() {
 	Serial.print(F(" sensor_errors="));
 	Serial.print(system_metrics.err_sensor);
 	Serial.print(F(" sd_errors="));
-	Serial.println(system_metrics.err_sd_write);
+	Serial.print(system_metrics.err_sd_write);
+	Serial.print(F(" reset_reason="));
+	Serial.print(system_metrics.reset_reason);
+	Serial.print(F(" reset_code="));
+	Serial.print(system_metrics.reset_reason_code);
+	Serial.print(F(" crash_valid="));
+	Serial.print(system_metrics.crash_context_valid ? 1 : 0);
+	Serial.print(F(" prev_uptime="));
+	Serial.print(system_metrics.prev_uptime_sec);
+	Serial.print(F(" prev_heap="));
+	Serial.print(system_metrics.prev_free_heap);
+	Serial.print(F(" last_section_id="));
+	Serial.print(system_metrics.last_section_id);
+	Serial.print(F(" last_section="));
+	Serial.println(system_metrics.last_section);
 #endif
 }

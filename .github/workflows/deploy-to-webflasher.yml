@@ -102,6 +102,9 @@ jobs:
           for artifact in "${artifacts[@]}"; do
             cp "../builds/${artifact}.bin" firmware/Altruist/
             cp "../builds/${artifact}.bin.md5" firmware/Altruist/
+            if [[ -f "../builds/${artifact}.version" ]]; then
+              cp "../builds/${artifact}.version" firmware/Altruist/
+            fi
           done
 
           python scripts/update_altruist_manifests.py \

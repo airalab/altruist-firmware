@@ -14,6 +14,10 @@ String		rws_owner
 String      robonomics_public_node
 String		robonomics_connectivity_host
 String		robonomics_connectivity_hosts
+String		robonomics_proto_connectivity_host
+Bool		map_send_csv
+Bool		map_send_proto
+UInt		node_id
 Bool		rws_auto_register
 UInt		rws_group_mode
 String		rws_group_id
@@ -23,6 +27,9 @@ String		private_key
 String		coords_gps
 Bool		send2robonomics
 Bool		send2csv
+Bool		lora_uart_enabled
+Time		lora_uart_sending_intervall_ms
+String		lora_dest_node
 Bool		auto_update
 Bool		use_beta
 Bool		has_display
@@ -50,7 +57,12 @@ String		measurement_name_influx
 Bool		ssl_influx
 String      donated_by
 String      current_reg
+Bool		region_manual
 String      temp_correction
+String      pressure_correction
+String      pressure_unit
+String      temp_unit
+String      date_format
 String      local_hostname
 String      chosen_altruist_urban
 String      timezone
@@ -63,8 +75,11 @@ UInt        analytics_night_end_hour
 String      custom_altruist_urban
 Bool		use_custom_urban
 Bool		standalone
+String		extra_urbans
 UInt		epd_refresh_mode
 Bool		analytics_sleep_add_urban
+Bool		analytics_morning_autoswitch
+UInt		analytics_morning_end_hour
 Bool		share_temperature
 Bool		share_humidity
 Bool		share_pressure
@@ -77,6 +92,18 @@ Bool		share_o3
 Bool		share_no2
 Bool		share_fast_aqi
 Bool		share_epa_aqi
+Bool		encrypt_temperature
+Bool		encrypt_humidity
+Bool		encrypt_pressure
+Bool		encrypt_co2
+Bool		encrypt_pm
+Bool		encrypt_noise
+Bool		encrypt_co
+Bool		encrypt_radiation
+Bool		encrypt_o3
+Bool		encrypt_no2
+Bool		encrypt_fast_aqi
+Bool		encrypt_epa_aqi
 """
 
 with open("airrohr-cfg.h", "w") as h:

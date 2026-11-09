@@ -34,6 +34,7 @@ struct analytics_screen_values_t {
     analytics_metric_t pm25_insight;
     // Noise
     analytics_metric_t noise_avg;
+    analytics_metric_t noise_max;
 };
 
 analytics_view_t analyticsGetView();

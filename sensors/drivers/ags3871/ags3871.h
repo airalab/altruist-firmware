@@ -58,8 +58,8 @@ public:
 
 private:
     // These helpers intentionally do not install/delete the I2C driver.
-    // The firmware-level Sensor wrapper owns i2c_master_init()/deinit_i2c(),
-    // matching the existing I2C sensor pattern in this repository.
+    // The firmware-level Sensor wrapper acquires the shared I2C bus lock,
+    // matching the central bus manager in sensors/drivers/i2c.cpp.
     AGS3871Error writeRegisterAddress(uint8_t reg);
     AGS3871Error readFiveBytes(uint8_t *buffer, uint8_t len);
     AGS3871Error readRawRegister(uint8_t reg, uint8_t *buffer);

@@ -4,3 +4,4 @@
 builds
 .DS_Store
 .pio-core
+.tools/

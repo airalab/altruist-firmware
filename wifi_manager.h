@@ -3,6 +3,15 @@
 
 #include "webserver/webserver.h"
 
+/** Scan Wi‑Fi networks into caller buffer (stack-safe; deletes scan results). */
+uint8_t wifiScanInto(struct_wifiInfo* out, uint8_t max_out);
+
+/** Captive-portal cache (static RAM — safe for /wifi handler stack). */
+uint8_t wifiPortalRescan(void);
+/** Refresh cache from the portal main loop (follow-up scans after AP is up). */
+void wifiPortalMaybeRescan(void);
+struct_wifiInfo* wifiPortalScanCache(uint8_t* out_count);
+
 bool connectWifi(SensorWebServer &webserver, bool station_join_already_started = false);
 void wifiConfig(SensorWebServer &webserver);
 
@@ -29,13 +38,33 @@ bool wifiGuestPortalStaReady(void);
 /** Abort any in-flight STA join before captive-portal WiFi.begin() (avoids ESP_ERR_WIFI_STATE on retry). */
 void wifiGuestPortalPrepareStaJoin(void);
 
+/**
+ * Set DHCP/router STA hostname from cfg::local_hostname (sanitized).
+ * Call before WiFi.begin() / reconnect so routers show altruist-urban / altruist-insight
+ * instead of the ESP-IDF default (e.g. esp32c6-XXXXXX).
+ */
+void wifiApplyStaHostname(void);
+
 /** Restart after Urban guest success (config must already be saved). Does not return. */
 void wifiCaptivePortalRestartAfterSuccess(void);
 
 /** Leave captive portal loop after successful POST (before restart). */
 void wifiRequestPortalExit(void);
 
-#if defined(ALTRUIST_INSIGHT)
+/**
+ * Guest success page: keep serving HTTP during the pause so "Finish setup" can restart early.
+ * Call from captive portal loop via guestSuccessProcessPendingRestart().
+ */
+void guestSuccessMarkRestartPending(void);
+void guestSuccessClearRestartPending(void);
+/** Immediate restart after success (Finish setup). Does not return. */
+void guestSuccessRestartNow(void);
+void guestSuccessProcessPendingRestart(void);
+/** After Improv Wi-Fi succeeds, reboot like the guest portal (call after sending PROVISIONED). */
+void wifiRequestImprovProvisionRestart(void);
+void wifiProcessImprovProvisionRestart(void);
+
+#if defined(ALTRUIST_INSIDE)
 /** Insight guest WiFi OK but setup step 2 (Continue) not done yet — server-side auto-finish deadline. */
 void insightGuestMarkFinishPending(void);
 void insightGuestClearFinishPending(void);

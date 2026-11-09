@@ -84,7 +84,17 @@ struct device_status_t {
 	bool ota_failed = false;       // When true, display shows "Update failed" screen before returning
 	bool ota_success = false;      // When true, display shows "Update successful" screen before restart
 	int ota_progress_percent = -1;  // 0-100 during download, -1 when not applicable
-	volatile bool ota_update_requested = false;  // Set by webserver to trigger manual OTA check
+	volatile bool ota_update_requested = false;  // Set by webserver to trigger manual OTA install
+	/** UI result of last manual OTA check (hub / /ota). */
+	enum OtaCheckUi : uint8_t {
+		OtaCheckUi_None = 0,
+		OtaCheckUi_UpToDate = 1,
+		OtaCheckUi_Available = 2,
+		OtaCheckUi_Failed = 3,
+		OtaCheckUi_InstallQueued = 4,
+	};
+	OtaCheckUi ota_check_ui = OtaCheckUi_None;
+	char ota_remote_version[48] = "";
 	String ip_address;
 	std::map<std::string, api_status_t> apis_status;
 	std::vector<std::string> sensor_names;
@@ -94,6 +104,13 @@ struct device_status_t {
 struct metrics_t {
 	unsigned long boot_counter = 0;
 	unsigned long uptime_sec = 0;
+	int reset_reason_code = 0;
+	char reset_reason[32] = "unknown";
+	bool crash_context_valid = false;
+	unsigned long prev_uptime_sec = 0;
+	unsigned long prev_free_heap = 0;
+	unsigned int last_section_id = 0;
+	char last_section[24] = "unknown";
 	unsigned long tx_counter = 0;
 	time_t last_telemetry_timestamp = 0;
 	unsigned long err_wifi_reconnects = 0;
@@ -110,12 +127,16 @@ enum CustomRestartReason : uint32_t {
 	RESTART_REASON_OTA = 1,
 	RESTART_REASON_CONFIG = 2,
 	RESTART_REASON_USER = 3,
+	RESTART_REASON_WATCHDOG = 4,
+	RESTART_REASON_WIFI = 5,
 };
 
 void set_restart_reason(CustomRestartReason reason);
 const char* get_reset_reason_text();
 
-String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
+/** Feed the main-loop stall watchdog during long HTTP or e-ink work. */
+void markMainLoopAlive();
+
 String delayToString(unsigned time_ms);
 
 void sensor_restart();
@@ -140,15 +161,26 @@ public:
 	LoggingSerial();
     size_t write(uint8_t c) override;
     size_t write(const uint8_t *buffer, size_t size) override;
+	void beginStructuredOutput(unsigned long baud, int8_t rx_pin, int8_t tx_pin);
+	bool writeStructuredBytes(const uint8_t *data, size_t len);
+	int structuredAvailable();
+	int readStructured();
+	bool structuredOutputEnabled() const { return m_structured_output; }
 	String popLines();
 
 private:
 	QueueHandle_t m_buffer;
+	SemaphoreHandle_t m_write_mutex;
+	bool m_structured_output = false;
 };
 
 extern class LoggingSerial Debug;
 
+/** After LoRa owns UART0, send libc/ROM/IDF console to USB CDC (not GPIO22). */
+extern void debugRedirectConsoleToUsb();
 extern unsigned int effectiveRuntimeLogLevel();
+/** Mute USB CDC logs while Improv Serial owns the port (webflasher). */
+extern void debugSetUsbQuiet(bool quiet);
 extern void debug_out(const String& text, unsigned int level);
 extern void debug_out(const __FlashStringHelper* text, unsigned int level);
 extern void debug_outln(const String& text, unsigned int level);
@@ -161,6 +193,10 @@ extern void debug_outln_info(const __FlashStringHelper* text, const String& opti
 extern void debug_outln_info(const __FlashStringHelper* text, float value);
 extern void debug_outln_verbose(const __FlashStringHelper* text, const String& option);
 extern void debug_outln_info_bool(const __FlashStringHelper* text, const bool option);
+extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
+extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
+extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
+extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
 
 
 extern bool isNumeric(const String& str);

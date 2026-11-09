@@ -42,6 +42,10 @@ enum ConfigShapeId {
 	Config_robonomics_public_node,
 	Config_robonomics_connectivity_host,
 	Config_robonomics_connectivity_hosts,
+	Config_robonomics_proto_connectivity_host,
+	Config_map_send_csv,
+	Config_map_send_proto,
+	Config_node_id,
 	Config_rws_auto_register,
 	Config_rws_group_mode,
 	Config_rws_group_id,
@@ -51,6 +55,9 @@ enum ConfigShapeId {
 	Config_coords_gps,
 	Config_send2robonomics,
 	Config_send2csv,
+	Config_lora_uart_enabled,
+	Config_lora_uart_sending_intervall_ms,
+	Config_lora_dest_node,
 	Config_auto_update,
 	Config_use_beta,
 	Config_has_display,
@@ -78,7 +85,12 @@ enum ConfigShapeId {
 	Config_ssl_influx,
 	Config_donated_by,
 	Config_current_reg,
+	Config_region_manual,
 	Config_temp_correction,
+	Config_pressure_correction,
+	Config_pressure_unit,
+	Config_temp_unit,
+	Config_date_format,
 	Config_local_hostname,
 	Config_chosen_altruist_urban,
 	Config_timezone,
@@ -91,8 +103,11 @@ enum ConfigShapeId {
 	Config_custom_altruist_urban,
 	Config_use_custom_urban,
 	Config_standalone,
+	Config_extra_urbans,
 	Config_epd_refresh_mode,
 	Config_analytics_sleep_add_urban,
+	Config_analytics_morning_autoswitch,
+	Config_analytics_morning_end_hour,
 	Config_share_temperature,
 	Config_share_humidity,
 	Config_share_pressure,
@@ -105,6 +120,18 @@ enum ConfigShapeId {
 	Config_share_no2,
 	Config_share_fast_aqi,
 	Config_share_epa_aqi,
+	Config_encrypt_temperature,
+	Config_encrypt_humidity,
+	Config_encrypt_pressure,
+	Config_encrypt_co2,
+	Config_encrypt_pm,
+	Config_encrypt_noise,
+	Config_encrypt_co,
+	Config_encrypt_radiation,
+	Config_encrypt_o3,
+	Config_encrypt_no2,
+	Config_encrypt_fast_aqi,
+	Config_encrypt_epa_aqi,
 };
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -119,6 +146,10 @@ static constexpr char CFG_KEY_RWS_OWNER[] PROGMEM = "rws_owner";
 static constexpr char CFG_KEY_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "robonomics_public_node";
 static constexpr char CFG_KEY_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "robonomics_connectivity_host";
 static constexpr char CFG_KEY_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "robonomics_connectivity_hosts";
+static constexpr char CFG_KEY_ROBONOMICS_PROTO_CONNECTIVITY_HOST[] PROGMEM = "robonomics_proto_connectivity_host";
+static constexpr char CFG_KEY_MAP_SEND_CSV[] PROGMEM = "map_send_csv";
+static constexpr char CFG_KEY_MAP_SEND_PROTO[] PROGMEM = "map_send_proto";
+static constexpr char CFG_KEY_NODE_ID[] PROGMEM = "node_id";
 static constexpr char CFG_KEY_RWS_AUTO_REGISTER[] PROGMEM = "rws_auto_register";
 static constexpr char CFG_KEY_RWS_GROUP_MODE[] PROGMEM = "rws_group_mode";
 static constexpr char CFG_KEY_RWS_GROUP_ID[] PROGMEM = "rws_group_id";
@@ -128,6 +159,9 @@ static constexpr char CFG_KEY_PRIVATE_KEY[] PROGMEM = "private_key";
 static constexpr char CFG_KEY_COORDS_GPS[] PROGMEM = "coords_gps";
 static constexpr char CFG_KEY_SEND2ROBONOMICS[] PROGMEM = "send2robonomics";
 static constexpr char CFG_KEY_SEND2CSV[] PROGMEM = "send2csv";
+static constexpr char CFG_KEY_LORA_UART_ENABLED[] PROGMEM = "lora_uart_enabled";
+static constexpr char CFG_KEY_LORA_UART_SENDING_INTERVALL_MS[] PROGMEM = "lora_uart_sending_intervall_ms";
+static constexpr char CFG_KEY_LORA_DEST_NODE[] PROGMEM = "lora_dest_node";
 static constexpr char CFG_KEY_AUTO_UPDATE[] PROGMEM = "auto_update";
 static constexpr char CFG_KEY_USE_BETA[] PROGMEM = "use_beta";
 static constexpr char CFG_KEY_HAS_DISPLAY[] PROGMEM = "has_display";
@@ -155,7 +189,12 @@ static constexpr char CFG_KEY_MEASUREMENT_NAME_INFLUX[] PROGMEM = "measurement_n
 static constexpr char CFG_KEY_SSL_INFLUX[] PROGMEM = "ssl_influx";
 static constexpr char CFG_KEY_DONATED_BY[] PROGMEM = "donated_by";
 static constexpr char CFG_KEY_CURRENT_REG[] PROGMEM = "current_reg";
+static constexpr char CFG_KEY_REGION_MANUAL[] PROGMEM = "region_manual";
 static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
+static constexpr char CFG_KEY_PRESSURE_CORRECTION[] PROGMEM = "pressure_correction";
+static constexpr char CFG_KEY_PRESSURE_UNIT[] PROGMEM = "pressure_unit";
+static constexpr char CFG_KEY_TEMP_UNIT[] PROGMEM = "temp_unit";
+static constexpr char CFG_KEY_DATE_FORMAT[] PROGMEM = "date_format";
 static constexpr char CFG_KEY_LOCAL_HOSTNAME[] PROGMEM = "local_hostname";
 static constexpr char CFG_KEY_CHOSEN_ALTRUIST_URBAN[] PROGMEM = "chosen_altruist_urban";
 static constexpr char CFG_KEY_TIMEZONE[] PROGMEM = "timezone";
@@ -168,8 +207,11 @@ static constexpr char CFG_KEY_ANALYTICS_NIGHT_END_HOUR[] PROGMEM = "analytics_ni
 static constexpr char CFG_KEY_CUSTOM_ALTRUIST_URBAN[] PROGMEM = "custom_altruist_urban";
 static constexpr char CFG_KEY_USE_CUSTOM_URBAN[] PROGMEM = "use_custom_urban";
 static constexpr char CFG_KEY_STANDALONE[] PROGMEM = "standalone";
+static constexpr char CFG_KEY_EXTRA_URBANS[] PROGMEM = "extra_urbans";
 static constexpr char CFG_KEY_EPD_REFRESH_MODE[] PROGMEM = "epd_refresh_mode";
 static constexpr char CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN[] PROGMEM = "analytics_sleep_add_urban";
+static constexpr char CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH[] PROGMEM = "analytics_morning_autoswitch";
+static constexpr char CFG_KEY_ANALYTICS_MORNING_END_HOUR[] PROGMEM = "analytics_morning_end_hour";
 static constexpr char CFG_KEY_SHARE_TEMPERATURE[] PROGMEM = "share_temperature";
 static constexpr char CFG_KEY_SHARE_HUMIDITY[] PROGMEM = "share_humidity";
 static constexpr char CFG_KEY_SHARE_PRESSURE[] PROGMEM = "share_pressure";
@@ -182,6 +224,18 @@ static constexpr char CFG_KEY_SHARE_O3[] PROGMEM = "share_o3";
 static constexpr char CFG_KEY_SHARE_NO2[] PROGMEM = "share_no2";
 static constexpr char CFG_KEY_SHARE_FAST_AQI[] PROGMEM = "share_fast_aqi";
 static constexpr char CFG_KEY_SHARE_EPA_AQI[] PROGMEM = "share_epa_aqi";
+static constexpr char CFG_KEY_ENCRYPT_TEMPERATURE[] PROGMEM = "encrypt_temperature";
+static constexpr char CFG_KEY_ENCRYPT_HUMIDITY[] PROGMEM = "encrypt_humidity";
+static constexpr char CFG_KEY_ENCRYPT_PRESSURE[] PROGMEM = "encrypt_pressure";
+static constexpr char CFG_KEY_ENCRYPT_CO2[] PROGMEM = "encrypt_co2";
+static constexpr char CFG_KEY_ENCRYPT_PM[] PROGMEM = "encrypt_pm";
+static constexpr char CFG_KEY_ENCRYPT_NOISE[] PROGMEM = "encrypt_noise";
+static constexpr char CFG_KEY_ENCRYPT_CO[] PROGMEM = "encrypt_co";
+static constexpr char CFG_KEY_ENCRYPT_RADIATION[] PROGMEM = "encrypt_radiation";
+static constexpr char CFG_KEY_ENCRYPT_O3[] PROGMEM = "encrypt_o3";
+static constexpr char CFG_KEY_ENCRYPT_NO2[] PROGMEM = "encrypt_no2";
+static constexpr char CFG_KEY_ENCRYPT_FAST_AQI[] PROGMEM = "encrypt_fast_aqi";
+static constexpr char CFG_KEY_ENCRYPT_EPA_AQI[] PROGMEM = "encrypt_epa_aqi";
 static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_lang)-1, CFG_KEY_CURRENT_LANG, cfg::current_lang },
 	{ Config_Type_String, sizeof(cfg::wlanssid)-1, CFG_KEY_WLANSSID, cfg::wlanssid },
@@ -196,6 +250,10 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::robonomics_public_node)-1, CFG_KEY_ROBONOMICS_PUBLIC_NODE, cfg::robonomics_public_node },
 	{ Config_Type_String, sizeof(cfg::robonomics_connectivity_host)-1, CFG_KEY_ROBONOMICS_CONNECTIVITY_HOST, cfg::robonomics_connectivity_host },
 	{ Config_Type_String, sizeof(cfg::robonomics_connectivity_hosts)-1, CFG_KEY_ROBONOMICS_CONNECTIVITY_HOSTS, cfg::robonomics_connectivity_hosts },
+	{ Config_Type_String, sizeof(cfg::robonomics_proto_connectivity_host)-1, CFG_KEY_ROBONOMICS_PROTO_CONNECTIVITY_HOST, cfg::robonomics_proto_connectivity_host },
+	{ Config_Type_Bool, 0, CFG_KEY_MAP_SEND_CSV, &cfg::map_send_csv },
+	{ Config_Type_Bool, 0, CFG_KEY_MAP_SEND_PROTO, &cfg::map_send_proto },
+	{ Config_Type_UInt, 0, CFG_KEY_NODE_ID, &cfg::node_id },
 	{ Config_Type_Bool, 0, CFG_KEY_RWS_AUTO_REGISTER, &cfg::rws_auto_register },
 	{ Config_Type_UInt, 0, CFG_KEY_RWS_GROUP_MODE, &cfg::rws_group_mode },
 	{ Config_Type_String, sizeof(cfg::rws_group_id)-1, CFG_KEY_RWS_GROUP_ID, cfg::rws_group_id },
@@ -205,6 +263,9 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::coords_gps)-1, CFG_KEY_COORDS_GPS, cfg::coords_gps },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2ROBONOMICS, &cfg::send2robonomics },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2CSV, &cfg::send2csv },
+	{ Config_Type_Bool, 0, CFG_KEY_LORA_UART_ENABLED, &cfg::lora_uart_enabled },
+	{ Config_Type_Time, 0, CFG_KEY_LORA_UART_SENDING_INTERVALL_MS, &cfg::lora_uart_sending_intervall_ms },
+	{ Config_Type_String, sizeof(cfg::lora_dest_node)-1, CFG_KEY_LORA_DEST_NODE, cfg::lora_dest_node },
 	{ Config_Type_Bool, 0, CFG_KEY_AUTO_UPDATE, &cfg::auto_update },
 	{ Config_Type_Bool, 0, CFG_KEY_USE_BETA, &cfg::use_beta },
 	{ Config_Type_Bool, 0, CFG_KEY_HAS_DISPLAY, &cfg::has_display },
@@ -232,7 +293,12 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_SSL_INFLUX, &cfg::ssl_influx },
 	{ Config_Type_String, sizeof(cfg::donated_by)-1, CFG_KEY_DONATED_BY, cfg::donated_by },
 	{ Config_Type_String, sizeof(cfg::current_reg)-1, CFG_KEY_CURRENT_REG, cfg::current_reg },
+	{ Config_Type_Bool, 0, CFG_KEY_REGION_MANUAL, &cfg::region_manual },
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
+	{ Config_Type_String, sizeof(cfg::pressure_correction)-1, CFG_KEY_PRESSURE_CORRECTION, cfg::pressure_correction },
+	{ Config_Type_String, sizeof(cfg::pressure_unit)-1, CFG_KEY_PRESSURE_UNIT, cfg::pressure_unit },
+	{ Config_Type_String, sizeof(cfg::temp_unit)-1, CFG_KEY_TEMP_UNIT, cfg::temp_unit },
+	{ Config_Type_String, sizeof(cfg::date_format)-1, CFG_KEY_DATE_FORMAT, cfg::date_format },
 	{ Config_Type_String, sizeof(cfg::local_hostname)-1, CFG_KEY_LOCAL_HOSTNAME, cfg::local_hostname },
 	{ Config_Type_String, sizeof(cfg::chosen_altruist_urban)-1, CFG_KEY_CHOSEN_ALTRUIST_URBAN, cfg::chosen_altruist_urban },
 	{ Config_Type_String, sizeof(cfg::timezone)-1, CFG_KEY_TIMEZONE, cfg::timezone },
@@ -245,8 +311,11 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::custom_altruist_urban)-1, CFG_KEY_CUSTOM_ALTRUIST_URBAN, cfg::custom_altruist_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_USE_CUSTOM_URBAN, &cfg::use_custom_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_STANDALONE, &cfg::standalone },
+	{ Config_Type_String, sizeof(cfg::extra_urbans)-1, CFG_KEY_EXTRA_URBANS, cfg::extra_urbans },
 	{ Config_Type_UInt, 0, CFG_KEY_EPD_REFRESH_MODE, &cfg::epd_refresh_mode },
 	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN, &cfg::analytics_sleep_add_urban },
+	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH, &cfg::analytics_morning_autoswitch },
+	{ Config_Type_UInt, 0, CFG_KEY_ANALYTICS_MORNING_END_HOUR, &cfg::analytics_morning_end_hour },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_TEMPERATURE, &cfg::share_temperature },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_HUMIDITY, &cfg::share_humidity },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_PRESSURE, &cfg::share_pressure },
@@ -259,6 +328,18 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_NO2, &cfg::share_no2 },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_FAST_AQI, &cfg::share_fast_aqi },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_EPA_AQI, &cfg::share_epa_aqi },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_TEMPERATURE, &cfg::encrypt_temperature },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_HUMIDITY, &cfg::encrypt_humidity },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_PRESSURE, &cfg::encrypt_pressure },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_CO2, &cfg::encrypt_co2 },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_PM, &cfg::encrypt_pm },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_NOISE, &cfg::encrypt_noise },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_CO, &cfg::encrypt_co },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_RADIATION, &cfg::encrypt_radiation },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_O3, &cfg::encrypt_o3 },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_NO2, &cfg::encrypt_no2 },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_FAST_AQI, &cfg::encrypt_fast_aqi },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_EPA_AQI, &cfg::encrypt_epa_aqi },
 };
           
 #endif // __CONFIG_H__

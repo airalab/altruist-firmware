@@ -10,8 +10,88 @@
 #define INTL_LANG "EN"
 #define INTL_PM_SENSOR "Particulate matter sensor"
 const char INTL_CONFIGURATION[] PROGMEM = "Configuration";
-#define INTL_COMMON_SETTINGS "Common Settings"
-#define INTL_APIS_SETTINGS "Optional APIs"
+#define INTL_COMMON_SETTINGS "Connection"
+#define INTL_APIS_SETTINGS "Data export"
+#define INTL_NAV_MONITOR "Data & status"
+#define INTL_NAV_SETTINGS "Settings"
+#define INTL_NAV_MAINTENANCE "Maintenance"
+#define INTL_NAV_HOME "Home"
+#define INTL_NAV_READINGS "Readings"
+#define INTL_NAV_STATUS "Status"
+#define INTL_NAV_MAIN "Main navigation"
+#define INTL_BREADCRUMB_ARIA "Breadcrumb"
+#define INTL_DASH_TITLE "Dashboard"
+#define INTL_DASH_ALL_READINGS "All readings"
+#define INTL_DASH_DEVICE_HEALTH "Device health"
+#define INTL_DASH_WIFI_OK "WiFi connected"
+#define INTL_DASH_WIFI_OFF "WiFi offline"
+#define INTL_DASH_DATALOG_OK "Datalog OK"
+#define INTL_DASH_DATALOG_ERR "Datalog issue"
+#define INTL_DASH_MAP_OK "Map OK"
+#define INTL_DASH_MAP_ERR "Map issue"
+#define INTL_DASH_NAV "Quick links"
+#define INTL_DASH_SECTION_MONITOR_INTRO "See what your sensor measures and whether it is working."
+#define INTL_DASH_SECTION_SETTINGS_INTRO "Wi-Fi, updates, and how your data is shared."
+#define INTL_DASH_SECTION_MAP_INTRO "Find this device on the public air-quality map."
+#define INTL_DASH_READINGS_DESC "Live temperature, humidity, and air quality"
+#define INTL_DASH_STATUS_DESC "Connection, firmware, and device details"
+#define INTL_DASH_CONFIG_DESC "Wi-Fi, location, and publishing options"
+#define INTL_DASH_GROUP_DESC "Combine readings with nearby sensors"
+#define INTL_DASH_OTA_DESC "Check and install firmware updates"
+#define INTL_DASH_SCREEN_DESC "Choose what the display shows"
+#define INTL_DASH_MAP_DESC "Open sensors.social in a new tab"
+#define INTL_DASH_SECTION_MAINTENANCE_INTRO "Advanced actions — only if you know what you are doing."
+#define INTL_DASH_DEBUG_DESC "More detailed logs for troubleshooting"
+#define INTL_DASH_RESTART_DESC "Reboot the sensor (about a minute)"
+#define INTL_DASH_DELETE_CONFIG_DESC "Erase saved settings from the device"
+#define INTL_DASH_HEALTH_TITLE "At a glance"
+#define INTL_HUB_LOCAL_TITLE "Local"
+#define INTL_HUB_LOCAL_DESC "Readings and device settings"
+#define INTL_HUB_SOCIAL_DESC "Public map and Robonomics network"
+#define INTL_HUB_CUSTOM_DESC "Home Assistant, API, InfluxDB, CSV"
+#define INTL_NAV_ADVANCED "System"
+#define INTL_HUB_ADVANCED_DESC "Debug log, restart, and factory reset"
+#define INTL_HUB_DIV_NETWORK "Network"
+#define INTL_HUB_DIV_ACCESS "Access"
+#define INTL_HUB_DIV_DEVICE "Device"
+#define INTL_HUB_DIV_PUBLISH "Publishing"
+#define INTL_HUB_DIV_LOCATION "Location"
+#define INTL_HUB_DIV_DIAGNOSTICS "Diagnostics"
+#define INTL_HUB_DIV_DANGER "Danger zone"
+#define INTL_DASH_GROUP_LOCAL_INTRO "Readings, settings, and maintenance on your home network."
+#define INTL_DASH_GROUP_SOCIAL_TITLE "Map"
+#define INTL_DASH_GROUP_SOCIAL_INTRO "Public map, Robonomics network, and what you publish."
+#define INTL_DASH_GROUP_CUSTOM_TITLE "Custom"
+#define INTL_DASH_GROUP_CUSTOM_INTRO "Home Assistant, your own API, InfluxDB, and CSV export."
+#define INTL_DASH_CAT_DATA "Data"
+#define INTL_DASH_CAT_SETTINGS "Settings"
+#define INTL_DASH_CAT_MAINTENANCE "Maintenance"
+#define INTL_DASH_CAT_MAP "Map"
+#define INTL_DASH_CAT_NETWORK "Robonomics"
+#define INTL_DASH_CAT_INTEGRATIONS "Integrations"
+#define INTL_DASH_CONFIG_MAP_DESC "Choose which measurements appear on the public map."
+#define INTL_DASH_CONFIG_ROBONOMICS_DESC "Owner, node, and on-chain data settings."
+#define INTL_DASH_CONFIG_INTEGRATIONS_DESC "Open the data export tab in configuration."
+#define INTL_DASH_CUSTOM_API_DESC "HTTP push to your server (e.g. Home Assistant REST)."
+#define INTL_DASH_INFLUX_DESC "Send measurements to InfluxDB."
+#define INTL_DASH_CSV_DESC "Write a CSV file on the device or your endpoint."
+#define INTL_PAGE_READINGS_INTRO "Latest measurements from your sensors."
+#define INTL_PAGE_STATUS_INTRO "Quick health check first — open a section below for details."
+#define INTL_PAGE_OTA_INTRO "Check for updates or switch the firmware language."
+#define INTL_PAGE_DEBUG_INTRO "Live log output and how much detail is recorded."
+#define INTL_PAGE_RESTART_INTRO "The sensor will reboot and reconnect to Wi-Fi."
+#define INTL_PAGE_DELETE_CONFIG_INTRO "Choose what to erase. This cannot be undone."
+#define INTL_DELETE_CONFIG_ALL "All settings"
+#define INTL_DELETE_CONFIG_WIFI "Wi-Fi only"
+#define INTL_DELETE_CONFIG_ALL_DESC "Everything stored on the device"
+#define INTL_DELETE_CONFIG_WIFI_DESC "Only forget the saved Wi-Fi network"
+#define INTL_WIFI_CREDENTIALS_DELETED "Wi-Fi credentials were deleted. You can close this page."
+#define INTL_CONFIG_TAB_INTEGRATIONS "Data export"
+#define INTL_CONFIG_PANEL1_INTRO "Wi-Fi, Robonomics, location, and what data is published to the public map."
+#define INTL_CONFIG_PANEL2_INTRO "Security, firmware updates, and options for advanced users."
+#define INTL_CONFIG_PANEL3_INTRO "Optional exports to your own services. Expand a section only if you need it."
+#define INTL_BADGE_BETA "Beta"
+#define INTL_BADGE_EXPERIMENTAL "Experimental"
 #define INTL_WIFI_NETWORKS "Loading wifi networks ..."
 #define INTL_LANGUAGE "Language"
 #define INTL_NO_WLAN_PWD "Check it if WiFi network has no password"
@@ -41,8 +121,23 @@ const char INTL_CCS811_3F[] PROGMEM = "CCS811 (I2C: 0x5B)";
 const char INTL_DNMS[] PROGMEM = "DNMS ({l_a})";
 const char INTL_DNMS_CORRECTION[] PROGMEM = "correction in dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Temperature correction in °C";
+#define INTL_PRESSURE_CORRECTION INTL_PRESSURE_CORRECTION
+const char INTL_PRESSURE_CORRECTION[] PROGMEM = "Pressure correction in hPa";
+#define INTL_PRESSURE_UNIT "Pressure unit"
+#define INTL_TEMP_UNIT "Temperature unit"
+#define INTL_DATE_FORMAT "Date format"
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Custom Altruist Urban Address";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address";
+#define INTL_MAIN_URBAN "Main Urban (first page with Insight)"
+#define INTL_PANEL_TITLE_EXTRA_URBANS "Other Urbans"
+#define INTL_URBAN_PAGES_GROUP "Other Urbans on the display"
+#define INTL_URBAN_PAGES_HINT "Add any extra Urbans besides the main one. The main Urban cannot be added here — it already has the first page. Each extra gets its own display page with only that Urban’s data. Pick a found device or enter an IP, and give it a name (kitchen, balcony…)."
+#define INTL_EXTRA_URBAN "Urban"
+#define INTL_URBAN_NAME "Name on screen"
+#define INTL_URBAN_NONE "— none —"
+#define INTL_URBAN_CUSTOM_IP "IP address"
+#define INTL_ADD_EXTRA_URBAN "Add Urban"
+#define INTL_REMOVE_EXTRA_URBAN "Remove"
 const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 
 // Urban selection (guest setup & config page)
@@ -51,7 +146,7 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_SELECT_URBAN_DESC "Choose which Urban device this Insight should read outdoor sensor data from."
 #define INTL_NO_URBANS_FOUND "No Altruist Urban devices found on this network. Make sure your Urban device is powered on and connected to the same WiFi network. You can enter a custom IP address below, then save. You can add or change Urban later in Settings."
 #define INTL_USE_CUSTOM_IP "Use custom IP address:"
-#define INTL_SETUP_INSIGHT_MODE_HINT "Have an Altruist Urban (outdoor unit)? Check the box below to search the network and link it. Leave unchecked for standalone mode."
+#define INTL_SETUP_INSIGHT_MODE_HINT "To pair with an Altruist Urban, check the box below, then press Continue. If you leave it unchecked, setup continues in standalone mode."
 #define INTL_SETUP_PAIR_WITH_URBAN "Set up link to an Altruist Urban now"
 #define INTL_SETUP_CONTINUE "Continue"
 #define INTL_SKIP_URBAN_SELECTION "Skip &mdash; configure later from Settings page"
@@ -59,16 +154,31 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_SETTINGS_SAVED "Settings saved"
 #define INTL_DEVICE_RESTARTING "Restarting device..."
 #define INTL_GUEST_CONNECTED "Connected"
+#define INTL_GUEST_CONNECTING "Connecting to Wi‑Fi…"
+#define INTL_GUEST_CONNECTING_HINT "This usually takes a few seconds. Keep this page open."
+#define INTL_GUEST_CONNECT_FAILED "Connection failed"
+#define INTL_GUEST_CONNECT_FAILED_HINT "Check the network name and password, then try again."
+#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Check the network name and password, then try again from the setup page."
 #define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi connected"
 #define INTL_GUEST_SETUP_STEP_1_LABEL "Step 1 of 2"
 #define INTL_GUEST_SETUP_STEP_2_LABEL "Step 2 of 2"
 #define INTL_GUEST_SETUP_STEP_1_TITLE "Connect to Wi-Fi"
 #define INTL_GUEST_INSIGHT_FINISH_HINT "Press Continue to finish setup and restart the device."
-#define INTL_GUEST_INSIGHT_AUTO_FINISH_HINT "If you close this page, setup will finish automatically in"
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_HINT "If you don't press Continue, setup will finish alone (standalone) in"
 #define INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "seconds (standalone mode)."
 #define INTL_GUEST_IP_ADDRESS "IP Address:"
 #define INTL_GUEST_OPEN_IP_HINT "Copy the IP address and open it in your browser."
-#define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart in a few seconds — copy the IP now."
+#define INTL_GUEST_DEVICE_INFO_HINT "On iPhone: tap Save → Share → Save to Files. On Android it can go to Downloads. Or copy as text."
+#define INTL_GUEST_DEVICE_INFO_DOWNLOAD "Save device info"
+#define INTL_GUEST_DEVICE_INFO_COPY "Copy as text"
+#define INTL_GUEST_DEVICE_INFO_SAVED "Saved"
+#define INTL_GUEST_DEVICE_INFO_SHARED "Choose Save to Files in the share sheet"
+#define INTL_GUEST_DEVICE_INFO_COPIED "Copied — paste into Notes"
+#define INTL_GUEST_DEVICE_INFO_SAVE_FAIL "Could not save — copy the IP above"
+#define INTL_GUEST_SENSOR_ADDRESS "Robonomics address:"
+#define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart soon — copy or save your IP before it does."
+#define INTL_GUEST_FINISH_SETUP "Finish setup"
+#define INTL_GUEST_FINISHING_SETUP "Finishing setup — restarting…"
 #define INTL_GUEST_KEEP_OPEN_HINT "Do not close this page until you press Continue."
 #define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone"
 #define INTL_DISP_MAP_PROMO_LINE1 "Just go to our web map: AQI, data history,"
@@ -77,13 +187,15 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
 #define INTL_SCAN_BTN "Scan"
 #define INTL_SCAN_SCANNING "Scanning..."
-#define INTL_SCAN_NO_URBANS "No Urban devices found."
+#define INTL_SCAN_NO_URBANS "No Urban found via mDNS. For C3 Urban use Custom Urban IP (browser IP)."
 #define INTL_SCAN_FOUND_PREFIX "Found "
 #define INTL_SCAN_FOUND_SUFFIX " Urban device(s)."
 #define INTL_SCAN_FAILED "Scan failed: "
 
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
+#define INTL_NODE_ID INTL_NODE_ID
+const char INTL_NODE_ID[] PROGMEM = "CPS node ID (0 = not set)";
 const char INTL_GROUP_MENU[] PROGMEM = "Device group (RWS)";
 const char INTL_GROUP_INTRO[] PROGMEM = "Choose how this device participates in Robonomics Web Services (owner and on-chain device list).";
 const char INTL_GROUP_MODE_TITLE[] PROGMEM = "Operating mode";
@@ -113,6 +225,39 @@ const char INTL_GROUP_STATUS_DEVICES_SYNCED[] PROGMEM = "Devices synced on-chain
 const char INTL_GROUP_STATUS_JOINED[] PROGMEM = "Joined group";
 const char INTL_GROUP_STATUS_MANUAL[] PROGMEM = "Manual owner configured";
 const char INTL_GROUP_SAVE_OK[] PROGMEM = "Group settings saved.";
+const char INTL_GROUP_BACKUP_TITLE[] PROGMEM = "Device backup";
+const char INTL_GROUP_BACKUP_HINT[] PROGMEM =
+	"This device is its own owner. After Save we download a backup once — import it on sensors.map Login to decrypt encrypted metrics, or restore it on another device. Keep the file private (local HTTP is not encrypted).";
+const char INTL_GROUP_BACKUP_SAVED_NOTICE[] PROGMEM =
+	"Device backup download started. Store it safely, then import it on sensors.map or restore it from Maintenance.";
+const char INTL_GROUP_BACKUP_DOWNLOAD_AGAIN[] PROGMEM = "Download backup again…";
+const char INTL_GROUP_BACKUP_REDOWNLOAD_CONFIRM[] PROGMEM =
+	"Download the device backup again? Anyone with this file can decrypt your encrypted metrics and restore your settings.";
+const char INTL_DEVICE_BACKUP_TITLE[] PROGMEM = "Backup & restore";
+const char INTL_DEVICE_BACKUP_HINT[] PROGMEM =
+	"Download a full backup (settings + owner key). You can restore it here or import the same file on sensors.map Login.";
+const char INTL_DEVICE_BACKUP_DOWNLOAD[] PROGMEM = "Download backup";
+const char INTL_DEVICE_BACKUP_RESTORE[] PROGMEM = "Restore from backup";
+const char INTL_DEVICE_BACKUP_FILE_LABEL[] PROGMEM = "Backup file";
+const char INTL_DEVICE_BACKUP_FILE_CHOOSE[] PROGMEM = "Choose file…";
+const char INTL_DEVICE_BACKUP_FILE_EMPTY[] PROGMEM = "No file selected";
+const char INTL_DEVICE_BACKUP_FILE_REQUIRED[] PROGMEM = "Please choose a backup JSON file first.";
+const char INTL_DEVICE_BACKUP_RESTORE_HINT[] PROGMEM =
+	"Restoring replaces all settings on this device and restarts it.";
+const char INTL_DEVICE_BACKUP_RESTORE_CONFIRM[] PROGMEM =
+	"Restore settings from this backup? Current configuration will be replaced.";
+const char INTL_DEVICE_BACKUP_RESTORE_OK[] PROGMEM = "Backup restored. Restarting…";
+const char INTL_DEVICE_BACKUP_RESTORE_FAILED[] PROGMEM = "Could not restore backup. Check the file format.";
+const char INTL_GUEST_RESTORE_HINT[] PROGMEM =
+	"Have a backup from before the reset? Restore it here to bring back Wi‑Fi, owner key, and settings — then the device restarts.";
+const char INTL_GROUP_OWNER_ACCESS_TITLE[] PROGMEM = "Map access (self-owner)";
+const char INTL_GROUP_OWNER_ACCESS_HINT[] PROGMEM =
+	"This device is its own owner. After Save we download a secret JSON once — import it on sensors.map Login to decrypt encrypted metrics. Keep the file private (local HTTP is not encrypted).";
+const char INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE[] PROGMEM =
+	"Owner access JSON download started. Store it safely, then import it on sensors.map.";
+const char INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN[] PROGMEM = "Download again…";
+const char INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM[] PROGMEM =
+	"Download the secret owner access JSON again? Anyone with this file can decrypt your encrypted metrics.";
 const char INTL_GROUP_SAVE_FAILED[] PROGMEM = "Could not save group settings.";
 const char INTL_GROUP_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configuration to storage.";
 const char INTL_GROUP_ERROR_INVALID_MASTER[] PROGMEM = "Enter a valid master Robonomics address.";
@@ -130,9 +275,25 @@ const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configura
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Robonomics Map Host (connectivity)";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Robonomics Map Hosts pool (one per line)";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_AUTO[] PROGMEM = "Default pool (auto)";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_PRESET[] PROGMEM = "Pinned (preset)";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_CUSTOM[] PROGMEM = "Custom host";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_POOL[] PROGMEM = "Custom pool";
+const char INTL_ROBONOMICS_CONNECTIVITY_PRESET_LABEL[] PROGMEM = "Pinned host (preset)";
+const char INTL_ROBONOMICS_CONNECTIVITY_CUSTOM_LABEL[] PROGMEM = "Custom host";
+const char INTL_MAP_SEND_CSV[] PROGMEM = "Send JSON/CSV to Map (current connectivity)";
+const char INTL_MAP_SEND_PROTO[] PROGMEM = "Send protobuf (new protocol)";
+const char INTL_MAP_PROTO_HOST[] PROGMEM = "Protobuf URL (empty = firmware default)";
+const char INTL_MAP_DUAL_HINT[] PROGMEM = "Both can be on at once. Protobuf goes first; JSON is backup if protobuf fails. Datalog is not duplicated.";
+const char INTL_LORA_UART_ENABLED[] PROGMEM = "Send to Meshtastic (LoRa UART)";
+const char INTL_LORA_UART_INTERVAL[] PROGMEM = "LoRa sending interval (sec)";
+const char INTL_LORA_DEST_NODE[] PROGMEM = "Meshtastic destination (!xxxxxxxx)";
+const char INTL_LORA_UART_HINT[] PROGMEM = "Urban C6: TX GPIO22 / RX GPIO20, 115200. Serial Module: PROTO. Destination set: unicast SignedEnvelope Port 256 to that node (not chat). Empty dest: nothing is sent.";
+const char INTL_ROBONOMICS_PUBLIC_NODE_CUSTOM[] PROGMEM = "Custom Robonomics Public Node";
+const char INTL_GUEST_CONNECTED_SENSORS[] PROGMEM = "Connected Sensors";
 const char INTL_COORD_LAT[] PROGMEM = "Latitude";
-const char INTL_COORD_LON[] PROGMEM = "Longtitude";
-const char INTL_COORDS[] PROGMEM = "GPS: Latitude, Longtitude";
+const char INTL_COORD_LON[] PROGMEM = "Longitude";
+const char INTL_COORDS[] PROGMEM = "GPS: Latitude, Longitude";
 const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_REPORT_ISSUE "Report an issue"
 
@@ -141,14 +302,38 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_GPS "GPS & Sensors"
 #define INTL_PANEL_TITLE_AUTH "Authentication"
 #define INTL_PANEL_TITLE_DEBUG "Debug Level"
-#define INTL_PANEL_TITLE_FIRMWARE "Firmware Version"
+#define INTL_PANEL_TITLE_LEDS "LEDs"
+#define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
+#define INTL_ANALYTICS_GROUP_NIGHT "Night window"
+#define INTL_ANALYTICS_GROUP_MORNING "Morning display"
+#define INTL_ANALYTICS_GROUP_DATA "Data"
+#define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
+#define INTL_ANALYTICS_NIGHT_START_TIME "Sleep analytics night start (local, HH:MM)"
+#define INTL_ANALYTICS_NIGHT_END_TIME "Sleep analytics night end (local, HH:MM)"
+#define INTL_ANALYTICS_NIGHT_END_HINT "End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx)."
+#define INTL_ANALYTICS_MORNING_END_TIME "Morning display until (local, HH:MM)"
+#define INTL_ANALYTICS_MORNING_END_HINT "After this time the display returns to the main screen. End time is exclusive (10:00 means until 09:59)."
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN "Add Urban data to sleep analytics (PM2.5 & noise)"
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in sleep analytics."
+#define INTL_PANEL_TITLE_FIRMWARE "System"
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi in Configuration Mode"
 #define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Custom API"
-#define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
+#define INTL_PANEL_TITLE_INFLUX "Influx DB"
 #define INTL_PANEL_TITLE_DATA_SHARING "Publish to Map"
 #define INTL_DATA_SHARING_DISCLAIMER "By default, all sensor data is shared to the public sensors map. You can choose which data types to share below. Unshared data will still be displayed on your device screen and available locally."
 #define INTL_DATA_SHARING_ADDITIONAL "Additional sensors (optional)"
+#define INTL_PANEL_TITLE_DATA_ENCRYPT "Encrypt map values"
+#define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted for the device owner (CPS / AES-256-GCM). Log in as owner on sensors.map to view them."
+#define INTL_DATA_ENCRYPT_BACKUP_HINT "No Robonomics seed phrase for sensors.map login? Import a device backup instead (only works with self-owner):"
+#define INTL_DATA_ENCRYPT_BACKUP_LINK "Open Backup & restore"
+#define INTL_DATA_ENCRYPT_KEY_LABEL "Device encryption key"
+#define INTL_DATA_ENCRYPT_KEY_SHOW "Show key"
+#define INTL_DATA_ENCRYPT_KEY_HIDE "Hide key"
+#define INTL_DATA_ENCRYPT_KEY_COPY "Copy key"
+#define INTL_DATA_ENCRYPT_KEY_COPIED "Key copied"
+#define INTL_DATA_ENCRYPT_KEY_HINT "Scan with your phone camera (same Wi‑Fi) to download the key JSON file. Or tap Show key and copy the text."
+#define INTL_DATA_ENCRYPT_QR_FAIL "Could not render key QR."
 const char INTL_SHARE_TEMPERATURE[] PROGMEM = "Temperature";
 const char INTL_SHARE_HUMIDITY[] PROGMEM = "Humidity";
 const char INTL_SHARE_PRESSURE[] PROGMEM = "Pressure";
@@ -161,10 +346,22 @@ const char INTL_SHARE_O3[] PROGMEM = "Ozone (O3)";
 const char INTL_SHARE_NO2[] PROGMEM = "Nitrogen dioxide (NO2)";
 const char INTL_SHARE_FAST_AQI[] PROGMEM = "FAST AQI";
 const char INTL_SHARE_EPA_AQI[] PROGMEM = "EPA AQI";
+const char INTL_ENCRYPT_TEMPERATURE[] PROGMEM = "Encrypt climate (temperature & humidity)";
+const char INTL_ENCRYPT_HUMIDITY[] PROGMEM = "Encrypt humidity";
+const char INTL_ENCRYPT_PRESSURE[] PROGMEM = "Encrypt pressure";
+const char INTL_ENCRYPT_CO2[] PROGMEM = "Encrypt CO2";
+const char INTL_ENCRYPT_PM[] PROGMEM = "Encrypt PM";
+const char INTL_ENCRYPT_NOISE[] PROGMEM = "Encrypt noise";
+const char INTL_ENCRYPT_CO[] PROGMEM = "Encrypt CO";
+const char INTL_ENCRYPT_RADIATION[] PROGMEM = "Encrypt radiation";
+const char INTL_ENCRYPT_O3[] PROGMEM = "Encrypt O3";
+const char INTL_ENCRYPT_NO2[] PROGMEM = "Encrypt NO2";
+const char INTL_ENCRYPT_FAST_AQI[] PROGMEM = "Encrypt FAST AQI";
+const char INTL_ENCRYPT_EPA_AQI[] PROGMEM = "Encrypt EPA AQI";
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "WiFi Sensor in configuration mode";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Network name";
-const char INTL_MORE_SETTINGS[] PROGMEM = "Advanced Settings";
+const char INTL_MORE_SETTINGS[] PROGMEM = "Device";
 const char INTL_AUTO_UPDATE[] PROGMEM = "Auto update firmware";
 const char INTL_USE_BETA[] PROGMEM = "Load beta firmware";
 const char INTL_DISPLAY[] PROGMEM = "OLED SSD1306";
@@ -178,10 +375,11 @@ const char INTL_DISPLAY_WIFI_INFO[] PROGMEM = "Display Wifi info";
 const char INTL_DISPLAY_DEVICE_INFO[] PROGMEM = "Display device info";
 const char INTL_DEBUG_LEVEL[] PROGMEM = "Debug&nbsp;level";
 const char INTL_MEASUREMENT_INTERVAL[] PROGMEM = "Sending data interval (sec)";
-const char INTL_LEDS_BRIGHTNESS[] PROGMEM = "Led brightness (%)";
-const char INTL_LEDS_ON[] PROGMEM = "Turn on led";
-const char INTL_LEDS_OFF_HOUR[] PROGMEM = "LED off hour (0-23)";
-const char INTL_LEDS_ON_HOUR[] PROGMEM = "LED on hour (0-23)";
+const char INTL_LEDS_BRIGHTNESS[] PROGMEM = "LED brightness (%)";
+const char INTL_LEDS_ON[] PROGMEM = "Turn LEDs on";
+const char INTL_LEDS_OFF_HOUR[] PROGMEM = "Turn off at (local hour)";
+const char INTL_LEDS_ON_HOUR[] PROGMEM = "Turn back on at (local hour)";
+const char INTL_LEDS_SCHEDULE_HINT[] PROGMEM = "Whole hours, local device time (0 = midnight, 23 = 11 PM). LEDs dim for about 2 hours before off. Set both to the same hour to keep LEDs on overnight.";
 const char INTL_SDS_MEAS_INTERVAL[] PROGMEM = "SDS measure interval (sec)";
 const char INTL_DATALOG_SENDING_INTERVAL[] PROGMEM = "Datalog sending interval (sec)";
 const char INTL_DURATION_ROUTER_MODE[] PROGMEM = "Duration router mode";
@@ -203,6 +401,7 @@ const char INTL_RESTART_SENSOR[] PROGMEM = "Restart sensor";
 #define INTL_HOME "Home"
 #define INTL_BACK_TO_HOME "Back to home page"
 const char INTL_CURRENT_DATA[] PROGMEM = "Current data";
+const char INTL_DATA_BUSY[] PROGMEM = "Sensor data is updating — refresh in a moment.";
 // Graphs screen
 #define INTL_DISP_GRAPHS_HEADER_PREFIX "Current"
 #define INTL_DISP_GRAPHS_HINT_LINE1 "long press ->"
@@ -212,6 +411,8 @@ const char INTL_DEVICE_STATUS[] PROGMEM = "Device status";
 #define INTL_ACTIVE_SENSORS_MAP "Active sensors map (external link)"
 #define INTL_CONFIGURATION_DELETE "Delete configuration"
 #define INTL_CONFIGURATION_REALLY_DELETE "Are you sure you want to delete the configuration?"
+#define INTL_CONFIGURATION_DELETE_WARNING "This cannot be undone. The device will restart after deleting the selected settings."
+#define INTL_CONFIGURATION_DELETE_CONFIRM "Yes, delete permanently"
 #define INTL_DELETE "Delete"
 #define INTL_CANCEL "Cancel"
 #define INTL_REALLY_RESTART_SENSOR "Are you sure you want to restart the sensor?"
@@ -225,6 +426,13 @@ const char INTL_LAST_OTA[] PROGMEM = "Last OTA check";
 #define INTL_OTA_UPDATE "Firmware Update"
 const char INTL_OTA_CHECK_UPDATE[] PROGMEM = "Check for update";
 const char INTL_OTA_CURRENT_VERSION[] PROGMEM = "Current version";
+const char INTL_OTA_LATEST_VERSION[] PROGMEM = "Latest available";
+const char INTL_OTA_UP_TO_DATE[] PROGMEM = "Firmware is up to date";
+const char INTL_OTA_UPDATE_AVAILABLE[] PROGMEM = "A newer firmware is available";
+const char INTL_OTA_INSTALL[] PROGMEM = "Update";
+const char INTL_OTA_INSTALL_REQUESTED[] PROGMEM = "Update started. Keep Wi‑Fi connected until the device restarts.";
+const char INTL_OTA_UPDATING[] PROGMEM = "Updating firmware";
+const char INTL_OTA_CHECK_FAILED[] PROGMEM = "Could not check for updates. Try again later.";
 const char INTL_OTA_CHECK_REQUESTED[] PROGMEM = "Update check requested. The device will download and install the new firmware if available.";
 const char INTL_OTA_NO_WIFI[] PROGMEM = "WiFi is not connected. Cannot check for updates.";
 const char INTL_OTA_SWITCH_LANG[] PROGMEM = "Switch language";
@@ -259,6 +467,28 @@ const char INTL_NOISE_MAX[] PROGMEM = "max noise";
 const char INTL_NOISE_MEAN[] PROGMEM = "mean noise";
 const char INTL_HUMIDITY[] PROGMEM = "humidity";
 const char INTL_PRESSURE[] PROGMEM = "air pressure";
+#define INTL_GAS_RESISTANCE INTL_GAS_RESISTANCE
+const char INTL_GAS_RESISTANCE[] PROGMEM = "Gas resistance (raw)";
+#define INTL_GAS_BASELINE INTL_GAS_BASELINE
+const char INTL_GAS_BASELINE[] PROGMEM = "Gas baseline";
+#define INTL_VOC_SPIKES_TODAY INTL_VOC_SPIKES_TODAY
+const char INTL_VOC_SPIKES_TODAY[] PROGMEM = "VOC spikes today";
+#define INTL_VOC_ORGANIC INTL_VOC_ORGANIC
+const char INTL_VOC_ORGANIC[] PROGMEM = "Organic gases";
+#define INTL_VOC_PHRASE_NONE INTL_VOC_PHRASE_NONE
+const char INTL_VOC_PHRASE_NONE[] PROGMEM = "not detected";
+#define INTL_VOC_PHRASE_LOW INTL_VOC_PHRASE_LOW
+const char INTL_VOC_PHRASE_LOW[] PROGMEM = "detected in air (low)";
+#define INTL_VOC_PHRASE_MED INTL_VOC_PHRASE_MED
+const char INTL_VOC_PHRASE_MED[] PROGMEM = "detected in air (medium)";
+#define INTL_VOC_PHRASE_HIGH INTL_VOC_PHRASE_HIGH
+const char INTL_VOC_PHRASE_HIGH[] PROGMEM = "detected in air (high)";
+#define INTL_VOC_INDEX INTL_VOC_INDEX
+const char INTL_VOC_INDEX[] PROGMEM = "VOC level";
+#define INTL_VOC_AU INTL_VOC_AU
+const char INTL_VOC_AU[] PROGMEM = "of 100";
+#define INTL_VOC_INDEX_HINT INTL_VOC_INDEX_HINT
+const char INTL_VOC_INDEX_HINT[] PROGMEM = "0 is typical for Altruist Insight, 100 means much more organic gases";
 const char INTL_RADIATION[] PROGMEM = "Radiation";
 const char INTL_CO2[] PROGMEM = "CO2";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";
@@ -276,8 +506,54 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_PARAMETER "Parameter"
 #define INTL_VALUE "Value"
 
+#define INTL_DATA_SECTION_SDS "SDS"
+#define INTL_DATA_SECTION_SCD "SCD4x"
+#define INTL_DATA_SECTION_BME "BME"
+#define INTL_DATA_SECTION_URBAN "Urban data"
+#define INTL_DATA_SECTION_OVERVIEW "Overview"
+#define INTL_DATA_SECTION_DEVICE "Device"
+#define INTL_DATA_SECTION_RUNTIME "Runtime"
+#define INTL_DATA_SECTION_NETWORK "Network"
+#define INTL_DATA_SECTION_EXPORT "Data export"
+#define INTL_DATA_SECTION_TECHNICAL "Technical details"
+#define INTL_COPY_ALL "Copy all"
+#define INTL_COPIED "Copied"
+#define INTL_TOPBAR_ONLINE "Online"
+#define INTL_TOPBAR_OFFLINE "Offline"
+#define INTL_TOPBAR_SEND_ISSUE "Send issue"
+#define INTL_TOPBAR_SEND_OK "OK"
+#define INTL_TOPBAR_SEND_ERR "Not send"
+#define INTL_TOPBAR_LAST_SEND "Last send"
+#define INTL_TOPBAR_NO_SENDS "No sends yet"
+#define INTL_TOPBAR_MAP "Map"
+#define INTL_TOPBAR_DATALOG "Datalog"
+#define INTL_TOPBAR_JUST_NOW "just now"
+#define INTL_TOPBAR_WIFI "Wi‑Fi"
+#define INTL_TOPBAR_HOST "Hostname"
+#define INTL_TOPBAR_DEVICE "Device"
+#define INTL_TOPBAR_SEND "Send"
+#define INTL_TOPBAR_STANDALONE "Standalone"
+#define INTL_TOPBAR_PAIRED "Urban paired"
+#define INTL_TOPBAR_UPDATE "Update"
+#define INTL_TOPBAR_FW_CURRENT "Up to date"
+#define INTL_TOPBAR_ROBONOMICS "Robonomics address"
+#define INTL_TOPBAR_Q_ACCESS "Open in browser"
+#define INTL_TOPBAR_TAP_COPY "Tap to copy"
+#define INTL_TOPBAR_MORE "Device info"
+#define INTL_VALUE_YES "Yes"
+#define INTL_VALUE_NO "No"
+#define INTL_READINGS_SECTION_NETWORK_INTRO "Wi-Fi signal strength at the sensor."
+#define INTL_STATUS_SECTION_OVERVIEW_INTRO "Is the device running normally right now?"
+#define INTL_STATUS_SECTION_DEVICE_INTRO "Firmware version, memory, and storage."
+#define INTL_STATUS_SECTION_TECH_INTRO "Build details — useful when contacting support."
+#define INTL_STATUS_SECTION_EXPORT_INTRO "Whether your data is reaching each service."
+#define INTL_API_SENDS_SHORT "Sends"
+#define INTL_API_LAST_SHORT "Last"
+
 #define INTL_REGION "Region"
 #define INTL_REGION_GLOBAL "Global"
+#define INTL_REGION_RU "Russia"
+#define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / OTA unless you change it here."
 #define INTL_REGION_EU "Europe"
 #define INTL_REGION_AS "Asia"
 #define INTL_REGION_AF "Africa"
@@ -307,6 +583,14 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_ENABLE_SD "Please enable SD card"
 #define INTL_DISP_INSIGHT_HEADER "Insight"
 #define INTL_DISP_INSIGHT_ONLY "Insight only"
+#define INTL_DISP_VOC_TODAY "VOC today:"
+#define INTL_DISP_VOC_NONE "VOC: none"
+#define INTL_DISP_VOC_LOW "VOC: low"
+#define INTL_DISP_VOC_MED "VOC: medium"
+#define INTL_DISP_VOC_HIGH "VOC: high"
+#define INTL_DISP_VOC_SPIKES_UNIT "spikes"
+#define INTL_DISP_VOC_LEVEL "level"
+#define INTL_DISP_VOC_SCALE_HINT "0 typical for Insight, 100 more gases"
 #define INTL_DISP_URBAN_HEADER "Urban"
 #define INTL_DISP_URBAN_ONLY "Urban only"
 #define INTL_DISP_GOING_TO_SLEEP "Going to sleep..."
@@ -386,3 +670,4 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_TEMP_SHORT "Temp"
 #define INTL_DISP_PRESS_SHORT "Press."
 #define INTL_DISP_NOISE_AVGMAX_SUFFIX "(avg | max)"
+

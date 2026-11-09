@@ -1,8 +1,8 @@
 #ifndef WEB_HEADER_LOGO_SELECT_H
 #define WEB_HEADER_LOGO_SELECT_H
 
-// Picks the SVG served at `/{INTL_LANG}_s1.4?r=logo` and as `/favicon.ico` (device-specific).
-// Source art: `display/icons/svg/altruist-Insight-logo.svg` / `altruist-urban-logo.svg` — edit there, then refresh the matching `web-header-logo-*.h` body.
+// Picks the SVG served at `/{INTL_LANG}_s?r=logo` in the page header (device-specific).
+// Favicon: icons/favicon-black.png + icons/favicon-white.png → webserver/favicon.h
 
 #if defined(ALTRUIST_INSIGHT)
 #include "web-header-logo-insight.h"

@@ -8,6 +8,14 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  meshtastic-frame:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Host tests for Meshtastic Transport v1 frames
+        run: bash tests/meshtastic/run.sh
+
   stable-release:
     if: github.ref_name == 'esp32'
     runs-on: ubuntu-24.04

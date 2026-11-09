@@ -19,8 +19,8 @@
 #endif
 
 String supported_sensor_names[] = {
-  BME_SENSOR_NAME,
 #if defined(ALTRUIST_URBAN)
+  BME_SENSOR_NAME,
   SDS_SENSOR_NAME,
   I2S_NOISE_SENSOR_NAME,
 #if !defined(ALTRUIST_URBAN_C3_LITE)
@@ -39,8 +39,10 @@ String supported_sensor_names[] = {
 Sensor* createSensor(const String &sensorType, unsigned long sending_timeout) {
   if (sensorType == SDS_SENSOR_NAME) {
     return new SDS011Sensor(sending_timeout);
+#if defined(ALTRUIST_URBAN)
   } else if (sensorType == BME_SENSOR_NAME) {
     return new BMX280Sensor(sending_timeout);
+#endif
   } else if (sensorType == I2S_NOISE_SENSOR_NAME) {
     return new I2SNoiseSensor(sending_timeout);
   } else if (sensorType == RADSENS_SENSOR_NAME) {

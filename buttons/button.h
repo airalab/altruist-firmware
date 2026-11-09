@@ -12,7 +12,7 @@ enum class PressType {
 #define PRESSED_STATE 0
 #define NOT_PRESSED_STATE 1
 
-#define LONG_PRESS_TIMEOUT 3000
+#define LONG_PRESS_TIMEOUT 1000
 #define SHORT_PRESS_TIMEOUT 100
 
 class ButtonController {
@@ -23,12 +23,18 @@ public:
     uint8_t get_last_state() const {
         return last_state;
     }
+    /** If true, SHORT is emitted while still held (after SHORT_PRESS_TIMEOUT), not only on release. */
+    void setEmitShortWhileHeld(bool enable) {
+        emit_short_while_held = enable;
+    }
 
 private:
     int _pin;
     uint8_t last_state = NOT_PRESSED_STATE;
     unsigned long pressed_time = 0;
     bool long_press = false;
+    bool short_fired = false;
+    bool emit_short_while_held = false;
 };
 
 #endif // BUTTON_ONE_H

@@ -22,12 +22,15 @@ bool RadSensSensor::begin() {
 }
 
 void RadSensSensor::_fetch(JsonDocument &data) {
-    i2c_master_init();
+    I2cBusLock bus;
+    if (!bus.ok()) {
+        debug_outln_error(F("RadSens I2C bus lock failed"));
+        return;
+    }
 	last_value_gc = radSens.getRadIntensyDynamic();
-    debug_outln_info(F("radiation "), last_value_gc);
+    debug_outln_verbose(F("radiation "), String(last_value_gc));
     addValueToJSON(data, F("radiation"), last_value_gc, INTL_RADIATION, F("µR/h"));
 #if defined(ALTRUIST_BUILD_DEBUG)
     serializeJson(data, Serial);
 #endif
-    deinit_i2c();
 }

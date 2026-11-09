@@ -14,13 +14,16 @@ CG_RadSens::~CG_RadSens()
 /*Initialization function and sensor connection. Returns false if the sensor is not connected to the I2C bus.*/
 bool CG_RadSens::init()
 {
-    i2c_master_init();
+    I2cBusLock bus;
+    if (!bus.ok()) {
+        return false;
+    }
 
     uint8_t reg = 0x00;
     bool res = i2c_write(&reg, 1) == ESP_OK;
+    (void)res;
     uint8_t address = getSensorAddress();
     debug_outln_info(F("RadSens address: "), String(address));
-    deinit_i2c();
     return address != 0;
 }
 

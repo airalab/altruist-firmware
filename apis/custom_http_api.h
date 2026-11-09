@@ -26,7 +26,7 @@ private:
     Robonomics* robonomics;
     void _send(JsonDocument &data) override;
     bool POSTRequest(const String& data);
-    void formatDataToSend(String &data_to_send, JsonDocument &data);
+    bool formatDataToSend(String &data_to_send, JsonDocument &data);
 };
 
 #endif  // __CUSTOM_API_H__

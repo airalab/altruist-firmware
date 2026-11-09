@@ -18,89 +18,28 @@ protected:
     last_fetch_time = millis();
   }
 
-  void addValueToJSON(JsonDocument &data, const String &meas_id, const float value, const String &intl_name, const String &units) {
-    // Ensure sensor_name object exists
-    // debug_outln_info(F("Meas_id: "), meas_id);
-    // debug_outln_info(F("Value: "), value);
+  // ArduinoJson 6 does not free pool memory when strings are replaced. Set
+  // intl_name/units only on first create; afterwards only update numeric/string value.
+  template <typename T>
+  void addValueToJSON(JsonDocument &data, const String &meas_id, const T &value,
+		      const String &intl_name, const String &units) {
     String sensor_name_copy(sensor_name);
-    JsonObject sensorObj = data[sensor_name_copy];  
+    JsonObject sensorObj = data[sensor_name_copy];
     if (!sensorObj) {
-        sensorObj = data.createNestedObject(sensor_name_copy);
+      sensorObj = data.createNestedObject(sensor_name_copy);
     }
 
-    // Ensure measurement object exists
-    JsonObject measObj = sensorObj[meas_id];  
+    JsonObject measObj = sensorObj[meas_id];
     if (!measObj) {
-        measObj = sensorObj.createNestedObject(meas_id);
+      measObj = sensorObj.createNestedObject(meas_id);
+      if (!measObj) {
+	return;
+      }
+      measObj[F("intl_name")] = intl_name;
+      measObj[F("units")] = units;
     }
 
-    // Directly update values without removing objects
     measObj[F("value")] = value;
-    measObj[F("intl_name")] = intl_name;
-    measObj[F("units")] = units;
-    _jsonUpdated = true;
-  }
-
-  void addValueToJSON(JsonDocument &data, const String &meas_id, const uint8_t &value, const String &intl_name, const String &units) {
-    // Ensure sensor_name object exists
-    String sensor_name_copy(sensor_name);
-    JsonObject sensorObj = data[sensor_name_copy];  
-    if (!sensorObj) {
-        sensorObj = data.createNestedObject(sensor_name_copy);
-    }
-
-    // Ensure measurement object exists
-    JsonObject measObj = sensorObj[meas_id];  
-    if (!measObj) {
-        measObj = sensorObj.createNestedObject(meas_id);
-    }
-
-    // Directly update values without removing objects
-    measObj[F("value")] = value;
-    measObj[F("intl_name")] = intl_name;
-    measObj[F("units")] = units;
-    _jsonUpdated = true;
-  }
-
-  void addValueToJSON(JsonDocument &data, const String &meas_id, const double &value, const String &intl_name, const String &units) {
-    // Ensure sensor_name object exists
-    String sensor_name_copy(sensor_name);
-    JsonObject sensorObj = data[sensor_name_copy];  
-    if (!sensorObj) {
-        sensorObj = data.createNestedObject(sensor_name_copy);
-    }
-
-    // Ensure measurement object exists
-    JsonObject measObj = sensorObj[meas_id];  
-    if (!measObj) {
-        measObj = sensorObj.createNestedObject(meas_id);
-    }
-
-    // Directly update values without removing objects
-    measObj[F("value")] = value;
-    measObj[F("intl_name")] = intl_name;
-    measObj[F("units")] = units;
-    _jsonUpdated = true;
-  }
-
-  void addValueToJSON(JsonDocument &data, const String &meas_id, const String &value, const String &intl_name, const String &units) {
-    // Ensure sensor_name object exists
-    String sensor_name_copy(sensor_name);
-    JsonObject sensorObj = data[sensor_name_copy];  
-    if (!sensorObj) {
-        sensorObj = data.createNestedObject(sensor_name_copy);
-    }
-
-    // Ensure measurement object exists
-    JsonObject measObj = sensorObj[meas_id];  
-    if (!measObj) {
-        measObj = sensorObj.createNestedObject(meas_id);
-    }
-
-    // Directly update values without removing objects
-    measObj[F("value")] = value;
-    measObj[F("intl_name")] = intl_name;
-    measObj[F("units")] = units;
     _jsonUpdated = true;
   }
 

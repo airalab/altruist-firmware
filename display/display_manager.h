@@ -41,6 +41,8 @@ public:
     void setRobonomicsAddress(const char *address) { robonomics_address = String(address);};
     /** Request a full e-paper refresh on the next display cycle. */
     void requestEpdFullRefresh();
+    /** Block until "WiFi credentials cleared" is painted (SET+DOWN long). */
+    void requestWifiClearConfirmScreen();
     /** Forget SPIFFS + RAM Urban SS58 used for MAIN/SENSOR_MAP QR. */
     void clearUrbanCache();
 private:
@@ -75,6 +77,8 @@ private:
     
     // Force full refresh on next update (e.g., after wake from sleep)
     bool force_full_refresh = false;
+
+    bool wifi_clear_confirm_pending = false;
 
     // Retry updating Sensor Map QR when Urban address not yet available
     bool     sensor_map_waiting_addr   = false;

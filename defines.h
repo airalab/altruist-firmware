@@ -17,13 +17,13 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIGHT)
-#define SOFTWARE_VERSION_BASE "R-INS_2026-06.1"
+#define SOFTWARE_VERSION_BASE "R-INS_2026-10"
 #define PM_SENSOR_NAME "Altruist Insight"
 #define DEVICE_MODEL DEVICE_MODEL_INSIGHT
 void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_BASE "R-URB_2026-06.1"
+#define SOFTWARE_VERSION_BASE "R-URB_2026-10"
 #define PM_SENSOR_NAME "Altruist Urban"
 #define DEVICE_MODEL DEVICE_MODEL_URBAN
 #endif
@@ -109,6 +109,7 @@ void firmwareBlockingYieldHook(void);
 #define LEN_FS_SSID 33				// credentials for sensor access point mode
 
 #define LEN_RWS_OWNER 70
+#define LEN_LORA_DEST_NODE 12
 #define LEN_RWS_DEVICES_EXTRA 512
 #define LEN_RWS_DEVICES_REGISTERED_HASH 512
 #define LEN_RWS_GROUP_ID 24
@@ -128,8 +129,22 @@ void firmwareBlockingYieldHook(void);
 #define LEN_GPS_COORDS 21
 #define LEN_DNMS_CORRECTION 8
 #define LEN_TEMP_CORRECTION 8
+#define LEN_PRESSURE_CORRECTION 8
+#define LEN_PRESSURE_UNIT 8
+#define PRESSURE_UNIT_MMHG "mmhg"
+#define PRESSURE_UNIT_HPA "hpa"
+#define LEN_TEMP_UNIT 4
+#define TEMP_UNIT_C "c"
+#define TEMP_UNIT_F "f"
+#define LEN_DATE_FORMAT 8
+#define DATE_FORMAT_MDY "mdy"
+#define DATE_FORMAT_DMY "dmy"
+#define DATE_FORMAT_YMD "ymd"
 #define LEN_LOCAL_HOSTNAME 100
 #define LEN_CHOSEN_ALTRUIS_ADDRESS 20
+#define LEN_URBAN_NAME 32
+#define MAX_EXTRA_URBANS 16
+#define LEN_EXTRA_URBANS 1024
 #define LEN_TIMEZONE 10
 
 #define LEN_HOST_INFLUX 100
@@ -185,7 +200,7 @@ constexpr const unsigned long WIFI_STA_PERIODIC_RECONNECT_MS = 18000UL;
  */
 constexpr const unsigned long WIFI_STA_RECOVERY_GRACE_MS = 45000UL;
 /** Urban captive portal: keep setup AP up after success so the phone can read/copy STA IP. */
-constexpr const unsigned long GUEST_SUCCESS_PAGE_DELAY_MS = 15000UL;
+constexpr const unsigned long GUEST_SUCCESS_PAGE_DELAY_MS = 45000UL;
 /** Insight captive portal: auto-finish setup (standalone) if user leaves before Continue. */
 constexpr const unsigned long INSIGHT_GUEST_AUTO_FINISH_MS = 45000UL;
 /** After association, STA can report WL_CONNECTED before IPv4; do not tear down the link during this window. */
@@ -205,15 +220,21 @@ constexpr const uint8_t WIFI_STA_DEEP_FORCE_AFTER_THROTTLED_SKIPS = 5;
  */
 constexpr const unsigned long WIFI_STA_REBOOT_AFTER_MS = (30UL * 60UL * 1000UL);
 
-/** On-chain datalog send must finish within this window; otherwise reboot (stuck Robonomics client). */
-constexpr const unsigned long DATALOG_SEND_WATCHDOG_MS = 90UL * 1000UL;
+/**
+ * Recovery watchdog windows.
+ *
+ * These are *software* health checks that trigger an automatic reboot when a worker
+ * appears stuck for too long (e.g., network stall, blocked loop iteration).
+ *
+ */
+constexpr const unsigned long DATALOG_SEND_WATCHDOG_MS = 5UL * 60UL * 1000UL;
 /** loop() must complete within this window (web + Insight display); otherwise reboot. */
-constexpr const unsigned long MAIN_LOOP_STALL_WATCHDOG_MS = 90UL * 1000UL;
+constexpr const unsigned long MAIN_LOOP_STALL_WATCHDOG_MS = 5UL * 60UL * 1000UL;
 /**
  * sensorAndAPIWorker must finish one full iteration within this window (fetch + APIs + OTA check).
  * Catches Map HTTP / fetch / datalog hangs even when loop() still runs (Insight frozen UI).
  */
-constexpr const unsigned long SENSOR_WORKER_LOOP_WATCHDOG_MS = 120UL * 1000UL;
+constexpr const unsigned long SENSOR_WORKER_LOOP_WATCHDOG_MS = 5UL * 60UL * 1000UL;
 
 // ------------------------------------------------------------
 // Urban TTL constants (Insight only)
@@ -321,6 +342,12 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 #ifdef ALTRUIST_URBAN
 #define PM_SERIAL_RX 5
 #define PM_SERIAL_TX 4
+// CN4 service expansion connector: TX GPIO22 (pin 6), RX GPIO20 (pin 8).
+// UART0 is remapped here only when structured LoRa output is enabled;
+// USB CDC remains available for logs.
+#define LORA_UART_TX_PIN 22
+#define LORA_UART_RX_PIN 20
+#define LORA_UART_BAUD 115200
 #endif
 
 
@@ -410,7 +437,13 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 // Wifi config
 const char WLANSSID[] PROGMEM = "Not Set";
 const char WLANPWD[] PROGMEM = "";
+#if defined(ALTRUIST_INSIGHT)
+#define LOCAL_HOSTNAME "altruist-insight" // legacy base; runtime default is altruist-insight-<id>
+#elif defined(ALTRUIST_URBAN)
+#define LOCAL_HOSTNAME "altruist-urban" // legacy base; runtime default is altruist-urban-<id>
+#else
 #define LOCAL_HOSTNAME "altruist"
+#endif
 #define WLANNOPWD 0
 
 // BasicAuth config
@@ -476,7 +509,9 @@ static const char URL_CUSTOM[] PROGMEM = "";
 
 // Robonomics
 #include "./intl.h"
-static const char CURRENT_REG[] PROGMEM = "Global";
+// Connectivity region default is Global for all language builds.
+// RU is set only by GPS polygon, OTA host fallback, or manual UI.
+static const char CURRENT_REG[] PROGMEM = REGION_GLOBAL;
 // #define PORT_ROBONOMICS 31112
 #define PORT_ROBONOMICS 65
 #define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"
@@ -508,6 +543,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // Temp compensation
 #define TEMP_CORRECTION "0.0"
+#define PRESSURE_CORRECTION "0.0"
 
 // MHZ19 CO2 sensor
 #define MHZ19_READ 0

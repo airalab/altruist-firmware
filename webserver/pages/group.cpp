@@ -55,16 +55,16 @@ static String buildMasterDevicesListText(const String& self_ss58) {
 }
 
 static void appendModeRadio(String& page, unsigned mode, const __FlashStringHelper* label, unsigned selected) {
-	page += F("<label style='display:block;margin:8px 0;'>"
+	page += F("<label class='guest-option'>"
 		"<input type='radio' name='rws_group_mode' value='");
 	page += String(mode);
 	page += F("'");
 	if (mode == selected) {
 		page += F(" checked");
 	}
-	page += F("/> ");
+	page += F("/><span>");
 	page += label;
-	page += F("</label>");
+	page += F("</span></label>");
 }
 
 static void appendSaveFeedback(String& page_content, RwsGroupApplyResult save_result) {
@@ -72,8 +72,7 @@ static void appendSaveFeedback(String& page_content, RwsGroupApplyResult save_re
 		return;
 	}
 	if (save_result == RwsGroupApply_Ok) {
-		page_content += F("<div style='margin:12px 0;padding:12px;background:#eef6ee;border:1px solid #c8e6c9;"
-			"border-radius:6px;color:#2e7d32;'><strong>");
+		page_content += F("<div class='ui-notice ui-notice--ok'><strong>");
 		page_content += FPSTR(INTL_GROUP_SAVE_OK);
 		page_content += F("</strong></div>");
 		return;
@@ -92,8 +91,7 @@ static void appendSaveFeedback(String& page_content, RwsGroupApplyResult save_re
 	default:
 		break;
 	}
-	page_content += F("<div style='margin:12px 0;padding:12px;background:#ffebee;border:1px solid #ef9a9a;"
-		"border-radius:6px;color:#c62828;'><strong>");
+	page_content += F("<div class='ui-notice ui-notice--err'><strong>");
 	page_content += message;
 	page_content += F("</strong></div>");
 }
@@ -120,11 +118,23 @@ static const __FlashStringHelper* groupStatusText(Robonomics* robonomics, const 
 	                                                    : FPSTR(INTL_GROUP_STATUS_PENDING);
 }
 
+static void appendGroupOverview(String& page_content, Robonomics* robonomics, const String& self_ss58) {
+	page_content += F("<div class='data-sheet'>");
+	page_content += F("<div class='data-block'><h3 class='data-block__title'>");
+	page_content += FPSTR(INTL_GROUP_STATUS_LABEL);
+	page_content += F("</h3><div class='data-block__rows'><div class='data-line data-line--stack'>"
+		"<span class='data-line__val'>");
+	page_content += groupStatusText(robonomics, self_ss58);
+	page_content += F("</span></div></div></div>");
+	page_content += F("</div>");
+}
+
 void webserver_group_page(String& page_content, const String& self_ss58, Robonomics* robonomics,
-                          RwsGroupApplyResult save_result) {
+                          RwsGroupApplyResult save_result, const char* form_action, bool hub_embed) {
 	const unsigned mode = cfg::rws_group_mode;
 	const String self_display =
 	    (self_ss58.length() > 0 && self_ss58 != F("Not Set")) ? self_ss58 : String(F("-"));
+
 	String current_devices = rwsBuildExpectedDeviceFingerprint(robonomics);
 	if (current_devices.length() == 0) {
 		current_devices = rwsBuildExpectedDeviceFingerprint(self_ss58);
@@ -140,67 +150,32 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 		group_id_display = group_id_seed;
 	}
 
-	page_content += F("<p style='font-size:13px;color:#666;'>");
-	page_content += FPSTR(INTL_GROUP_INTRO);
-	page_content += F("</p>");
+	if (!hub_embed) {
+		append_app_page_body_start(page_content, FPSTR(INTL_GROUP_INTRO));
+	}
 
 	appendSaveFeedback(page_content, save_result);
 
-	page_content += F("<p><strong>");
-	page_content += FPSTR(INTL_GROUP_STATUS_LABEL);
-	page_content += F(":</strong> ");
-	page_content += groupStatusText(robonomics, self_ss58);
-	page_content += F("</p>");
+	appendGroupOverview(page_content, robonomics, self_ss58);
 
-	if (mode == RWS_GROUP_FOLLOWER) {
-		page_content += F("<div style='margin:12px 0;padding:12px;background:#eef3ff;border:1px solid #c8d9ff;"
-			"border-radius:6px;'>"
-			"<p style='margin:0 0 8px 0;'><strong>");
-		page_content += FPSTR(INTL_GROUP_MASTER_ADDRESS);
-		page_content += F(":</strong><br/><code style='font-size:11px;word-break:break-all;'>");
-		page_content += String(cfg::rws_owner);
-		page_content += F("</code></p></div>");
-	}
+	page_content += F("<form class='page-form' method='POST' action='");
+	page_content += form_action;
+	page_content += F("'>");
 
-	if (mode == RWS_GROUP_MASTER) {
-		page_content += F("<div style='margin:12px 0;padding:12px;background:#eef6ee;border:1px solid #c8e6c9;"
-			"border-radius:6px;'>"
-			"<p style='margin:0 0 8px 0;'><strong>");
-		page_content += FPSTR(INTL_GROUP_ID_LABEL);
-		page_content += F(":</strong> <code style='font-size:11px;'>");
-		page_content += group_id_display;
-		page_content += F("</code></p>"
-			"<p style='margin:0 0 8px 0;'><strong>");
-		page_content += FPSTR(INTL_GROUP_MASTER_ADDRESS);
-		page_content += F(":</strong><br/><code style='font-size:11px;word-break:break-all;'>");
-		page_content += self_display;
-		page_content += F("</code></p>"
-			"<p style='margin:0;'><strong>");
-		page_content += FPSTR(INTL_GROUP_CURRENT_DEVICES);
-		page_content += F(":</strong></p>"
-			"<pre style='margin:6px 0 0 0;padding:8px;background:#fff;border:1px solid #ddd;"
-			"border-radius:4px;font-size:11px;white-space:pre-wrap;word-break:break-all;'>");
-		page_content += current_devices;
-		page_content += F("</pre></div>");
-	}
-
-	page_content += F("<form method='POST' action='/group'>");
-
-	page_content += F("<h4>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>");
 	page_content += FPSTR(INTL_GROUP_MODE_TITLE);
-	page_content += F("</h4>");
-
+	page_content += F("</h2><div class='config-section__body'><div class='radio-list'>");
 	appendModeRadio(page_content, RWS_GROUP_STANDALONE, FPSTR(INTL_GROUP_MODE_STANDALONE), mode);
 	appendModeRadio(page_content, RWS_GROUP_MASTER, FPSTR(INTL_GROUP_MODE_MASTER), mode);
 	appendModeRadio(page_content, RWS_GROUP_FOLLOWER, FPSTR(INTL_GROUP_MODE_FOLLOWER), mode);
 	appendModeRadio(page_content, RWS_GROUP_MANUAL, FPSTR(INTL_GROUP_MODE_MANUAL), mode);
+	page_content += F("</div></div></section>");
 
-	page_content += F("<div style='margin:14px 0;padding:10px;background:#f6f6f6;border-radius:6px;'>"
-		"<strong>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>");
 	page_content += FPSTR(INTL_GROUP_SELF_ADDRESS);
-	page_content += F("</strong><br/><code style='font-size:11px;word-break:break-all;'>");
+	page_content += F("</h2><div class='config-section__body'><code class='code-mono'>");
 	page_content += self_display;
-	page_content += F("</code></div>");
+	page_content += F("</code></div></section>");
 
 	if (group_id_seed.length() > 0) {
 		page_content += F("<input type='hidden' id='rws_group_id_seed' name='rws_group_id_seed' value='");
@@ -208,87 +183,90 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 		page_content += F("'/>");
 	}
 
-	page_content += F("<div id='panel_master' style='display:none;margin-top:12px;padding:12px;"
-		"background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;'>"
-		"<h4 style='margin-top:0;'>");
+	page_content += F("<section id='panel_master' class='group-panel config-section'><h2 class='config-section__title'>");
 	page_content += FPSTR(INTL_GROUP_MASTER_PANEL);
-	page_content += F("</h4><p style='margin:8px 0;'><strong>");
+	page_content += F("</h2><div class='config-section__body'>"
+		"<p class='form-hint'><strong>");
 	page_content += FPSTR(INTL_GROUP_ID_LABEL);
-	page_content += F(":</strong> <code id='group_id_display' style='font-size:11px;'>");
+	page_content += F(":</strong> <code id='group_id_display' class='code-mono code-mono--inline'>");
 	page_content += group_id_display;
 	page_content += F("</code></p>"
-		"<p style='margin:8px 0;'><strong>");
+		"<p class='form-hint'><strong>");
 	page_content += FPSTR(INTL_GROUP_MASTER_ADDRESS);
-	page_content += F(":</strong><br/><code style='font-size:11px;word-break:break-all;'>");
+	page_content += F(":</strong></p><code class='code-mono'>");
 	page_content += self_display;
-	page_content += F("</code></p>"
-		"<p style='margin:8px 0 4px 0;'><strong>");
+	page_content += F("</code>"
+		"<p class='form-hint'><strong>");
 	page_content += FPSTR(INTL_GROUP_CURRENT_DEVICES);
 	page_content += F(":</strong></p>"
-		"<pre id='master_devices_preview' style='margin:0 0 12px 0;padding:8px;background:#fff;"
-		"border:1px solid #ddd;border-radius:4px;font-size:11px;white-space:pre-wrap;word-break:break-all;'>");
+		"<code id='master_devices_preview' class='code-mono code-mono--pre'>");
 	page_content += current_devices;
-	page_content += F("</pre>"
-		"<label for='rws_devices_extra' style='display:block;margin-top:4px;'>");
+	page_content += F("</code>"
+		"<div class='form-group'><label for='rws_devices_extra'>");
 	page_content += FPSTR(INTL_GROUP_KNOWN_DEVICES);
 	page_content += F("</label>"
 		"<textarea id='rws_devices_extra' name='rws_devices_extra' rows='5' maxlength='");
 	page_content += String(LEN_RWS_DEVICES_EXTRA - 1);
-	page_content += F("' style='width:100%;font-family:monospace;font-size:11px;'>");
+	page_content += F("'>");
 	page_content += String(cfg::rws_devices_extra);
-	page_content += F("</textarea>"
-		"<p style='font-size:11px;color:#666;'>");
+	page_content += F("</textarea></div>"
+		"<p class='form-hint'>");
 	page_content += FPSTR(INTL_GROUP_KNOWN_DEVICES_HINT);
-	page_content += F("</p></div>");
+	page_content += F("</p></div></section>");
 
-	page_content += F("<div id='panel_follower' style='display:none;margin-top:12px;'>"
-		"<h4>");
+	page_content += F("<section id='panel_follower' class='group-panel config-section'><h2 class='config-section__title'>");
 	page_content += FPSTR(INTL_GROUP_FOLLOWER_PANEL);
-	page_content += F("</h4><label for='rws_master_owner'>");
+	page_content += F("</h2><div class='config-section__body'>"
+		"<div class='form-group'><label for='rws_master_owner'>");
 	page_content += FPSTR(INTL_GROUP_MASTER_ADDRESS);
 	page_content += F("</label>"
-		"<input type='text' id='rws_master_owner' name='rws_master_owner' maxlength='");
+		"<input type='text' class='input-mono' id='rws_master_owner' name='rws_master_owner' maxlength='");
 	page_content += String(LEN_RWS_OWNER - 1);
-	page_content += F("' style='width:100%;font-family:monospace;font-size:11px;' value='");
+	page_content += F("' value='");
 	if (mode == RWS_GROUP_FOLLOWER) {
 		page_content += String(cfg::rws_owner);
 	}
-	page_content += F("'/><p style='font-size:11px;color:#666;'>");
+	page_content += F("'/></div><p class='form-hint'>");
 	page_content += FPSTR(INTL_GROUP_FOLLOWER_HINT);
-	page_content += F("</p></div>");
+	page_content += F("</p></div></section>");
 
-	page_content += F("<div id='panel_manual' style='display:none;margin-top:12px;'>"
-		"<h4>");
+	page_content += F("<section id='panel_manual' class='group-panel config-section'><h2 class='config-section__title'>");
 	page_content += FPSTR(INTL_GROUP_MANUAL_PANEL);
-	page_content += F("</h4><label for='rws_manual_owner'>");
+	page_content += F("</h2><div class='config-section__body'>"
+		"<div class='form-group'><label for='rws_manual_owner'>");
 	page_content += FPSTR(INTL_RWS_OWNER);
 	page_content += F("</label>"
-		"<input type='text' id='rws_manual_owner' name='rws_manual_owner' maxlength='");
+		"<input type='text' class='input-mono' id='rws_manual_owner' name='rws_manual_owner' maxlength='");
 	page_content += String(LEN_RWS_OWNER - 1);
-	page_content += F("' style='width:100%;font-family:monospace;font-size:11px;' value='");
+	page_content += F("' value='");
 	if (mode == RWS_GROUP_MANUAL || rwsOwnerIsExternal(self_ss58)) {
 		page_content += String(cfg::rws_owner);
 	}
-	page_content += F("'/><p style='font-size:11px;color:#666;'>");
+	page_content += F("'/></div><p class='form-hint'>");
 	page_content += FPSTR(INTL_GROUP_MANUAL_HINT);
-	page_content += F("</p></div>");
+	page_content += F("</p></div></section>");
 
-	page_content += F("<input type='hidden' name='save_group' value='1'/>");
+	page_content += F("<div class='page-form-footer'>"
+		"<input type='hidden' name='save_group' value='1'/>");
 	page_content += form_submit(FPSTR(INTL_SAVE));
-	page_content += F("</form>");
+	page_content += F("</div></form>");
 
 	page_content += F("<script>"
 		"function groupPanels(){"
 		"var m=document.querySelector('input[name=rws_group_mode]:checked');"
 		"var v=m?parseInt(m.value,10):0;"
-		"document.getElementById('panel_master').style.display=(v===1)?'block':'none';"
-		"document.getElementById('panel_follower').style.display=(v===2)?'block':'none';"
-		"document.getElementById('panel_manual').style.display=(v===3)?'block':'none';"
+		"document.getElementById('panel_master').classList.toggle('group-panel--visible',v===1);"
+		"document.getElementById('panel_follower').classList.toggle('group-panel--visible',v===2);"
+		"document.getElementById('panel_manual').classList.toggle('group-panel--visible',v===3);"
 		"}"
 		"document.querySelectorAll('input[name=rws_group_mode]').forEach(function(el){"
 		"el.addEventListener('change',groupPanels);});"
 		"groupPanels();"
 		"</script>");
+
+	if (!hub_embed) {
+		append_app_page_body_end(page_content);
+	}
 }
 
 RwsGroupApplyResult webserver_group_post(WebServer& server, const String& self_ss58) {

@@ -13,20 +13,18 @@ extern DisplayManager displayManager;
 
 static void appendModeRadio(String& page, unsigned mode, const __FlashStringHelper* label,
                             const __FlashStringHelper* hint, unsigned selected) {
-	page += F("<label style='display:block;margin:12px 0;padding:12px;border:1px solid #e0e0e0;"
-		"border-radius:6px;'>"
+	page += F("<label class='guest-option'>"
 		"<input type='radio' name='epd_refresh_mode' value='");
 	page += String(mode);
 	page += F("'");
 	if (mode == selected) {
 		page += F(" checked");
 	}
-	page += F("/> <strong>");
+	page += F("/><span><strong>");
 	page += label;
-	page += F("</strong>"
-		"<p style='margin:8px 0 0 22px;font-size:12px;color:#666;'>");
+	page += F("</strong><span class='dash-row__desc'>");
 	page += hint;
-	page += F("</p></label>");
+	page += F("</span></span></label>");
 }
 
 static void appendSaveFeedback(String& page, ScreenSaveResult save_result) {
@@ -34,8 +32,7 @@ static void appendSaveFeedback(String& page, ScreenSaveResult save_result) {
 		return;
 	}
 	if (save_result == ScreenSave_Ok) {
-		page += F("<div style='margin:12px 0;padding:12px;background:#eef6ee;border:1px solid #c8e6c9;"
-			"border-radius:6px;color:#2e7d32;'><strong>");
+		page += F("<div class='ui-notice ui-notice--ok'><strong>");
 		page += FPSTR(INTL_SCREEN_SAVE_OK);
 		page += F("</strong></div>");
 		return;
@@ -46,31 +43,37 @@ static void appendSaveFeedback(String& page, ScreenSaveResult save_result) {
 	} else if (save_result == ScreenSave_ConfigFailed) {
 		message = FPSTR(INTL_SCREEN_SAVE_CONFIG_FAILED);
 	}
-	page += F("<div style='margin:12px 0;padding:12px;background:#ffebee;border:1px solid #ef9a9a;"
-		"border-radius:6px;color:#c62828;'><strong>");
+	page += F("<div class='ui-notice ui-notice--err'><strong>");
 	page += message;
 	page += F("</strong></div>");
 }
 
-void webserver_screen_page(String& page_content, ScreenSaveResult save_result) {
+void webserver_screen_page(String& page_content, ScreenSaveResult save_result, const char* form_action, bool hub_embed) {
 	const unsigned mode = cfg::epd_refresh_mode;
 
-	page_content += F("<p style='font-size:13px;color:#666;'>");
-	page_content += FPSTR(INTL_SCREEN_INTRO);
-	page_content += F("</p>");
+	if (!hub_embed) {
+		append_app_page_body_start(page_content, FPSTR(INTL_SCREEN_INTRO));
+	}
 
 	appendSaveFeedback(page_content, save_result);
 
-	page_content += F("<form method='POST' action='/screen'>");
+	page_content += F("<form class='page-form' method='POST' action='");
+	page_content += form_action;
+	page_content += F("'>");
 
 	appendModeRadio(page_content, EPD_REFRESH_SAFE, FPSTR(INTL_SCREEN_MODE_SAFE),
 	                FPSTR(INTL_SCREEN_MODE_SAFE_HINT), mode);
 	appendModeRadio(page_content, EPD_REFRESH_EXPERIMENTAL_PARTIAL, FPSTR(INTL_SCREEN_MODE_EXPERIMENTAL),
 	                FPSTR(INTL_SCREEN_MODE_EXPERIMENTAL_HINT), mode);
 
-	page_content += F("<input type='hidden' name='save_screen' value='1'/>");
+	page_content += F("<div class='page-form-footer'>"
+		"<input type='hidden' name='save_screen' value='1'/>");
 	page_content += form_submit(FPSTR(INTL_SAVE));
-	page_content += F("</form>");
+	page_content += F("</div></form>");
+
+	if (!hub_embed) {
+		append_app_page_body_end(page_content);
+	}
 }
 
 ScreenSaveResult webserver_screen_post(WebServer& server) {

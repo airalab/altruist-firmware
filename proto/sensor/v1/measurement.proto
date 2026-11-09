@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package sensor.v1;
+
+// Ambient or surface temperature.
+// Unit: 0.01 degrees Celsius (°C).
+message Temperature {
+  // Temperature in 0.01 °C.
+  // Example:
+  // 2347 = 23.47 °C
+  // -523 = -5.23 °C
+  sint32 centi_celsius = 1;
+}
+
+// Atmospheric pressure.
+// Unit: 0.1 pascal (Pa).
+message Pressure {
+  // Pressure in 0.1 Pa.
+  // Example: 1013250 = 101325.0 Pa
+  uint32 deci_pascal = 1;
+}
+
+// Relative humidity.
+// Unit: 0.01 percent (%RH), expected range 0..10000.
+message Humidity {
+  // Relative humidity in 0.01 %RH.
+  // Example: 5342 = 53.42 %RH
+  uint32 centi_percent = 1;
+}
+
+// Carbon dioxide concentration.
+// Unit: parts per million (ppm).
+message CO2 {
+  // CO₂ concentration in ppm.
+  uint32 ppm = 1;
+}
+
+// Particulate matter with diameter ≤ 2.5 µm.
+// Unit: 0.1 micrograms per cubic meter (µg/m³).
+message PM25 {
+  // PM2.5 concentration in 0.1 µg/m³.
+  uint32 deci_ug_m3 = 1;
+}
+
+// Particulate matter with diameter ≤ 10 µm.
+// Unit: 0.1 micrograms per cubic meter (µg/m³).
+message PM10 {
+  // PM10 concentration in 0.1 µg/m³.
+  uint32 deci_ug_m3 = 1;
+}
+
+// Acoustic noise level.
+// Unit: decibel (dB).
+message NoiseLevel {
+  // Noise level in whole decibels.
+  uint32 db = 1;
+}

@@ -13,6 +13,8 @@ namespace cfg {
 
 	extern char current_lang[3];
 	extern char current_reg[20];
+	/** True after user changes Region in UI; blocks OTA auto-region. */
+	extern bool region_manual;
 	// credentials for basic auth of internal web server
 	extern bool www_basicauth_enabled;
 	extern char www_username[LEN_WWW_USERNAME];
@@ -31,6 +33,11 @@ namespace cfg {
 	extern char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE];
 	extern char robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST];
 	extern char robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS];
+	extern char robonomics_proto_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST];
+	extern bool map_send_csv;
+	extern bool map_send_proto;
+	/** CPS NodeId from create_node; 0 = unset (omitted / default in proto Meta). */
+	extern unsigned node_id;
 	extern bool rws_auto_register;
 	extern unsigned rws_group_mode;
 	extern char rws_group_id[LEN_RWS_GROUP_ID];
@@ -44,6 +51,12 @@ namespace cfg {
 	extern bool send2custom;
 	extern bool send2influx;
 	extern bool send2csv;
+	/** Urban C6: Meshtastic UART on CN4, TX GPIO22 / RX GPIO20, 115200 baud. */
+	extern bool lora_uart_enabled;
+	/** Urban C6 LoRa period; UI stores seconds, persisted as ms. Default 3 min. */
+	extern unsigned lora_uart_sending_intervall_ms;
+	/** Meshtastic dest node id: 8 hex digits, optional leading '!'. Empty = do not send. */
+	extern char lora_dest_node[LEN_LORA_DEST_NODE];
 
 	extern bool auto_update;
 	extern bool use_beta;  // Legacy persisted key; ignored by channel-aware OTA.
@@ -70,6 +83,14 @@ namespace cfg {
 	extern char donated_by[LEN_DONATED_BY];
 
 	extern char temp_correction[LEN_TEMP_CORRECTION];
+	/** Added to BME280 hPa / BME680 (as hPa, converted to Pa). */
+	extern char pressure_correction[LEN_PRESSURE_CORRECTION];
+	/** Display unit for web / e-ink / graphs: `mmhg` (default) or `hpa`. Map/JSON stay SI. */
+	extern char pressure_unit[LEN_PRESSURE_UNIT];
+	/** Display unit: `c` (default) or `f`. Map/JSON stay °C. */
+	extern char temp_unit[LEN_TEMP_UNIT];
+	/** Display date: `mdy` MM/DD/YYYY (default), `dmy` DD.MM.YYYY, `ymd` YYYY-MM-DD. */
+	extern char date_format[LEN_DATE_FORMAT];
 	extern char local_hostname[LEN_LOCAL_HOSTNAME];
 	extern char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
 	extern char timezone[LEN_TIMEZONE];
@@ -78,6 +99,8 @@ namespace cfg {
 	extern bool use_custom_urban;
 	/** When true (Insight), do not register the HTTP Urban client sensor. */
 	extern bool standalone;
+	/** Extra Urbans on following MAIN pages (no Insight). Packed `ip|name;ip|name`. */
+	extern char extra_urbans[LEN_EXTRA_URBANS];
 	/** Insight e-paper: 0 = safe full refresh only, 1 = experimental partial refresh. */
 	extern unsigned epd_refresh_mode;
 	/** Paired mode: add Urban PM2.5 & noise to sleep analytics hourly history (default off = Insight PM2.5 only). */
@@ -90,6 +113,8 @@ namespace cfg {
 	/** Sleep analytics window: minutes from midnight [0..1439] (local). NVS keys stay *_hour for compatibility; values <=23 are treated as legacy whole hours. */
 	extern unsigned analytics_night_start_hour;
 	extern unsigned analytics_night_end_hour;
+	extern bool analytics_morning_autoswitch;
+	extern unsigned analytics_morning_end_hour;
 
 	// data sharing preferences
 	extern bool share_temperature;
@@ -105,6 +130,22 @@ namespace cfg {
 	extern bool share_fast_aqi;
 	extern bool share_epa_aqi;
 
+	// optional per-metric encryption for public feed (default off)
+	extern bool encrypt_temperature;
+	extern bool encrypt_humidity;
+	extern bool encrypt_pressure;
+	extern bool encrypt_co2;
+	extern bool encrypt_pm;
+	extern bool encrypt_noise;
+	extern bool encrypt_co;
+	extern bool encrypt_radiation;
+	extern bool encrypt_o3;
+	extern bool encrypt_no2;
+	extern bool encrypt_fast_aqi;
+	extern bool encrypt_epa_aqi;
+
+	/** Default LAN/mDNS name: altruist-<model>-<last4 chip id>, e.g. altruist-insight-a1b2 */
+	void formatDefaultLocalHostname(char* out, size_t out_len, const char* chip_id);
 	extern void initNonTrivials(const char* id);
 }
 

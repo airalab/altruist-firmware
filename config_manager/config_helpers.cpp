@@ -1,10 +1,58 @@
 #include "config_helpers.h"
+#include "device_backup.h"
 #include "utils.h"
 #include "../apis/rws_group.h"
+#include "../intl.h"
+#include "russia_region_poly.h"
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <strings.h>
+#include <cstring>
+#include <cmath>
 #include <time.h>
+#if defined(ESP32) || defined(ESP8266)
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#endif
+
+namespace {
+
+#if defined(ESP32) || defined(ESP8266)
+SemaphoreHandle_t g_config_fs_mutex = nullptr;
+
+void ensureConfigFsMutex() {
+	if (g_config_fs_mutex == nullptr) {
+		g_config_fs_mutex = xSemaphoreCreateRecursiveMutex();
+	}
+}
+
+class ConfigFsLockGuard {
+public:
+	explicit ConfigFsLockGuard(uint32_t timeout_ms = portMAX_DELAY) : locked_(false) {
+		ensureConfigFsMutex();
+		if (g_config_fs_mutex) {
+			locked_ = xSemaphoreTakeRecursive(g_config_fs_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+		}
+	}
+	~ConfigFsLockGuard() {
+		if (locked_ && g_config_fs_mutex) {
+			xSemaphoreGiveRecursive(g_config_fs_mutex);
+		}
+	}
+	bool ok() const { return locked_; }
+
+private:
+	bool locked_;
+};
+#else
+class ConfigFsLockGuard {
+public:
+	explicit ConfigFsLockGuard(uint32_t = 0) {}
+	bool ok() const { return true; }
+};
+#endif
+
+}  // namespace
 
 #if defined(ALTRUIST_INSIGHT)
 #include "../sensors/sensor_names.h"
@@ -23,6 +71,30 @@ void cfgOnStandaloneModeDisabled() {
 		cfg::analytics_sleep_add_urban = true;
 		debug_outln_info(F("Paired mode: enabled Urban night analytics"));
 	}
+}
+
+unsigned cfgMinutesOfDay(unsigned raw, unsigned fallback_minutes) {
+	if (raw <= 23u) {
+		return raw * 60u;
+	}
+	if (raw <= 1439u) {
+		return raw;
+	}
+	return fallback_minutes;
+}
+
+bool cfgInAnalyticsMorningWindow(const struct tm& timeinfo) {
+	if (!cfg::analytics_morning_autoswitch) {
+		return false;
+	}
+	const unsigned now_minutes =
+	    static_cast<unsigned>(timeinfo.tm_hour) * 60u + static_cast<unsigned>(timeinfo.tm_min);
+	constexpr unsigned kMorningStartMinutes = 6u * 60u;
+	const unsigned end_minutes = cfgMinutesOfDay(cfg::analytics_morning_end_hour, 12u * 60u);
+	if (end_minutes <= kMorningStartMinutes) {
+		return false;
+	}
+	return now_minutes >= kMorningStartMinutes && now_minutes < end_minutes;
 }
 
 void clearUrbanPairingTelemetry(JsonDocument &data) {
@@ -154,50 +226,51 @@ bool writeConfig() {
 	if (cfg::standalone) {
 		cfg::analytics_sleep_add_urban = false;
 	}
+	extraUrbansSanitize();
 #endif
+	ConfigFsLockGuard lock(10000);
+	if (!lock.ok()) {
+		debug_outln_error(F("Config write skipped: filesystem lock busy"));
+		return false;
+	}
+
 	DynamicJsonDocument json(JSON_BUFFER_SIZE);
 	debug_outln_info(F("Saving config..."));
-	json["SOFTWARE_VERSION"] = SOFTWARE_VERSION_STR;
-
-	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
-		ConfigShapeEntry c;
-		memcpy_P(&c, &configShape[e], sizeof(ConfigShapeEntry));
-		switch (c.cfg_type) {
-		case Config_Type_Bool:
-			json[c.cfg_key()].set(*c.cfg_val.as_bool);
-			break;
-		case Config_Type_UInt:
-		case Config_Type_Time:
-			json[c.cfg_key()].set(*c.cfg_val.as_uint);
-			break;
-		case Config_Type_Password:
-		case Config_Type_String:
-			json[c.cfg_key()].set(c.cfg_val.as_str);
-			break;
-		};
+	// Must use to<JsonObject>() — as<JsonObject>() on an empty doc is null and writes nowhere.
+	if (!serializeConfigToJson(json.to<JsonObject>())) {
+		debug_outln_error(F("Config JSON overflow while saving; increase JSON_BUFFER_SIZE"));
+		return false;
 	}
 
 	if (json.overflowed()) {
 		debug_outln_error(F("Config JSON overflow while saving; increase JSON_BUFFER_SIZE"));
+		logSubsystemError(F("config"), F("json_overflow_save"));
 		return false;
 	}
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored  "-Wdeprecated-declarations"
 
-	SPIFFS.remove(F("/config.json.old"));
-	SPIFFS.rename(F("/config.json"), F("/config.json.old"));
-
-	File configFile = SPIFFS.open(F("/config.json"), "w");
-	if (configFile) {
-		serializeJson(json, configFile);
-		configFile.close();
-		debug_outln_info(F("Config written successfully."));
-	} else {
+	SPIFFS.remove(F("/config.json.new"));
+	File configFile = SPIFFS.open(F("/config.json.new"), "w");
+	if (!configFile) {
 		debug_outln_error(F("failed to open config file for writing"));
+		logSubsystemError(F("config"), F("open_write_failed"), String(F("path=/config.json")));
 		return false;
 	}
+	serializeJson(json, configFile);
 	configFile.close();
+
+	SPIFFS.remove(F("/config.json.old"));
+	if (SPIFFS.exists(F("/config.json"))) {
+		SPIFFS.rename(F("/config.json"), F("/config.json.old"));
+	}
+	if (!SPIFFS.rename(F("/config.json.new"), F("/config.json"))) {
+		debug_outln_error(F("failed to finalize config file write"));
+		SPIFFS.remove(F("/config.json.new"));
+		return false;
+	}
+	debug_outln_info(F("Config written successfully."));
 
 #pragma GCC diagnostic pop
 
@@ -268,7 +341,37 @@ static bool cfgMigrateLegacyFsSsid() {
 	return true;
 }
 
+/** OTA-safe: plain altruist / altruist-insight / altruist-urban → altruist-<model>-<id>; keep custom names. */
+static bool cfgMigrateLegacyLocalHostname() {
+	const bool legacy =
+		cfg::local_hostname[0] == '\0' ||
+		strcmp(cfg::local_hostname, "altruist") == 0 ||
+		strcmp(cfg::local_hostname, "altruist-insight") == 0 ||
+		strcmp(cfg::local_hostname, "altruist-urban") == 0 ||
+		strcmp(cfg::local_hostname, LOCAL_HOSTNAME) == 0;
+	if (!legacy) {
+		return false;
+	}
+	const String chip_id = get_chipid();
+	char target[LEN_LOCAL_HOSTNAME];
+	cfg::formatDefaultLocalHostname(target, sizeof(target), chip_id.c_str());
+	if (strcmp(cfg::local_hostname, target) == 0) {
+		return false;
+	}
+	debug_outln_info(F("[Config] Migrating local_hostname from: "), String(cfg::local_hostname));
+	strncpy(cfg::local_hostname, target, LEN_LOCAL_HOSTNAME - 1);
+	cfg::local_hostname[LEN_LOCAL_HOSTNAME - 1] = '\0';
+	debug_outln_info(F("[Config] Migrated local_hostname to: "), String(cfg::local_hostname));
+	return true;
+}
+
 void readConfig(bool oldconfig) {
+	ConfigFsLockGuard lock(10000);
+	if (!lock.ok()) {
+		debug_outln_error(F("Config read skipped: filesystem lock busy"));
+		return;
+	}
+
 	bool rewriteConfig = false;
 
 	String cfgName(F("/config.json"));
@@ -285,6 +388,7 @@ void readConfig(bool oldconfig) {
 		}
 
 		debug_outln_error(F("failed to open config file."));
+		logSubsystemError(F("config"), F("open_read_failed"), String(F("path=")) + cfgName);
 		return;
 	}
 
@@ -353,14 +457,117 @@ void readConfig(bool oldconfig) {
 		if (cfgMigrateLegacyFsSsid()) {
 			rewriteConfig = true;
 		}
+		if (cfgMigrateLegacyLocalHostname()) {
+			rewriteConfig = true;
+		}
 #if defined(ALTRUIST_INSIGHT)
 		if (cfg::standalone && cfg::analytics_sleep_add_urban) {
 			cfgApplyStandaloneModeEnabled();
 			rewriteConfig = true;
 		}
+		if (cfg::extra_urbans[0] == '\0') {
+			String packed;
+			auto take_legacy = [&](const char *ip_key, const char *name_key) {
+				if (json[ip_key].isNull()) {
+					return;
+				}
+				const char *ip = json[ip_key].as<const char *>();
+				if (!ip || ip[0] == '\0') {
+					return;
+				}
+				if (packed.length() > 0) {
+					packed += ';';
+				}
+				packed += ip;
+				packed += '|';
+				if (!json[name_key].isNull()) {
+					const char *nm = json[name_key].as<const char *>();
+					if (nm) {
+						packed += nm;
+					}
+				}
+			};
+			take_legacy("extra_urban_1_ip", "extra_urban_1_name");
+			take_legacy("extra_urban_2_ip", "extra_urban_2_name");
+			if (packed.length() > 0) {
+				strncpy(cfg::extra_urbans, packed.c_str(), LEN_EXTRA_URBANS - 1);
+				cfg::extra_urbans[LEN_EXTRA_URBANS - 1] = '\0';
+				rewriteConfig = true;
+			}
+		}
+		{
+			char extras_before[LEN_EXTRA_URBANS];
+			strncpy(extras_before, cfg::extra_urbans, LEN_EXTRA_URBANS - 1);
+			extras_before[LEN_EXTRA_URBANS - 1] = '\0';
+			extraUrbansSanitize();
+			if (strcmp(extras_before, cfg::extra_urbans) != 0) {
+				rewriteConfig = true;
+			}
+		}
 #endif
+		// Climate (temp + humidity) is one map chart — keep encrypt flags paired.
+		if (cfg::encrypt_temperature != cfg::encrypt_humidity) {
+			const bool climate = cfg::encrypt_temperature || cfg::encrypt_humidity;
+			cfg::encrypt_temperature = climate;
+			cfg::encrypt_humidity = climate;
+			rewriteConfig = true;
+		}
+		if (cfg::leds_brightness > 100) {
+			cfg::leds_brightness = 100;
+			rewriteConfig = true;
+		}
+		// Connectivity regions are only RU / Global now; migrate legacy continent ids.
+		if (strcmp(cfg::current_reg, REGION_RU) != 0 &&
+		    strcmp(cfg::current_reg, REGION_GLOBAL) != 0) {
+			strncpy(cfg::current_reg, REGION_GLOBAL, sizeof(cfg::current_reg) - 1);
+			cfg::current_reg[sizeof(cfg::current_reg) - 1] = '\0';
+			rewriteConfig = true;
+		}
+		if (strcasecmp(cfg::pressure_unit, PRESSURE_UNIT_HPA) == 0) {
+			if (strcmp(cfg::pressure_unit, PRESSURE_UNIT_HPA) != 0) {
+				strncpy(cfg::pressure_unit, PRESSURE_UNIT_HPA, sizeof(cfg::pressure_unit) - 1);
+				cfg::pressure_unit[sizeof(cfg::pressure_unit) - 1] = '\0';
+				rewriteConfig = true;
+			}
+		} else if (strcmp(cfg::pressure_unit, PRESSURE_UNIT_MMHG) != 0) {
+			strncpy(cfg::pressure_unit, PRESSURE_UNIT_MMHG, sizeof(cfg::pressure_unit) - 1);
+			cfg::pressure_unit[sizeof(cfg::pressure_unit) - 1] = '\0';
+			rewriteConfig = true;
+		}
+		if (strcasecmp(cfg::temp_unit, TEMP_UNIT_F) == 0) {
+			if (strcmp(cfg::temp_unit, TEMP_UNIT_F) != 0) {
+				strncpy(cfg::temp_unit, TEMP_UNIT_F, sizeof(cfg::temp_unit) - 1);
+				cfg::temp_unit[sizeof(cfg::temp_unit) - 1] = '\0';
+				rewriteConfig = true;
+			}
+		} else if (strcmp(cfg::temp_unit, TEMP_UNIT_C) != 0) {
+			strncpy(cfg::temp_unit, TEMP_UNIT_C, sizeof(cfg::temp_unit) - 1);
+			cfg::temp_unit[sizeof(cfg::temp_unit) - 1] = '\0';
+			rewriteConfig = true;
+		}
+		if (strcasecmp(cfg::date_format, DATE_FORMAT_DMY) == 0) {
+			if (strcmp(cfg::date_format, DATE_FORMAT_DMY) != 0) {
+				strncpy(cfg::date_format, DATE_FORMAT_DMY, sizeof(cfg::date_format) - 1);
+				cfg::date_format[sizeof(cfg::date_format) - 1] = '\0';
+				rewriteConfig = true;
+			}
+		} else if (strcasecmp(cfg::date_format, DATE_FORMAT_YMD) == 0) {
+			if (strcmp(cfg::date_format, DATE_FORMAT_YMD) != 0) {
+				strncpy(cfg::date_format, DATE_FORMAT_YMD, sizeof(cfg::date_format) - 1);
+				cfg::date_format[sizeof(cfg::date_format) - 1] = '\0';
+				rewriteConfig = true;
+			}
+		} else if (strcmp(cfg::date_format, DATE_FORMAT_MDY) != 0) {
+			strncpy(cfg::date_format, DATE_FORMAT_MDY, sizeof(cfg::date_format) - 1);
+			cfg::date_format[sizeof(cfg::date_format) - 1] = '\0';
+			rewriteConfig = true;
+		}
+		if (cfgApplyAutoRegion()) {
+			rewriteConfig = true;
+		}
 	} else {
 		debug_outln_error(F("failed to load json config"));
+		logSubsystemError(F("config"), F("json_parse_failed"), String(F("path=")) + cfgName);
 
 		if (!oldconfig) {
 			return readConfig(true /* oldconfig */);
@@ -389,9 +596,105 @@ void init_config() {
 
 	if (!spiffs_begin_ok) {
 		debug_outln_error(F("failed to mount FS"));
+		logSubsystemError(F("config"), F("fs_mount_failed"));
 		return;
 	}
 	readConfig();
+}
+
+bool cfgHasValidMapCoords(double* lat_out, double* lon_out) {
+	double lat = 0.0;
+	double lon = 0.0;
+	if (strlen(cfg::coords_gps) == 0) {
+		return false;
+	}
+	if (sscanf(cfg::coords_gps, "%lf,%lf", &lat, &lon) != 2) {
+		return false;
+	}
+	if (lat == 0.0 && lon == 0.0) {
+		return false;
+	}
+	if (lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
+		return false;
+	}
+	if (lat_out) {
+		*lat_out = lat;
+	}
+	if (lon_out) {
+		*lon_out = lon;
+	}
+	return true;
+}
+
+static bool cfgPointInRuRing100(int32_t lon100, int32_t lat100, const RuLonLat* pts, uint16_t count) {
+	if (!pts || count < 3) {
+		return false;
+	}
+	bool inside = false;
+	RuLonLat prev;
+	memcpy_P(&prev, &pts[count - 1], sizeof(prev));
+	for (uint16_t i = 0; i < count; ++i) {
+		RuLonLat cur;
+		memcpy_P(&cur, &pts[i], sizeof(cur));
+		const int32_t yi = cur.lat100;
+		const int32_t yj = prev.lat100;
+		if ((yi > lat100) != (yj > lat100)) {
+			const int32_t xi = cur.lon100;
+			const int32_t xj = prev.lon100;
+			const int32_t den = yj - yi;
+			if (den != 0) {
+				const int32_t xinters = xi + static_cast<int32_t>(
+					(static_cast<int64_t>(xj - xi) * (lat100 - yi)) / den);
+				if (lon100 < xinters) {
+					inside = !inside;
+				}
+			}
+		}
+		prev = cur;
+	}
+	return inside;
+}
+
+static bool cfgCoordsInRussia(double lat, double lon) {
+	// Cheap reject before point-in-polygon.
+	if (lat < 41.0 || lat > 82.5) {
+		return false;
+	}
+	if (!((lon >= 19.0 && lon <= 180.0) || (lon >= -180.0 && lon <= -169.0))) {
+		return false;
+	}
+
+	const int32_t lon100 = static_cast<int32_t>(lround(lon * 100.0));
+	const int32_t lat100 = static_cast<int32_t>(lround(lat * 100.0));
+	for (uint8_t r = 0; r < kRuRingCount; ++r) {
+		RuRing ring;
+		memcpy_P(&ring, &kRuRings[r], sizeof(ring));
+		if (cfgPointInRuRing100(lon100, lat100, ring.pts, ring.count)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool cfgApplyAutoRegion() {
+	if (cfg::region_manual) {
+		return false;
+	}
+
+	double lat = 0.0;
+	double lon = 0.0;
+	if (!cfgHasValidMapCoords(&lat, &lon)) {
+		return false;
+	}
+
+	const char* want = cfgCoordsInRussia(lat, lon) ? REGION_RU : REGION_GLOBAL;
+	if (strcmp(cfg::current_reg, want) == 0) {
+		return false;
+	}
+	strncpy(cfg::current_reg, want, sizeof(cfg::current_reg) - 1);
+	cfg::current_reg[sizeof(cfg::current_reg) - 1] = '\0';
+	debug_outln_info(F("Region auto-set: "), String(want));
+	return true;
 }
 
 String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type) {
@@ -416,7 +719,7 @@ String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type) {
 
 	char date[11] = "1970-01-01";
 	struct tm timeinfo;
-	if (getLocalTime(&timeinfo)) {
+	if (getLocalTime(&timeinfo, 0)) {
 		strftime(date, sizeof(date), "%Y-%m-%d", &timeinfo);
 	}
 
@@ -430,4 +733,206 @@ String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type) {
 		"https://sensors.social/?type=%s&date=%s&provider=remote&lat=%s&lng=%s&zoom=%d&owner=%s&sensor=%s",
 		map_type, date, lat, lon, zoom, owner, sensor_ss58);
 	return String(buf);
+}
+
+#if defined(ALTRUIST_INSIGHT)
+uint8_t extraUrbansParse(ExtraUrbanItem *out, uint8_t maxn) {
+	if (!out || maxn == 0) {
+		return 0;
+	}
+	const char *s = cfg::extra_urbans;
+	if (!s || s[0] == '\0') {
+		return 0;
+	}
+	uint8_t n = 0;
+	const char *p = s;
+	while (*p && n < maxn) {
+		while (*p == ';') {
+			++p;
+		}
+		if (!*p) {
+			break;
+		}
+		const char *end = strchr(p, ';');
+		if (!end) {
+			end = p + strlen(p);
+		}
+		const char *bar = nullptr;
+		for (const char *q = p; q < end; ++q) {
+			if (*q == '|') {
+				bar = q;
+				break;
+			}
+		}
+		const char *ip_end = bar ? bar : end;
+		while (p < ip_end && (*p == ' ' || *p == '\t')) {
+			++p;
+		}
+		const char *ipe = ip_end;
+		while (ipe > p && (ipe[-1] == ' ' || ipe[-1] == '\t')) {
+			--ipe;
+		}
+		const size_t iplen = (size_t)(ipe - p);
+		if (iplen > 0) {
+			const size_t ip_copy = (iplen >= sizeof(out[n].ip)) ? (sizeof(out[n].ip) - 1) : iplen;
+			memcpy(out[n].ip, p, ip_copy);
+			out[n].ip[ip_copy] = '\0';
+			out[n].name[0] = '\0';
+			if (bar) {
+				const char *np = bar + 1;
+				while (np < end && (*np == ' ' || *np == '\t')) {
+					++np;
+				}
+				const char *ne = end;
+				while (ne > np && (ne[-1] == ' ' || ne[-1] == '\t')) {
+					--ne;
+				}
+				size_t namelen = (size_t)(ne - np);
+				if (namelen >= sizeof(out[n].name)) {
+					namelen = sizeof(out[n].name) - 1;
+				}
+				if (namelen > 0) {
+					memcpy(out[n].name, np, namelen);
+					out[n].name[namelen] = '\0';
+				}
+			}
+			++n;
+		}
+		p = (*end == ';') ? (end + 1) : end;
+	}
+	return n;
+}
+
+void extraUrbansMainIp(char *out, size_t out_len) {
+	if (!out || out_len == 0) {
+		return;
+	}
+	out[0] = '\0';
+	if (cfg::use_custom_urban && cfg::custom_altruist_urban[0] != '\0') {
+		strncpy(out, cfg::custom_altruist_urban, out_len - 1);
+	} else if (cfg::chosen_altruist_urban[0] != '\0') {
+		strncpy(out, cfg::chosen_altruist_urban, out_len - 1);
+	}
+	out[out_len - 1] = '\0';
+}
+
+bool extraUrbansIpIsMain(const char *ip) {
+	if (!ip || ip[0] == '\0') {
+		return false;
+	}
+	char main_ip[LEN_CHOSEN_ALTRUIS_ADDRESS];
+	extraUrbansMainIp(main_ip, sizeof(main_ip));
+	return main_ip[0] != '\0' && strcmp(ip, main_ip) == 0;
+}
+
+void extraUrbansSanitize() {
+	ExtraUrbanItem items[MAX_EXTRA_URBANS];
+	const uint8_t n = extraUrbansParse(items, MAX_EXTRA_URBANS);
+	char packed[LEN_EXTRA_URBANS];
+	packed[0] = '\0';
+	size_t used = 0;
+	for (uint8_t i = 0; i < n; i++) {
+		if (items[i].ip[0] == '\0' || extraUrbansIpIsMain(items[i].ip)) {
+			continue;
+		}
+		const size_t ip_len = strlen(items[i].ip);
+		const size_t name_len = strlen(items[i].name);
+		const size_t need = ip_len + 1 + name_len + (used ? 1 : 0);
+		if (used + need + 1 > sizeof(packed)) {
+			break;
+		}
+		if (used) {
+			packed[used++] = ';';
+		}
+		memcpy(packed + used, items[i].ip, ip_len);
+		used += ip_len;
+		packed[used++] = '|';
+		memcpy(packed + used, items[i].name, name_len);
+		used += name_len;
+		packed[used] = '\0';
+	}
+	if (strcmp(cfg::extra_urbans, packed) != 0) {
+		strncpy(cfg::extra_urbans, packed, LEN_EXTRA_URBANS - 1);
+		cfg::extra_urbans[LEN_EXTRA_URBANS - 1] = '\0';
+	}
+}
+#endif
+
+bool cfgPressureDisplayHpa() {
+	return strcasecmp(cfg::pressure_unit, PRESSURE_UNIT_HPA) == 0;
+}
+
+const char *cfgPressureDisplayUnit() {
+	return cfgPressureDisplayHpa() ? "hPa" : "mmHg";
+}
+
+float pressurePaToDisplay(float pa) {
+	if (cfgPressureDisplayHpa()) {
+		return pa * 0.01f;
+	}
+	return pa * 0.00750062f;
+}
+
+float pressureMmHgToDisplay(float mmhg) {
+	if (mmhg < 0.0f) {
+		return mmhg;
+	}
+	if (cfgPressureDisplayHpa()) {
+		return mmhg / 0.75f;
+	}
+	return mmhg;
+}
+
+bool cfgTempDisplayFahrenheit() {
+	return strcasecmp(cfg::temp_unit, TEMP_UNIT_F) == 0;
+}
+
+const char *cfgTempDisplayUnit() {
+	return cfgTempDisplayFahrenheit() ? "°F" : "°C";
+}
+
+float tempCToDisplay(float celsius) {
+	if (celsius <= -200.0f) {
+		return celsius;
+	}
+	if (cfgTempDisplayFahrenheit()) {
+		return celsius * 1.8f + 32.0f;
+	}
+	return celsius;
+}
+
+const char *cfgDateStrftimeFmt() {
+	if (strcasecmp(cfg::date_format, DATE_FORMAT_DMY) == 0) {
+		return "%d.%m.%Y";
+	}
+	if (strcasecmp(cfg::date_format, DATE_FORMAT_YMD) == 0) {
+		return "%Y-%m-%d";
+	}
+	return "%m/%d/%Y";
+}
+
+void cfgFormatDate(char *buf, size_t n, const struct tm *ti) {
+	if (!buf || n == 0) {
+		return;
+	}
+	buf[0] = '\0';
+	if (!ti) {
+		return;
+	}
+	strftime(buf, n, cfgDateStrftimeFmt(), ti);
+}
+
+void cfgFormatDateTime(char *buf, size_t n, const struct tm *ti) {
+	if (!buf || n == 0) {
+		return;
+	}
+	buf[0] = '\0';
+	if (!ti) {
+		return;
+	}
+	char date[16];
+	cfgFormatDate(date, sizeof(date), ti);
+	char clock[16];
+	strftime(clock, sizeof(clock), "%H:%M:%S", ti);
+	snprintf(buf, n, "%s %s", date, clock);
 }

@@ -20,11 +20,10 @@ bool AGS3871Sensor::begin()
     debug_outln_info(F("Begin AGS3871Sensor"));
     debug_outln_info(F("AGS3871 I2C address: 0x"), String(AGS3871Driver::ADDRESS, HEX));
 
-    // This wrapper owns bus setup/teardown; the driver only performs protocol
-    // transactions on an already initialized I2C bus.
-    if (i2c_master_init() != ESP_OK)
+    I2cBusLock bus;
+    if (!bus.ok())
     {
-        debug_outln_error(F("AGS3871 i2c_master_init failed"));
+        debug_outln_error(F("AGS3871 I2C bus lock failed"));
         return false;
     }
 
@@ -44,7 +43,6 @@ bool AGS3871Sensor::begin()
         debug_outln_info(F("AGS3871 last I2C error: "), String(ags3871.lastI2CError()));
     }
 
-    deinit_i2c();
     return initialized;
 }
 
@@ -69,18 +67,16 @@ void AGS3871Sensor::_fetch(JsonDocument &data)
 
     debug_outln_verbose(F("fetch AGS3871"));
 
-    // Other sensors share the same I2C helper, so each fetch opens and closes
-    // the bus around one AGS3871 transaction.
-    if (i2c_master_init() != ESP_OK)
+    I2cBusLock bus;
+    if (!bus.ok())
     {
-        debug_outln_error(F("AGS3871 i2c_master_init failed in fetch"));
+        debug_outln_error(F("AGS3871 I2C bus lock failed in fetch"));
         addValueToJSON(data, F("status"), String(F("i2c_error")), F("Status"), F(""));
         return;
     }
 
     AGS3871ConcentrationData reading;
     const AGS3871Error err = ags3871.readConcentration(reading);
-    deinit_i2c();
 
     if (err == AGS3871_ERROR_NOT_READY)
     {

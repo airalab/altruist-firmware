@@ -42,6 +42,8 @@ class LedControllerUrban {
         bool _hasBoardRgbLed();
         String _modeName(LedMode mode);
         void _forceOff();
+        void _applyBrightness();
+        uint8_t _brightnessFromConfig();
         void _setSolidColor(uint8_t red, uint8_t green, uint8_t blue);
         void _setAllPixels(uint32_t color);
 };

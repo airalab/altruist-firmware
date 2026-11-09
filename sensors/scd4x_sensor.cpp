@@ -1,5 +1,6 @@
 #include "scd4x_sensor.h"
 #include "../utils.h"
+#include "drivers/i2c.h"
 #include "drivers/SCD4x_Library/src/SparkFun_SCD4x_Arduino_Library.h"
 #include "../intl.h"
 #include "sensor_names.h"
@@ -18,11 +19,16 @@ SCD4xSensor::SCD4xSensor(unsigned long sending_timeout)
 
 bool SCD4xSensor::begin() {
     debug_outln_info(F("Begin SCD4xSensor"));
-    i2c_master_init();
-    bool res = mySensor.begin(true, false, false, true);
-    deinit_i2c();
+    I2cBusLock bus;
+    if (!bus.ok()) {
+        debug_outln_error(F("SCD4x I2C bus lock failed"));
+        return false;
+    }
+    // measBegin, autoCalibrate, skipStopPeriodicMeasurements, pollAndSetDeviceType
+    bool res = mySensor.begin(true, true, false, true);
     if (res) {
         debug_outln_info(F("SCD4x Sensor started with fetch interval (sec): "), String(timeout/1000));
+        debug_outln_info(F("SCD4x automatic self-calibration (ASC) enabled"));
     }
     last_fetch_time = millis() - timeout;
     return res;
@@ -30,7 +36,11 @@ bool SCD4xSensor::begin() {
 
 void SCD4xSensor::_fetch(JsonDocument &data) {
     debug_outln_verbose(F("fetch SCD4x"));
-    i2c_master_init();
+    I2cBusLock bus;
+    if (!bus.ok()) {
+        debug_outln_error(F("SCD4x I2C bus lock failed in fetch"));
+        return;
+    }
     uint8_t counter = 0;
     bool is_meas = true;
     while (!mySensor.readMeasurement()) {
@@ -57,5 +67,4 @@ void SCD4xSensor::_fetch(JsonDocument &data) {
         serializeJson(data, Serial);
 #endif
     }
-    deinit_i2c();
 }

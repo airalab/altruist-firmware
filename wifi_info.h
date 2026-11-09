@@ -12,4 +12,7 @@ struct struct_wifiInfo {
     bool isHidden;
 };
 
+/** Max networks shown in captive-portal Wi‑Fi list (stack buffers). */
+constexpr uint8_t WIFI_SCAN_LIST_MAX = 20;
+
 #endif // __WIFI_INFO_H__

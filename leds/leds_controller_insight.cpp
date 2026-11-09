@@ -118,7 +118,7 @@ void LedControllerInsight::process() {
 
             // Periodic summary to correlate with "LEDs stuck OFF" reports.
             if ((now_ms - mutex_diag_window_start_ms) >= mutex_diag_window_ms) {
-                debug_outln_info(F("[LED][DIAG] mutex window"),
+                debug_outln_verbose(F("[LED][DIAG] mutex window"),
                     String(mutex_diag_window_ms / 1000) + F("s fails=") + String(mutex_diag_fails_in_window) +
                     F(" ok=") + String(mutex_diag_success_in_window) +
                     F(" streak=") + String(mutex_diag_fail_streak));
@@ -155,7 +155,7 @@ void LedControllerInsight::process() {
         mutex_diag_success_in_window++;
         mutex_diag_fail_streak = 0;
         if ((now_ms - mutex_diag_window_start_ms) >= mutex_diag_window_ms) {
-            debug_outln_info(F("[LED][DIAG] mutex window"),
+            debug_outln_verbose(F("[LED][DIAG] mutex window"),
                 String(mutex_diag_window_ms / 1000) + F("s fails=") + String(mutex_diag_fails_in_window) +
                 F(" ok=") + String(mutex_diag_success_in_window) +
                 F(" streak=") + String(mutex_diag_fail_streak));
