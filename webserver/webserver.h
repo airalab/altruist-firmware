@@ -19,6 +19,8 @@ public:
     void handleClient();
     void setWifiInfo(struct_wifiInfo* info, uint8_t count);
     void setRobonomicsAddress(const String& address) { robonomics_address = address; };
+    String provisionCurrentAddress() const;
+    bool provisionInstallRaw(const String& raw, String& addressOut);
 
 private:
     WebServer server;
@@ -75,6 +77,8 @@ private:
     void _webserver_backup_json();
     void _webserver_restore_backup_post();
     void _webserver_restore_backup_upload();
+    void _webserver_provision_key();
+    void _webserver_provision();
     void _webserver_static();
     void _webserver_not_found();
     void _webserver_ota();

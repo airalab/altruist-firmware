@@ -675,7 +675,7 @@ static void safeConfigTzTime(const char* tz, const char* server1, const char* se
 static void setupNetworkTime() {
 	// server name ptrs must be persisted after the call to configTime because internally
 	// the pointers are stored see implementation of lwip sntp_setservername()
-	debug_outln_info(F("Setup time, timezone: "), cfg::timezone);
+	debug_outln_info(F("Setup time, timezone: "), cfgPosixTimezone());
 
 	static char ntpServer1[18], ntpServer2[18];
 	strcpy_P(ntpServer1, NTP_SERVER_1);
@@ -683,10 +683,34 @@ static void setupNetworkTime() {
 
 #if defined(ESP32)
 	// Use safe SNTP init to avoid lwIP core-locking asserts on ESP32-C6.
-	safeConfigTzTime(cfg::timezone, ntpServer1, ntpServer2, "");
+	safeConfigTzTime(cfgPosixTimezone(), ntpServer1, ntpServer2, "");
 #else
-	configTzTime(cfg::timezone, ntpServer1, ntpServer2);
+	configTzTime(cfgPosixTimezone(), ntpServer1, ntpServer2);
 #endif
+}
+
+static bool networkTimeValid() {
+	struct tm timeinfo;
+	return getLocalTime(&timeinfo, 0);
+}
+
+/** Start/retry SNTP once STA has an address. Boot used to call this only if Wi-Fi
+ *  was already up in setup(); after a power cut the router may still be down then,*/
+static void maybeEnsureNetworkTime(bool force) {
+	static unsigned long last_sntp_ensure_ms = 0;
+	if (!wifiStaLinkReady()) {
+		return;
+	}
+	if (networkTimeValid()) {
+		return;
+	}
+	const unsigned long min_gap_ms = force ? 2000UL : 30000UL;
+	if (last_sntp_ensure_ms != 0 && msSince(last_sntp_ensure_ms) < min_gap_ms) {
+		return;
+	}
+	last_sntp_ensure_ms = millis();
+	debug_outln_info(F("[Time] STA up, starting SNTP"));
+	setupNetworkTime();
 }
 
 static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &doc, analytics_screen_values_t &values) {
@@ -700,6 +724,7 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 	auto validCO2 = [](float v) { return v >= 150.0f; };
 	auto validPM = [](float v) { return v >= 0.0f && v <= 1500.0f; };
 	auto validNoise = [](float v) { return v >= 0.0f && v <= 120.0f; };
+	auto validPressureMmHg = [](float v) { return v >= 500.0f && v <= 1000.0f; };
 
 	const bool use_bme680_for_temp_hum = (system_metrics.uptime_sec < 360);
 
@@ -721,20 +746,41 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 		}
 	}
 
-	if (data.containsKey("BME680") && use_bme680_for_temp_hum) {
-		JsonObjectConst bme = data["BME680"].as<JsonObjectConst>();
-		if (bme.containsKey("temperature")) {
-			const float v = bme["temperature"]["value"].as<float>();
-			if (validTemp(v)) { values.temp_indoor.current = v; values.temp_indoor.has_current = true; }
+	if (data.containsKey("BME680")) {
+		JsonObjectConst bme_voc = data["BME680"].as<JsonObjectConst>();
+		if (bme_voc.containsKey("voc_spikes_today")) {
+			const int v = bme_voc["voc_spikes_today"]["value"].as<int>();
+			values.voc_spikes_today = (int16_t)(v < 0 ? 0 : v);
 		}
-		if (bme.containsKey("humidity")) {
-			const float v = bme["humidity"]["value"].as<float>();
-			if (validHumidity(v)) { values.hum_indoor.current = v; values.hum_indoor.has_current = true; }
+	}
+
+	if (data.containsKey("BME680")) {
+		JsonObjectConst bme = data["BME680"].as<JsonObjectConst>();
+		if (use_bme680_for_temp_hum) {
+			if (bme.containsKey("temperature")) {
+				const float v = bme["temperature"]["value"].as<float>();
+				if (validTemp(v)) { values.temp_indoor.current = v; values.temp_indoor.has_current = true; }
+			}
+			if (bme.containsKey("humidity")) {
+				const float v = bme["humidity"]["value"].as<float>();
+				if (validHumidity(v)) { values.hum_indoor.current = v; values.hum_indoor.has_current = true; }
+			}
+		}
+		if (bme.containsKey("pressure")) {
+			const float v = bme["pressure"]["value"].as<float>() * 0.0075f;
+			if (validPressureMmHg(v)) {
+				values.press_indoor.current = v;
+				values.press_indoor.has_current = true;
+			}
 		}
 	}
 
 	if (!cfg::standalone && data.containsKey(urban_key)) {
 		JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
+		if (urban.containsKey("SDS_P1")) {
+			const float v = urban["SDS_P1"]["value"].as<float>();
+			if (validPM(v)) { values.pm10.current = v; values.pm10.has_current = true; }
+		}
 		if (urban.containsKey("SDS_P2")) {
 			const float v = urban["SDS_P2"]["value"].as<float>();
 			if (validPM(v)) { values.pm25.current = v; values.pm25.has_current = true; }
@@ -746,6 +792,72 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 		if (urban.containsKey("PCBA_noiseMax")) {
 			const float v = urban["PCBA_noiseMax"]["value"].as<float>();
 			if (validNoise(v)) { values.noise_max.current = v; values.noise_max.has_current = true; }
+		}
+		if (urban.containsKey("BME280_temperature")) {
+			const float v = urban["BME280_temperature"]["value"].as<float>();
+			if (validTemp(v)) { values.temp_urban.current = v; values.temp_urban.has_current = true; }
+		}
+		if (urban.containsKey("BME280_humidity")) {
+			const float v = urban["BME280_humidity"]["value"].as<float>();
+			if (validHumidity(v)) { values.hum_urban.current = v; values.hum_urban.has_current = true; }
+		}
+		if (urban.containsKey("BME280_pressure")) {
+			const float v = urban["BME280_pressure"]["value"].as<float>() * 0.0075f;
+			if (validPressureMmHg(v)) {
+				values.press_urban.current = v;
+				values.press_urban.has_current = true;
+			}
+		}
+	}
+
+	// Same source as the Desk numbers slide (HTTP snap), so Urban climate/air
+	// hourly buckets fill even when sensors_data JSON is briefly empty.
+	if (!cfg::standalone) {
+		float snap_pm10 = -1, snap_pm25 = -1, snap_na = -1, snap_nm = -1;
+		float snap_temp = -1000, snap_hum = -1, snap_press_pa = -1;
+		if (httpUrbanCopyMainSnap(&snap_pm10, &snap_pm25, &snap_na, &snap_nm,
+		                          &snap_temp, &snap_hum, &snap_press_pa)) {
+			if (validPM(snap_pm10)) {
+				values.pm10.current = snap_pm10;
+				values.pm10.has_current = true;
+			}
+			if (validPM(snap_pm25)) {
+				values.pm25.current = snap_pm25;
+				values.pm25.has_current = true;
+			}
+			if (validNoise(snap_na)) {
+				values.noise_avg.current = snap_na;
+				values.noise_avg.has_current = true;
+			}
+			if (validNoise(snap_nm)) {
+				values.noise_max.current = snap_nm;
+				values.noise_max.has_current = true;
+			}
+			if (validTemp(snap_temp)) {
+				values.temp_urban.current = snap_temp;
+				values.temp_urban.has_current = true;
+			}
+			if (validHumidity(snap_hum)) {
+				values.hum_urban.current = snap_hum;
+				values.hum_urban.has_current = true;
+			}
+			const float press_mm = snap_press_pa * 0.0075f;
+			if (validPressureMmHg(press_mm)) {
+				values.press_urban.current = press_mm;
+				values.press_urban.has_current = true;
+			}
+		}
+	}
+
+	if (data.containsKey("SDS011")) {
+		JsonObjectConst sds = data["SDS011"].as<JsonObjectConst>();
+		if (sds.containsKey("P1")) {
+			const float v = sds["P1"]["value"].as<float>();
+			if (validPM(v)) { values.pm10_insight.current = v; values.pm10_insight.has_current = true; }
+		}
+		if (sds.containsKey("P2")) {
+			const float v = sds["P2"]["value"].as<float>();
+			if (validPM(v)) { values.pm25_insight.current = v; values.pm25_insight.has_current = true; }
 		}
 	}
 
@@ -830,7 +942,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 #if defined(ALTRUIST_INSIGHT)
 	analytics_screen_values_t analytics_rollup_values;
 #endif
-	static bool prev_sta_connected = false;
+	static bool prev_sta_connected = wifiStaLinkReady();
 		for (;;) {  // infinite loop
 		sensor_worker_loop_started_ms = millis();
 		if (wifiTakeUserPortalRequest()) {
@@ -871,6 +983,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 		    WiFi.localIP()[0] != 0) {
 			debug_outln_info(F("[WiFi] STA_GOT_IP -> refresh web listener"));
 			refresh_web_and_mdns();
+			maybeEnsureNetworkTime(true);
 		}
 #endif
 		// Run STA recovery before fetch/API work: slow sensors or HTTP can block for a long time and
@@ -911,12 +1024,16 @@ void sensorAndAPIWorker(void *pvParameters) {
 			const bool sta_connected_now = wifiStaLinkReady();
 			if (sta_connected_now && !prev_sta_connected) {
 				refresh_web_and_mdns();
+				maybeEnsureNetworkTime(true);
 			} else if (!sta_connected_now && prev_sta_connected) {
 #if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 				MDNS.end();
 #endif
 			}
 			prev_sta_connected = sta_connected_now;
+			if (sta_connected_now) {
+				maybeEnsureNetworkTime(false);
+			}
 		}
 		// Mark that we're about to fetch sensor data
 		markCrashSection(CRASH_SECTION_FETCH_SENSORS);
@@ -931,9 +1048,10 @@ void sensorAndAPIWorker(void *pvParameters) {
 		// Keep analytics history collection independent from Analytics screen rendering.
 		if (xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
 			extractAnalyticsRollupValuesFromSensors(sensors_data, analytics_rollup_values);
-			analyticsIngestHourSample(analytics_rollup_values);
 			xSemaphoreGive(mutex);
+			analyticsIngestHourSample(analytics_rollup_values);
 		}
+		analyticsPollHourHistory();
 		(void)sensors_updated;
 		analyticsDevLogStatus15m();
 #endif
@@ -1081,7 +1199,22 @@ void ledsWorker(void *pvParameters) {
 #ifdef ALTRUIST_URBAN_HW_UI
 		const bool urban_has_saved_wifi = wifiHasSavedStationCredentials();
 		const bool urban_config_mode = !urban_has_saved_wifi || wifiIsConfigPortalRunning();
-		const bool urban_error_now = urban_has_saved_wifi && (!wifiStaLinkReady() || !urban_api_status_ok);
+		static unsigned long urban_time_missing_since_ms = 0;
+		static unsigned long urban_time_check_ms = 0;
+		if (msSince(urban_time_check_ms) >= 1000UL) {
+			urban_time_check_ms = millis();
+			if (urban_has_saved_wifi && wifiStaLinkReady() && !urban_config_mode && !networkTimeValid()) {
+				if (urban_time_missing_since_ms == 0) {
+					urban_time_missing_since_ms = millis();
+				}
+			} else {
+				urban_time_missing_since_ms = 0;
+			}
+		}
+		const bool urban_time_stale = urban_time_missing_since_ms != 0 &&
+			msSince(urban_time_missing_since_ms) > 5UL * 60UL * 1000UL;
+		const bool urban_error_now = urban_has_saved_wifi &&
+			(!wifiStaLinkReady() || !urban_api_status_ok || urban_time_stale);
 		const unsigned long urban_now_ms = millis();
 		const bool urban_datalog_result_active = urban_datalog_result != 0 &&
 			(long)(urban_datalog_result_until_ms - urban_now_ms) > 0;
@@ -1517,11 +1650,12 @@ void setup(void) {
 		}
 	}
 
-	// Configure SNTP time only after TCP/IP + WiFi are up.
-	// On ESP32-C6 we observed lwIP asserts when configTzTime() runs before WiFi is connected.
-	if (wifiStaLinkReady()) {
-		setupNetworkTime();
-	}
+	// TZ conversion does not need Wi‑Fi; apply even if SNTP is skipped because RTC already has UTC.
+	applyConfiguredTimezone();
+	debug_outln_info(F("Timezone: "), cfgPosixTimezone());
+	// Configure SNTP only after TCP/IP + WiFi are up (C6 asserts if configTzTime runs earlier).
+	// If STA is not ready yet, sensorAndAPIWorker starts SNTP on connect / GOT_IP .
+	maybeEnsureNetworkTime(true);
 	powerOnTestSensors();
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);

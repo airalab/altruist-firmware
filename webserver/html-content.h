@@ -28,7 +28,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 	"<link rel='icon' type='image/png' href='/favicon.ico' media='(prefers-color-scheme: light)'>" \
 	"<link rel='icon' type='image/png' href='/favicon-dark.ico' media='(prefers-color-scheme: dark)'>"
 
-#define STATIC_PREFIX "/" INTL_LANG "_s3.119"
+#define STATIC_PREFIX "/" INTL_LANG "_s3.120"
 // Bust browser cache after PNG→SVG / logo changes; `m` reflects build (insight vs urban).
 #define WEB_HEADER_LOGO_SRC STATIC_PREFIX "?r=logo&v=" SOFTWARE_VERSION_STR "&m=" DEVICE_MODEL
 #define WEB_NAV_ICON_LOCAL_SRC STATIC_PREFIX "?r=nav-local&v=" SOFTWARE_VERSION_STR
@@ -37,6 +37,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 #define WEB_NAV_ICON_SYSTEM_SRC STATIC_PREFIX "?r=nav-system&v=" SOFTWARE_VERSION_STR
 #define WEB_STATIC_CSS_HREF STATIC_PREFIX "?r=css&v=" SOFTWARE_VERSION_STR
 #define WEB_STATIC_JS_HREF STATIC_PREFIX "?r=js&v=" SOFTWARE_VERSION_STR
+#define WEB_STATIC_PROVISION_JS_HREF STATIC_PREFIX "?r=provision&v=" SOFTWARE_VERSION_STR "&c=6"
 #if defined(ALTRUIST_URBAN_C3_LITE)
 // C3 flash budget: text-only tabs (PNG nav icons are ~47 KB in PROGMEM).
 #define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><span class='app-tab__label'>" INTL_HUB_LOCAL_TITLE "</span></a>"
@@ -336,7 +337,7 @@ const char WEB_RESET_CONTENT[] PROGMEM =
 
 const char WEB_IOS_REDIRECT[] PROGMEM = "<html><body>Redirecting...\
 <script type=\"text/javascript\">\
-window.location = \"http://192.168.4.1/config\";\
+window.location = \"/guest\";\
 </script>\
 </body></html>";
 

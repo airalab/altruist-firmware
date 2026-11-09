@@ -94,6 +94,7 @@ enum ConfigShapeId {
 	Config_local_hostname,
 	Config_chosen_altruist_urban,
 	Config_timezone,
+	Config_timezone_dst,
 	Config_leds_brightness,
 	Config_leds_on,
 	Config_leds_off_hour,
@@ -105,6 +106,10 @@ enum ConfigShapeId {
 	Config_standalone,
 	Config_extra_urbans,
 	Config_epd_refresh_mode,
+	Config_main_layout,
+	Config_desk_interval_s,
+	Config_desk_pages,
+	Config_desk_home,
 	Config_analytics_sleep_add_urban,
 	Config_analytics_morning_autoswitch,
 	Config_analytics_morning_end_hour,
@@ -132,6 +137,7 @@ enum ConfigShapeId {
 	Config_encrypt_no2,
 	Config_encrypt_fast_aqi,
 	Config_encrypt_epa_aqi,
+	Config_analytics_screen,
 };
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -198,6 +204,7 @@ static constexpr char CFG_KEY_DATE_FORMAT[] PROGMEM = "date_format";
 static constexpr char CFG_KEY_LOCAL_HOSTNAME[] PROGMEM = "local_hostname";
 static constexpr char CFG_KEY_CHOSEN_ALTRUIST_URBAN[] PROGMEM = "chosen_altruist_urban";
 static constexpr char CFG_KEY_TIMEZONE[] PROGMEM = "timezone";
+static constexpr char CFG_KEY_TIMEZONE_DST[] PROGMEM = "timezone_dst";
 static constexpr char CFG_KEY_LEDS_BRIGHTNESS[] PROGMEM = "leds_brightness";
 static constexpr char CFG_KEY_LEDS_ON[] PROGMEM = "leds_on";
 static constexpr char CFG_KEY_LEDS_OFF_HOUR[] PROGMEM = "leds_off_hour";
@@ -209,6 +216,10 @@ static constexpr char CFG_KEY_USE_CUSTOM_URBAN[] PROGMEM = "use_custom_urban";
 static constexpr char CFG_KEY_STANDALONE[] PROGMEM = "standalone";
 static constexpr char CFG_KEY_EXTRA_URBANS[] PROGMEM = "extra_urbans";
 static constexpr char CFG_KEY_EPD_REFRESH_MODE[] PROGMEM = "epd_refresh_mode";
+static constexpr char CFG_KEY_MAIN_LAYOUT[] PROGMEM = "main_layout";
+static constexpr char CFG_KEY_DESK_INTERVAL_S[] PROGMEM = "desk_interval_s";
+static constexpr char CFG_KEY_DESK_PAGES[] PROGMEM = "desk_pages";
+static constexpr char CFG_KEY_DESK_HOME[] PROGMEM = "desk_home";
 static constexpr char CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN[] PROGMEM = "analytics_sleep_add_urban";
 static constexpr char CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH[] PROGMEM = "analytics_morning_autoswitch";
 static constexpr char CFG_KEY_ANALYTICS_MORNING_END_HOUR[] PROGMEM = "analytics_morning_end_hour";
@@ -236,6 +247,7 @@ static constexpr char CFG_KEY_ENCRYPT_O3[] PROGMEM = "encrypt_o3";
 static constexpr char CFG_KEY_ENCRYPT_NO2[] PROGMEM = "encrypt_no2";
 static constexpr char CFG_KEY_ENCRYPT_FAST_AQI[] PROGMEM = "encrypt_fast_aqi";
 static constexpr char CFG_KEY_ENCRYPT_EPA_AQI[] PROGMEM = "encrypt_epa_aqi";
+static constexpr char CFG_KEY_ANALYTICS_SCREEN[] PROGMEM = "analytics_screen";
 static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_lang)-1, CFG_KEY_CURRENT_LANG, cfg::current_lang },
 	{ Config_Type_String, sizeof(cfg::wlanssid)-1, CFG_KEY_WLANSSID, cfg::wlanssid },
@@ -302,6 +314,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::local_hostname)-1, CFG_KEY_LOCAL_HOSTNAME, cfg::local_hostname },
 	{ Config_Type_String, sizeof(cfg::chosen_altruist_urban)-1, CFG_KEY_CHOSEN_ALTRUIST_URBAN, cfg::chosen_altruist_urban },
 	{ Config_Type_String, sizeof(cfg::timezone)-1, CFG_KEY_TIMEZONE, cfg::timezone },
+	{ Config_Type_String, sizeof(cfg::timezone_dst)-1, CFG_KEY_TIMEZONE_DST, cfg::timezone_dst },
 	{ Config_Type_UInt, 0, CFG_KEY_LEDS_BRIGHTNESS, &cfg::leds_brightness },
 	{ Config_Type_Bool, 0, CFG_KEY_LEDS_ON, &cfg::leds_on },
 	{ Config_Type_UInt, 0, CFG_KEY_LEDS_OFF_HOUR, &cfg::leds_off_hour },
@@ -313,6 +326,10 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_STANDALONE, &cfg::standalone },
 	{ Config_Type_String, sizeof(cfg::extra_urbans)-1, CFG_KEY_EXTRA_URBANS, cfg::extra_urbans },
 	{ Config_Type_UInt, 0, CFG_KEY_EPD_REFRESH_MODE, &cfg::epd_refresh_mode },
+	{ Config_Type_UInt, 0, CFG_KEY_MAIN_LAYOUT, &cfg::main_layout },
+	{ Config_Type_UInt, 0, CFG_KEY_DESK_INTERVAL_S, &cfg::desk_interval_s },
+	{ Config_Type_UInt, 0, CFG_KEY_DESK_PAGES, &cfg::desk_pages },
+	{ Config_Type_UInt, 0, CFG_KEY_DESK_HOME, &cfg::desk_home },
 	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN, &cfg::analytics_sleep_add_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH, &cfg::analytics_morning_autoswitch },
 	{ Config_Type_UInt, 0, CFG_KEY_ANALYTICS_MORNING_END_HOUR, &cfg::analytics_morning_end_hour },
@@ -340,6 +357,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_NO2, &cfg::encrypt_no2 },
 	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_FAST_AQI, &cfg::encrypt_fast_aqi },
 	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_EPA_AQI, &cfg::encrypt_epa_aqi },
+	{ Config_Type_UInt, 0, CFG_KEY_ANALYTICS_SCREEN, &cfg::analytics_screen },
 };
           
 #endif // __CONFIG_H__

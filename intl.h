@@ -85,7 +85,7 @@
 #define INTL_DISP_ANALYTICS_ROW_PM25 "PM2.5 ug/m3"
 #endif
 #ifndef INTL_DISP_ANALYTICS_ROW_NOISE
-#define INTL_DISP_ANALYTICS_ROW_NOISE "Noise dB"
+#define INTL_DISP_ANALYTICS_ROW_NOISE "Noise dBA"
 #endif
 #ifndef INTL_DISP_ANALYTICS_AT
 #define INTL_DISP_ANALYTICS_AT "at"
@@ -107,7 +107,19 @@
 #define INTL_DISP_IS_TOO "is too"
 #endif
 #ifndef INTL_DISP_VOC_TODAY
-#define INTL_DISP_VOC_TODAY "VOC today:"
+#define INTL_DISP_VOC_TODAY "VOC:"
+#endif
+#ifndef INTL_DISP_VOC_PHRASE_NONE
+#define INTL_DISP_VOC_PHRASE_NONE "not detected"
+#endif
+#ifndef INTL_DISP_VOC_PHRASE_LOW
+#define INTL_DISP_VOC_PHRASE_LOW "detected (low)"
+#endif
+#ifndef INTL_DISP_VOC_PHRASE_MED
+#define INTL_DISP_VOC_PHRASE_MED "detected (medium)"
+#endif
+#ifndef INTL_DISP_VOC_PHRASE_HIGH
+#define INTL_DISP_VOC_PHRASE_HIGH "detected (high)"
 #endif
 #ifndef INTL_DISP_VOC_NONE
 #define INTL_DISP_VOC_NONE "VOC: none"
@@ -434,6 +446,81 @@
 #ifndef INTL_DEVICE_BACKUP_RESTORE_FAILED
 #define INTL_DEVICE_BACKUP_RESTORE_FAILED "Could not restore backup. Check the file format."
 #endif
+#ifndef INTL_PROVISION_TITLE
+#define INTL_PROVISION_TITLE "Install sensor key"
+#endif
+#ifndef INTL_PROVISION_INTRO
+#define INTL_PROVISION_INTRO "Derive MASTER_SEED//N in this browser, then write only the hex to the device. The mnemonic never leaves your computer."
+#endif
+#ifndef INTL_PROVISION_CARD_HINT
+#define INTL_PROVISION_CARD_HINT "Replace this device key from a Sensor.Social master seed (hard derivation //N)."
+#endif
+#ifndef INTL_PROVISION_OPEN
+#define INTL_PROVISION_OPEN "Open key install"
+#endif
+#ifndef INTL_PROVISION_CURRENT
+#define INTL_PROVISION_CURRENT "Current address"
+#endif
+#ifndef INTL_PROVISION_SEED
+#define INTL_PROVISION_SEED "Master seed"
+#endif
+#ifndef INTL_PROVISION_SEED_HINT
+#define INTL_PROVISION_SEED_HINT "12/24-word phrase from the box, or 64 hex of the root key. Not sent to the device."
+#endif
+#ifndef INTL_PROVISION_PASSWORD
+#define INTL_PROVISION_PASSWORD "Derivation password"
+#endif
+#ifndef INTL_PROVISION_PASSWORD_HINT
+#define INTL_PROVISION_PASSWORD_HINT "Usually empty. Only if the seed was created with a password."
+#endif
+#ifndef INTL_PROVISION_INDEX
+#define INTL_PROVISION_INDEX "Sensor index N"
+#endif
+#ifndef INTL_PROVISION_INDEX_HINT
+#define INTL_PROVISION_INDEX_HINT "0 for the first sensor, 1 for the second, and so on. Path is MASTER_SEED//N."
+#endif
+#ifndef INTL_PROVISION_DERIVE
+#define INTL_PROVISION_DERIVE "Derive locally"
+#endif
+#ifndef INTL_PROVISION_PATH
+#define INTL_PROVISION_PATH "Path"
+#endif
+#ifndef INTL_PROVISION_ADDRESS
+#define INTL_PROVISION_ADDRESS "Derived address"
+#endif
+#ifndef INTL_PROVISION_HEX
+#define INTL_PROVISION_HEX "Key (hex)"
+#endif
+#ifndef INTL_PROVISION_ACK
+#define INTL_PROVISION_ACK "I understand this replaces the key on this device"
+#endif
+#ifndef INTL_PROVISION_INSTALL
+#define INTL_PROVISION_INSTALL "Install on this device"
+#endif
+#ifndef INTL_PROVISION_ERR_MNEMONIC
+#define INTL_PROVISION_ERR_MNEMONIC "Invalid seed phrase."
+#endif
+#ifndef INTL_PROVISION_ERR_INDEX
+#define INTL_PROVISION_ERR_INDEX "Index must be 0 or a positive integer."
+#endif
+#ifndef INTL_PROVISION_ERR_CRYPTO
+#define INTL_PROVISION_ERR_CRYPTO "Could not derive the key. Check the seed and index."
+#endif
+#ifndef INTL_PROVISION_ERR_INSTALL
+#define INTL_PROVISION_ERR_INSTALL "Could not write the key to the device."
+#endif
+#ifndef INTL_PROVISION_CONFIRM
+#define INTL_PROVISION_CONFIRM "Replace the key on this device? It will restart. The current address changes unless you install the same key."
+#endif
+#ifndef INTL_PROVISION_OK
+#define INTL_PROVISION_OK "Key saved. The device is restarting…"
+#endif
+#ifndef INTL_PROVISION_MISMATCH
+#define INTL_PROVISION_MISMATCH "Device address does not match the derived address."
+#endif
+#ifndef INTL_PROVISION_NEED_BROWSER
+#define INTL_PROVISION_NEED_BROWSER "Could not derive a key in this browser. Try another browser or update Chrome."
+#endif
 #ifndef INTL_GUEST_RESTORE_HINT
 #define INTL_GUEST_RESTORE_HINT "Have a backup from before the reset? Restore it here to bring back Wi‑Fi, owner key, and settings — then the device restarts."
 #endif
@@ -497,6 +584,144 @@
 #ifndef INTL_SCREEN_SAVE_CONFIG_FAILED
 #define INTL_SCREEN_SAVE_CONFIG_FAILED "Could not write configuration."
 #endif
+#ifndef INTL_MAIN_LAYOUT
+#define INTL_MAIN_LAYOUT "Main screen"
+#endif
+#ifndef INTL_MAIN_LAYOUT_DEFAULT
+#define INTL_MAIN_LAYOUT_DEFAULT "Default (all metrics)"
+#endif
+#ifndef INTL_MAIN_LAYOUT_DESK
+#define INTL_MAIN_LAYOUT_DESK "Desk (one metric per slide)"
+#endif
+#ifndef INTL_MAIN_LAYOUT_HINT
+#define INTL_MAIN_LAYOUT_HINT "Desk shows large values and flips slides automatically."
+#endif
+#ifndef INTL_DESK_INTERVAL
+#define INTL_DESK_INTERVAL "Desk slide interval (seconds)"
+#endif
+#ifndef INTL_DESK_PAGES
+#define INTL_DESK_PAGES "Desk slides"
+#endif
+#ifndef INTL_DESK_PAGES_HINT
+#define INTL_DESK_PAGES_HINT "Checked slides rotate. Unchecked are skipped. One slide — the screen stays there."
+#endif
+#ifndef INTL_DESK_TITLE_AIR
+#define INTL_DESK_TITLE_AIR "AIR QUALITY"
+#endif
+#ifndef INTL_DESK_TITLE_CLIMATE
+#define INTL_DESK_TITLE_CLIMATE "CLIMATE"
+#endif
+#ifndef INTL_DESK_TITLE_CLIMATE_URBAN
+#define INTL_DESK_TITLE_CLIMATE_URBAN "CLIMATE URBAN"
+#endif
+#ifndef INTL_DESK_TITLE_CLIMATE_INSIGHT
+#define INTL_DESK_TITLE_CLIMATE_INSIGHT "CLIMATE INSIGHT"
+#endif
+#ifndef INTL_DESK_TITLE_CO2
+#define INTL_DESK_TITLE_CO2 "CO2 CONCENTRATION"
+#endif
+#ifndef INTL_DESK_TITLE_NOISE
+#define INTL_DESK_TITLE_NOISE "NOISE"
+#endif
+#ifndef INTL_DESK_TITLE_PRESSURE
+#define INTL_DESK_TITLE_PRESSURE "PRESSURE"
+#endif
+#ifndef INTL_DESK_FOOTER_AIR
+#define INTL_DESK_FOOTER_AIR "AIR"
+#endif
+#ifndef INTL_DESK_FOOTER_CLIMATE
+#define INTL_DESK_FOOTER_CLIMATE "CLIMATE"
+#endif
+#ifndef INTL_DESK_FOOTER_CO2
+#define INTL_DESK_FOOTER_CO2 "CO2"
+#endif
+#ifndef INTL_DESK_FOOTER_NOISE
+#define INTL_DESK_FOOTER_NOISE "NOISE"
+#endif
+#ifndef INTL_DESK_FOOTER_PRESSURE
+#define INTL_DESK_FOOTER_PRESSURE "PRESSURE"
+#endif
+#ifndef INTL_DESK_BAND_GOOD
+#define INTL_DESK_BAND_GOOD "Good"
+#endif
+#ifndef INTL_DESK_BAND_ELEVATED
+#define INTL_DESK_BAND_ELEVATED "Elevated"
+#endif
+#ifndef INTL_DESK_BAND_HIGH
+#define INTL_DESK_BAND_HIGH "High"
+#endif
+#ifndef INTL_DESK_BAND_LOW
+#define INTL_DESK_BAND_LOW "Low"
+#endif
+#ifndef INTL_DESK_OUT
+#define INTL_DESK_OUT "Out"
+#endif
+#ifndef INTL_DESK_IN
+#define INTL_DESK_IN "In"
+#endif
+#ifndef INTL_DESK_GRAPH_HOURS
+#define INTL_DESK_GRAPH_HOURS "6 HOURS"
+#endif
+#ifndef INTL_DESK_GRAPH_MAX
+#define INTL_DESK_GRAPH_MAX "max"
+#endif
+#ifndef INTL_DESK_GRAPH_COLLECTING
+#define INTL_DESK_GRAPH_COLLECTING "Collecting hourly data"
+#endif
+#ifndef INTL_DESK_GRAPH_STABLE_CO2
+#define INTL_DESK_GRAPH_STABLE_CO2 "Stable, below 1000"
+#endif
+#ifndef INTL_DESK_GRAPH_CO2_HIGH
+#define INTL_DESK_GRAPH_CO2_HIGH "Stayed high this window"
+#endif
+#ifndef INTL_DESK_GRAPH_ROSE
+#define INTL_DESK_GRAPH_ROSE "Rose %u in %u hours"
+#endif
+#ifndef INTL_DESK_GRAPH_DROPPED
+#define INTL_DESK_GRAPH_DROPPED "Dropped %u in %u hours"
+#endif
+#ifndef INTL_DESK_GRAPH_PEAK
+#define INTL_DESK_GRAPH_PEAK "Peak at %02u:00"
+#endif
+#ifndef INTL_DESK_GRAPH_WARMER
+#define INTL_DESK_GRAPH_WARMER "Warmer than %u h ago"
+#endif
+#ifndef INTL_DESK_GRAPH_COOLER
+#define INTL_DESK_GRAPH_COOLER "Cooler than %u h ago"
+#endif
+#ifndef INTL_DESK_GRAPH_IN_WARMER
+#define INTL_DESK_GRAPH_IN_WARMER "Indoor %d° warmer than outdoor"
+#endif
+#ifndef INTL_DESK_GRAPH_IN_COOLER
+#define INTL_DESK_GRAPH_IN_COOLER "Indoor %d° cooler than outdoor"
+#endif
+#ifndef INTL_DESK_GRAPH_PRESS_FALL
+#define INTL_DESK_GRAPH_PRESS_FALL "Pressure falling"
+#endif
+#ifndef INTL_DESK_GRAPH_PRESS_RISE
+#define INTL_DESK_GRAPH_PRESS_RISE "Pressure rising"
+#endif
+#ifndef INTL_DESK_GRAPH_PRESS_STEADY
+#define INTL_DESK_GRAPH_PRESS_STEADY "Pressure steady"
+#endif
+#ifndef INTL_DESK_GRAPH_CLEANER
+#define INTL_DESK_GRAPH_CLEANER "Now cleaner than %u h ago"
+#endif
+#ifndef INTL_DESK_GRAPH_DIRTIER
+#define INTL_DESK_GRAPH_DIRTIER "Dustier than %u h ago"
+#endif
+#ifndef INTL_DESK_GRAPH_QUIET
+#define INTL_DESK_GRAPH_QUIET "Mostly quiet"
+#endif
+#ifndef INTL_DESK_GRAPH_LOUD
+#define INTL_DESK_GRAPH_LOUD "Noisiest at %02u:00"
+#endif
+#ifndef INTL_DESK_GRAPH_HUM_LOW
+#define INTL_DESK_GRAPH_HUM_LOW "Humidity low"
+#endif
+#ifndef INTL_DESK_GRAPH_HUM_HIGH
+#define INTL_DESK_GRAPH_HUM_HIGH "Humidity high"
+#endif
 
 #ifndef INTL_NAV_MONITOR
 #define INTL_NAV_MONITOR "Data & status"
@@ -531,7 +756,22 @@
 #endif
 
 #ifndef INTL_PANEL_TITLE_SLEEP_ANALYTICS
-#define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
+#define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Analytics"
+#endif
+#ifndef INTL_ANALYTICS_GROUP_SCREEN
+#define INTL_ANALYTICS_GROUP_SCREEN "Display"
+#endif
+#ifndef INTL_ANALYTICS_SCREEN_SCORE
+#define INTL_ANALYTICS_SCREEN_SCORE "Night score"
+#endif
+#ifndef INTL_ANALYTICS_SCREEN_SCORE_HINT
+#define INTL_ANALYTICS_SCREEN_SCORE_HINT "Overall night score with the face — temperature, humidity, CO2, PM2.5 and noise."
+#endif
+#ifndef INTL_ANALYTICS_SCREEN_CO2
+#define INTL_ANALYTICS_SCREEN_CO2 "CO2 analysis"
+#endif
+#ifndef INTL_ANALYTICS_SCREEN_CO2_HINT
+#define INTL_ANALYTICS_SCREEN_CO2_HINT "CO2 over the night window, with VOC marks. The face shows CO2 only."
 #endif
 #ifndef INTL_ANALYTICS_GROUP_NIGHT
 #define INTL_ANALYTICS_GROUP_NIGHT "Night window"
@@ -543,16 +783,16 @@
 #define INTL_ANALYTICS_GROUP_DATA "Data"
 #endif
 #ifndef INTL_ANALYTICS_MORNING_AUTOSWITCH
-#define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
+#define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open analytics on the display each morning (06:00–end)"
 #endif
 #ifndef INTL_ANALYTICS_NIGHT_START_TIME
-#define INTL_ANALYTICS_NIGHT_START_TIME "Sleep analytics night start (local, HH:MM)"
+#define INTL_ANALYTICS_NIGHT_START_TIME "Start (local, HH:MM)"
 #endif
 #ifndef INTL_ANALYTICS_NIGHT_END_TIME
-#define INTL_ANALYTICS_NIGHT_END_TIME "Sleep analytics night end (local, HH:MM)"
+#define INTL_ANALYTICS_NIGHT_END_TIME "End (local, HH:MM)"
 #endif
 #ifndef INTL_ANALYTICS_NIGHT_END_HINT
-#define INTL_ANALYTICS_NIGHT_END_HINT "End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx)."
+#define INTL_ANALYTICS_NIGHT_END_HINT "Night window for the analytics screen. Default is 22:00–07:00. The end hour is shown on the CO2 graph (10:00 → 10 o'clock bar). At most 12 hours."
 #endif
 #ifndef INTL_ANALYTICS_MORNING_END_TIME
 #define INTL_ANALYTICS_MORNING_END_TIME "Morning display until (local, HH:MM)"
@@ -561,19 +801,10 @@
 #define INTL_ANALYTICS_MORNING_END_HINT "After this time the display returns to the main screen. End time is exclusive (10:00 means until 09:59)."
 #endif
 #ifndef INTL_ANALYTICS_SLEEP_ADD_URBAN
-#define INTL_ANALYTICS_SLEEP_ADD_URBAN "Add Urban data to sleep analytics (PM2.5 & noise)"
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN "Add Urban data to analytics (PM2.5 & noise)"
 #endif
 #ifndef INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT
-#define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in sleep analytics."
-#endif
-#ifndef INTL_ANALYTICS_MORNING_AUTOSWITCH
-#define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
-#endif
-#ifndef INTL_ANALYTICS_MORNING_END_TIME
-#define INTL_ANALYTICS_MORNING_END_TIME "Morning display until (local, HH:MM)"
-#endif
-#ifndef INTL_ANALYTICS_MORNING_END_HINT
-#define INTL_ANALYTICS_MORNING_END_HINT "After this time the display returns to the main screen. End time is exclusive (10:00 means until 09:59)."
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in analytics."
 #endif
 #ifndef INTL_DATA_SECTION_SDS
 #define INTL_DATA_SECTION_SDS "SDS"
@@ -938,6 +1169,12 @@
 #ifndef INTL_REGION_HINT
 #define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / OTA unless you change it here."
 #endif
+#ifndef INTL_RWS_OWNER
+#define INTL_RWS_OWNER "RWS Owner Address (legacy)"
+#endif
+#ifndef INTL_RWS_OWNER_HINT
+#define INTL_RWS_OWNER_HINT "Legacy RWS subscription for datalog and encryption. Not the device key and not the master seed (//0, //1)."
+#endif
 #ifndef INTL_NODE_ID
 #define INTL_NODE_ID "CPS node ID (0 = not set)"
 #endif
@@ -952,6 +1189,30 @@
 #endif
 #ifndef INTL_DATE_FORMAT
 #define INTL_DATE_FORMAT "Date format"
+#endif
+#ifndef INTL_TIMEZONE
+#define INTL_TIMEZONE "Timezone"
+#endif
+#ifndef INTL_DST
+#define INTL_DST "Daylight saving (DST)"
+#endif
+#ifndef INTL_DST_HINT
+#define INTL_DST_HINT "Off keeps UTC±N all year. Europe / UK / USA / Australia switch summer and winter automatically."
+#endif
+#ifndef INTL_DST_OFF
+#define INTL_DST_OFF "Off"
+#endif
+#ifndef INTL_DST_EU
+#define INTL_DST_EU "Europe"
+#endif
+#ifndef INTL_DST_UK
+#define INTL_DST_UK "UK, Ireland"
+#endif
+#ifndef INTL_DST_US
+#define INTL_DST_US "USA, Canada"
+#endif
+#ifndef INTL_DST_AU
+#define INTL_DST_AU "Australia"
 #endif
 #ifndef INTL_GAS_RESISTANCE
 #define INTL_GAS_RESISTANCE "Gas resistance (raw)"

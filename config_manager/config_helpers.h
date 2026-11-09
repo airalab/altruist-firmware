@@ -50,6 +50,10 @@ const char *cfgDateStrftimeFmt();
 void cfgFormatDate(char *buf, size_t n, const struct tm *ti);
 /** Date plus ` HH:MM:SS` in the same display format. */
 void cfgFormatDateTime(char *buf, size_t n, const struct tm *ti);
+/** POSIX TZ from UTC offset + DST rule (`<+04>-4` or `<+04>-4DST,M3.5.0/2,…`). */
+const char *cfgPosixTimezone();
+/** setenv(TZ) + tzset from cfgPosixTimezone(). */
+void applyConfiguredTimezone();
 
 #if defined(ALTRUIST_INSIGHT)
 struct ExtraUrbanItem {
@@ -72,6 +76,10 @@ void cfgApplyStandaloneModeEnabled();
 void cfgOnStandaloneModeDisabled();
 /** Normalize cfg UInt that may be legacy 0..23 hour or minutes 0..1439. */
 unsigned cfgMinutesOfDay(unsigned raw, unsigned fallback_minutes);
+/** Length of [start, end) in minutes. Equal start/end means 24 h. */
+unsigned cfgNightWindowSpanMinutes(unsigned start_m, unsigned end_m);
+/** If the window is longer than max_hours, keep start and move end (wraps midnight). */
+void cfgClampNightWindowToMaxHours(unsigned *start_m, unsigned *end_m, unsigned max_hours = 12u);
 /** True when local time is inside the morning analytics auto-display window (Insight). */
 bool cfgInAnalyticsMorningWindow(const struct tm& timeinfo);
 #endif

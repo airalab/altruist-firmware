@@ -418,6 +418,22 @@ void httpUrbanSyncToJson(JsonDocument &data) {
     g_http_urban->syncToJson(data);
 }
 
+bool httpUrbanCopyMainSnap(float *pm10, float *pm25, float *noise_avg, float *noise_max,
+                           float *temp, float *hum, float *press_pa) {
+    if (cfg::standalone || !g_http_urban) {
+        return false;
+    }
+    char main_ip[40];
+    httpUrbanMainIp(main_ip, sizeof(main_ip));
+    if (main_ip[0] != '\0' &&
+        g_http_urban->copySnapForIp(String(main_ip), pm10, pm25, noise_avg, noise_max, temp, hum,
+                                    press_pa)) {
+        return true;
+    }
+    return g_http_urban->copyCurrentSnap(pm10, pm25, noise_avg, noise_max, temp, hum, press_pa,
+                                         nullptr, 0);
+}
+
 bool httpUrbanCanCycleOnMain() {
     return httpUrbanPageCount() > 1;
 }

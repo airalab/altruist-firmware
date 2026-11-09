@@ -94,6 +94,8 @@ namespace cfg {
 	extern char local_hostname[LEN_LOCAL_HOSTNAME];
 	extern char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
 	extern char timezone[LEN_TIMEZONE];
+	/** DST rule: `none`, `eu`, `uk`, `us`, `au`. Combined with `timezone` into POSIX TZ. */
+	extern char timezone_dst[LEN_DST_RULE];
 
 	extern char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
 	extern bool use_custom_urban;
@@ -103,6 +105,14 @@ namespace cfg {
 	extern char extra_urbans[LEN_EXTRA_URBANS];
 	/** Insight e-paper: 0 = safe full refresh only, 1 = experimental partial refresh. */
 	extern unsigned epd_refresh_mode;
+	/** Insight MAIN layout: 0 = default (all metrics), 1 = desk carousel. */
+	extern unsigned main_layout;
+	/** Desk carousel period in seconds (15–300, default 60). */
+	extern unsigned desk_interval_s;
+	/** Bitmask of desk slides (air/climate/CO2/noise/pressure). */
+	extern unsigned desk_pages;
+	/** Desk slide shown first / returned to (0–4). */
+	extern unsigned desk_home;
 	/** Paired mode: add Urban PM2.5 & noise to sleep analytics hourly history (default off = Insight PM2.5 only). */
 	extern bool analytics_sleep_add_urban;
 
@@ -115,6 +125,8 @@ namespace cfg {
 	extern unsigned analytics_night_end_hour;
 	extern bool analytics_morning_autoswitch;
 	extern unsigned analytics_morning_end_hour;
+	/** Analytics e-paper: 0 = night score (face), 1 = CO2-centered (default). */
+	extern unsigned analytics_screen;
 
 	// data sharing preferences
 	extern bool share_temperature;

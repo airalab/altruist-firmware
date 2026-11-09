@@ -5,18 +5,23 @@
 #include "../utils.h"
 #include "fonts/fonts.h"
 #include "../../config_manager/config_helpers.h"
+#include <time.h>
 
 int get_timezone_offset() {
-    String tz_string(cfg::timezone);
-    int start = tz_string.indexOf('<');
-    int end = tz_string.indexOf('>');
-
-    if (start == -1 || end == -1 || end <= start + 1) {
-        return 0;  // значение по умолчанию
+    time_t now = time(nullptr);
+    if (now < 100000) {
+        return 0;
     }
-
-    String offset_str = tz_string.substring(start + 1, end);
-    return offset_str.toInt();  // автоматически распарсит -12, +3 и т.д.
+    struct tm utc;
+    if (!gmtime_r(&now, &utc)) {
+        return 0;
+    }
+    utc.tm_isdst = -1;
+    const time_t as_local = mktime(&utc);
+    if (as_local == (time_t)-1) {
+        return 0;
+    }
+    return (int)(difftime(now, as_local) / 3600);
 }
 
 GraphPainter::GraphPainter(uint16_t left_bottom_x, uint16_t left_bottom_y,

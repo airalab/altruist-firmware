@@ -29,6 +29,7 @@
 #include "../../wifi_manager.h"
 #include "../../sensors/http_altruist_sensor.h"
 #include "display_common.h"
+#include "desk_screen.h"
 #include "../../intl.h"
 #include "../paint_driver/fonts/fonts.h"
 #include <qrcode.h>
@@ -647,18 +648,16 @@ static bool footerShowVocPage(const main_screen_values_t &values) {
 }
 
 static String vocFooterPhraseLine(const main_screen_values_t &values) {
-    String s = INTL_VOC_ORGANIC;
-    s += ": ";
     if (values.voc_level >= 3) {
-        s += INTL_VOC_PHRASE_HIGH;
-    } else if (values.voc_level == 2) {
-        s += INTL_VOC_PHRASE_MED;
-    } else if (values.voc_level == 1) {
-        s += INTL_VOC_PHRASE_LOW;
-    } else {
-        s += INTL_VOC_PHRASE_NONE;
+        return String(INTL_DISP_VOC_PHRASE_HIGH);
     }
-    return s;
+    if (values.voc_level == 2) {
+        return String(INTL_DISP_VOC_PHRASE_MED);
+    }
+    if (values.voc_level == 1) {
+        return String(INTL_DISP_VOC_PHRASE_LOW);
+    }
+    return String(INTL_DISP_VOC_PHRASE_NONE);
 }
 
 static String vocFooterStatsLine(const main_screen_values_t &values) {
@@ -669,21 +668,7 @@ static String vocFooterStatsLine(const main_screen_values_t &values) {
     } else {
         s += '-';
     }
-    s += ' ';
-    s += INTL_DISP_VOC_SPIKES_UNIT;
-    if (values.voc_level >= 0) {
-        s += ", ";
-        s += INTL_DISP_VOC_LEVEL;
-        s += ' ';
-        s += String((unsigned)values.voc_index);
-        s += ' ';
-        s += INTL_VOC_AU;
-    }
     return s;
-}
-
-static String vocFooterScaleLine() {
-    return String(INTL_DISP_VOC_SCALE_HINT);
 }
 
 static float calculateDewPointC(float temperature_c, float humidity_percent) {
@@ -1015,7 +1000,8 @@ static void drawMainStyleMetric(uint16_t col_x, uint16_t y,
 }
 
 // Draw the full main screen with card-based main content layout
-void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip, const String &insight_robonomics_address, const String &urban_robonomics_address) {
+void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip, const String &insight_robonomics_address, const String &urban_robonomics_address,
+                    uint8_t desk_page, uint8_t desk_pos, uint8_t desk_count, bool desk_graph, uint8_t desk_graph_i) {
 
     // Clear screen first to remove any white lines
     Paint_Clear(WHITE);
@@ -1062,6 +1048,12 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t content_right = (DISPLAY_WIDTH > nav_sidebar_width + 2) ? (DISPLAY_WIDTH - nav_sidebar_width - 2) : (DISPLAY_WIDTH - 1);
     const uint16_t content_width = (content_right > content_left) ? (content_right - content_left) : 0;
     const uint16_t body_top = header_bottom_border_y + 4;
+
+    if (cfg::main_layout == MAIN_LAYOUT_DESK) {
+        drawDeskMainBody(values, body_top, content_left, content_right, desk_page, desk_pos, desk_count,
+                         desk_graph, desk_graph_i, insight_robonomics_address, urban_robonomics_address);
+        return;
+    }
 
     if (cfg::standalone) {
         const uint16_t footer_band = 38;
@@ -1548,7 +1540,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
             appendIssue(issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_str) + cfgTempDisplayUnit());
         }
         const String footer_src = footerShowVocPage(values)
-            ? (vocFooterPhraseLine(values) + " " + vocFooterStatsLine(values) + " " + vocFooterScaleLine())
+            ? (vocFooterStatsLine(values) + "  " + vocFooterPhraseLine(values))
             : ((issues.length() > 0) ? issues : String(INTL_DISP_CHECK_MAP_FULL_DATA));
 
         uint16_t text_right = (DISPLAY_WIDTH > nav_sidebar_width + 1)
@@ -1592,7 +1584,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         String temp_label_s = String(INTL_DISP_TEMPERATURE) + " " + cfgTempDisplayUnit();
         String hum_label_s = String(INTL_DISP_HUMIDITY) + " %";
         String press_label_s = String(INTL_DISP_PRESSURE) + " " + cfgPressureDisplayUnit();
-        String noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
+        String noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dBA";
 
         drawMainStyleMetric(left_x, row_top, wi_thermometer_cropped_34x32, 34, 32,
                             temp_label_s.c_str(), temp_dir, temp_out, nullptr, true);
@@ -1800,7 +1792,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     // Right group: source-specific metrics.
 
     Paint_DrawImage(ear_hearing_34x34, right_x, row_top + 1, 34, 34);
-    String right_noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
+    String right_noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dBA";
     const char *right_noise_label = right_noise_label_s.c_str();
     uint16_t right_noise_label_x = right_x + 42;
     // Noise on main screen comes from Urban device/sensors.
@@ -1891,9 +1883,8 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     String source_lines[3];
     int source_line_count = 0;
     if (footerShowVocPage(values)) {
-        source_lines[source_line_count++] = vocFooterPhraseLine(values);
         source_lines[source_line_count++] = vocFooterStatsLine(values);
-        source_lines[source_line_count++] = vocFooterScaleLine();
+        source_lines[source_line_count++] = vocFooterPhraseLine(values);
     } else {
         if (urban_issues.length() > 0) {
             source_lines[source_line_count++] = String("Urban: ") + urban_issues;
