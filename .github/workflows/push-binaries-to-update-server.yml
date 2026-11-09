@@ -1,38 +1,30 @@
-name: Upload Binaries to Update Server
+name: Redeploy OTA server from webflasher
+
+# Manual trigger: re-runs the OTA server update without rebuilding the
+# firmware. On the server it syncs ~/htdocs/webflasher to origin/main, creates
+# today's dated snapshot dirs and repoints the `latest` symlinks. Use it to
+# retry a failed OTA rotation or to re-deploy after fixing something by hand.
+# To roll back to an older snapshot, ssh in and run
+#   ln -sfn <previous_snapshot>/ latest
+# inside the affected channel dir (insight/esp32c6, urban/esp32c3, urban/esp32c6).
+
 on:
   workflow_dispatch: {}
 
-jobs:
-  build:
-    runs-on: ubuntu-24.04
+concurrency:
+  group: altruist-ota-deployment
+  cancel-in-progress: false
 
+jobs:
+  redeploy:
+    runs-on: ubuntu-24.04
     steps:
-      - name: Checkout
+      - name: Checkout altruist-firmware
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Rotate stable firmware on the OTA update server
+        uses: ./.github/actions/deploy-ota
         with:
-          python-version: '3.x'
-
-      - name: Install PlatformIO
-        run: pip install platformio
-
-      - name: Build Stable release firmware
-        env:
-          ALTRUIST_CHANNEL_TESTING: '0'
-          ALTRUIST_HEALTH_TELEMETRY: '1'
-          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          pio run -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru -e esp32c3_urban_en -e esp32c3_urban_ru
-
-      - name: Upload to FTP
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local_path: './builds/*'
-          remote_path: /home/updsens/web/upd.sensors.robonomics.network/public_html/pre_release/
-          port: 22
+          ssh-host: ${{ secrets.OTA_SSH_HOST }}
+          ssh-user: ${{ secrets.OTA_SSH_USER }}
+          ssh-key: ${{ secrets.OTA_SSH_KEY }}
