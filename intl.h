@@ -599,14 +599,11 @@
 #ifndef INTL_DESK_INTERVAL
 #define INTL_DESK_INTERVAL "Desk slide interval (seconds)"
 #endif
-#ifndef INTL_DESK_HOME
-#define INTL_DESK_HOME "Desk home slide"
-#endif
 #ifndef INTL_DESK_PAGES
 #define INTL_DESK_PAGES "Desk slides"
 #endif
 #ifndef INTL_DESK_PAGES_HINT
-#define INTL_DESK_PAGES_HINT "Unchecked slides are skipped."
+#define INTL_DESK_PAGES_HINT "Checked slides rotate. Unchecked are skipped. One slide — the screen stays there."
 #endif
 #ifndef INTL_DESK_TITLE_AIR
 #define INTL_DESK_TITLE_AIR "AIR QUALITY"
@@ -678,19 +675,19 @@
 #define INTL_DESK_GRAPH_CO2_HIGH "Stayed high this window"
 #endif
 #ifndef INTL_DESK_GRAPH_ROSE
-#define INTL_DESK_GRAPH_ROSE "Rose %u in 6 hours"
+#define INTL_DESK_GRAPH_ROSE "Rose %u in %u hours"
 #endif
 #ifndef INTL_DESK_GRAPH_DROPPED
-#define INTL_DESK_GRAPH_DROPPED "Dropped %u in 6 hours"
+#define INTL_DESK_GRAPH_DROPPED "Dropped %u in %u hours"
 #endif
 #ifndef INTL_DESK_GRAPH_PEAK
 #define INTL_DESK_GRAPH_PEAK "Peak at %02u:00"
 #endif
 #ifndef INTL_DESK_GRAPH_WARMER
-#define INTL_DESK_GRAPH_WARMER "Warmer than 6h ago"
+#define INTL_DESK_GRAPH_WARMER "Warmer than %u h ago"
 #endif
 #ifndef INTL_DESK_GRAPH_COOLER
-#define INTL_DESK_GRAPH_COOLER "Cooler than 6h ago"
+#define INTL_DESK_GRAPH_COOLER "Cooler than %u h ago"
 #endif
 #ifndef INTL_DESK_GRAPH_IN_WARMER
 #define INTL_DESK_GRAPH_IN_WARMER "Indoor %d° warmer than outdoor"
@@ -708,10 +705,10 @@
 #define INTL_DESK_GRAPH_PRESS_STEADY "Pressure steady"
 #endif
 #ifndef INTL_DESK_GRAPH_CLEANER
-#define INTL_DESK_GRAPH_CLEANER "Now cleaner than 6h ago"
+#define INTL_DESK_GRAPH_CLEANER "Now cleaner than %u h ago"
 #endif
 #ifndef INTL_DESK_GRAPH_DIRTIER
-#define INTL_DESK_GRAPH_DIRTIER "Dustier than 6h ago"
+#define INTL_DESK_GRAPH_DIRTIER "Dustier than %u h ago"
 #endif
 #ifndef INTL_DESK_GRAPH_QUIET
 #define INTL_DESK_GRAPH_QUIET "Mostly quiet"
@@ -759,7 +756,22 @@
 #endif
 
 #ifndef INTL_PANEL_TITLE_SLEEP_ANALYTICS
-#define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
+#define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Analytics"
+#endif
+#ifndef INTL_ANALYTICS_GROUP_SCREEN
+#define INTL_ANALYTICS_GROUP_SCREEN "Display"
+#endif
+#ifndef INTL_ANALYTICS_SCREEN_SCORE
+#define INTL_ANALYTICS_SCREEN_SCORE "Night score"
+#endif
+#ifndef INTL_ANALYTICS_SCREEN_SCORE_HINT
+#define INTL_ANALYTICS_SCREEN_SCORE_HINT "Overall night score with the face — temperature, humidity, CO2, PM2.5 and noise."
+#endif
+#ifndef INTL_ANALYTICS_SCREEN_CO2
+#define INTL_ANALYTICS_SCREEN_CO2 "CO2 analysis"
+#endif
+#ifndef INTL_ANALYTICS_SCREEN_CO2_HINT
+#define INTL_ANALYTICS_SCREEN_CO2_HINT "CO2 over the night window, with VOC marks. The face shows CO2 only."
 #endif
 #ifndef INTL_ANALYTICS_GROUP_NIGHT
 #define INTL_ANALYTICS_GROUP_NIGHT "Night window"
@@ -771,7 +783,7 @@
 #define INTL_ANALYTICS_GROUP_DATA "Data"
 #endif
 #ifndef INTL_ANALYTICS_MORNING_AUTOSWITCH
-#define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
+#define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open analytics on the display each morning (06:00–end)"
 #endif
 #ifndef INTL_ANALYTICS_NIGHT_START_TIME
 #define INTL_ANALYTICS_NIGHT_START_TIME "Start (local, HH:MM)"
@@ -780,7 +792,7 @@
 #define INTL_ANALYTICS_NIGHT_END_TIME "End (local, HH:MM)"
 #endif
 #ifndef INTL_ANALYTICS_NIGHT_END_HINT
-#define INTL_ANALYTICS_NIGHT_END_HINT "Used by the CO2 analytics screen. Default is night (22:00–07:00). The end hour is shown on the graph (10:00 → 10 o'clock bar). Window is at most 12 hours."
+#define INTL_ANALYTICS_NIGHT_END_HINT "Night window for the analytics screen. Default is 22:00–07:00. The end hour is shown on the CO2 graph (10:00 → 10 o'clock bar). At most 12 hours."
 #endif
 #ifndef INTL_ANALYTICS_MORNING_END_TIME
 #define INTL_ANALYTICS_MORNING_END_TIME "Morning display until (local, HH:MM)"
@@ -789,19 +801,10 @@
 #define INTL_ANALYTICS_MORNING_END_HINT "After this time the display returns to the main screen. End time is exclusive (10:00 means until 09:59)."
 #endif
 #ifndef INTL_ANALYTICS_SLEEP_ADD_URBAN
-#define INTL_ANALYTICS_SLEEP_ADD_URBAN "Add Urban data to sleep analytics (PM2.5 & noise)"
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN "Add Urban data to analytics (PM2.5 & noise)"
 #endif
 #ifndef INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT
-#define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in sleep analytics."
-#endif
-#ifndef INTL_ANALYTICS_MORNING_AUTOSWITCH
-#define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
-#endif
-#ifndef INTL_ANALYTICS_MORNING_END_TIME
-#define INTL_ANALYTICS_MORNING_END_TIME "Morning display until (local, HH:MM)"
-#endif
-#ifndef INTL_ANALYTICS_MORNING_END_HINT
-#define INTL_ANALYTICS_MORNING_END_HINT "After this time the display returns to the main screen. End time is exclusive (10:00 means until 09:59)."
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in analytics."
 #endif
 #ifndef INTL_DATA_SECTION_SDS
 #define INTL_DATA_SECTION_SDS "SDS"

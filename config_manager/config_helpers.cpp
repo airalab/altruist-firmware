@@ -610,6 +610,10 @@ void readConfig(bool oldconfig) {
 			cfg::main_layout = MAIN_LAYOUT_DEFAULT;
 			rewriteConfig = true;
 		}
+		if (cfg::analytics_screen > ANALYTICS_SCREEN_CO2) {
+			cfg::analytics_screen = ANALYTICS_SCREEN_CO2;
+			rewriteConfig = true;
+		}
 		{
 			const unsigned before_i = cfg::desk_interval_s;
 			const unsigned before_p = cfg::desk_pages;

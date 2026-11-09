@@ -82,37 +82,9 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 
 	page_content += F("<div id='desk-settings'>");
 	page_content += F("<div class='form-group'><label for='desk_interval_s'>" INTL_DESK_INTERVAL "</label>"
-		"<input class='input-short' type='number' id='desk_interval_s' name='desk_interval_s' min='15' max='300' step='15' value='");
+		"<input class='input-short' type='number' id='desk_interval_s' name='desk_interval_s' min='30' max='300' step='15' value='");
 	page_content += String(cfg::desk_interval_s);
 	page_content += F("'/></div>");
-
-	page_content += F("<div class='form-group'><label for='desk_home'>" INTL_DESK_HOME "</label>"
-		"<select id='desk_home' name='desk_home'>");
-	const char *home_labels[] = {
-		INTL_DESK_TITLE_AIR, INTL_DESK_TITLE_CLIMATE_URBAN, INTL_DESK_TITLE_CO2,
-		INTL_DESK_TITLE_NOISE, INTL_DESK_TITLE_PRESSURE, INTL_DESK_TITLE_CLIMATE_INSIGHT
-	};
-	unsigned shown_home = cfg::desk_home;
-	if (cfg::standalone && (shown_home == DESK_PAGE_AIR || shown_home == DESK_PAGE_NOISE ||
-	                        shown_home == DESK_PAGE_CLIMATE)) {
-		shown_home = deskPageIdAt(deskHomeSlot());
-	}
-	for (unsigned o = 0; o < DESK_PAGE_COUNT; o++) {
-		const unsigned i = deskPageIdInOrder(static_cast<uint8_t>(o));
-		if (cfg::standalone && (i == DESK_PAGE_AIR || i == DESK_PAGE_NOISE || i == DESK_PAGE_CLIMATE)) {
-			continue;
-		}
-		page_content += F("<option value='");
-		page_content += String(i);
-		page_content += F("'");
-		if (shown_home == i) {
-			page_content += F(" selected='selected'");
-		}
-		page_content += F(">");
-		page_content += home_labels[i];
-		page_content += F("</option>");
-	}
-	page_content += F("</select></div>");
 
 	auto deskPageBox = [&](unsigned bit, const char *name, const char *label) {
 		if (cfg::standalone && (bit == DESK_PAGE_AIR || bit == DESK_PAGE_NOISE ||
@@ -178,11 +150,6 @@ ScreenSaveResult webserver_screen_post(WebServer& server) {
 		interval = static_cast<unsigned>(server.arg(F("desk_interval_s")).toInt());
 	}
 
-	unsigned home = cfg::desk_home;
-	if (server.hasArg(F("desk_home"))) {
-		home = static_cast<unsigned>(server.arg(F("desk_home")).toInt());
-	}
-
 	unsigned pages = 0;
 	if (server.hasArg(F("desk_page_air"))) {
 		pages |= (1u << DESK_PAGE_AIR);
@@ -206,9 +173,6 @@ ScreenSaveResult webserver_screen_post(WebServer& server) {
 		const unsigned urban = (1u << DESK_PAGE_AIR) | (1u << DESK_PAGE_NOISE) |
 		                       (1u << DESK_PAGE_CLIMATE);
 		pages = (pages & ~urban) | (cfg::desk_pages & urban);
-		if (home == DESK_PAGE_AIR || home == DESK_PAGE_NOISE || home == DESK_PAGE_CLIMATE) {
-			home = deskPageIdAt(deskHomeSlot());
-		}
 	}
 
 	const unsigned old_mode = cfg::epd_refresh_mode;
@@ -221,7 +185,6 @@ ScreenSaveResult webserver_screen_post(WebServer& server) {
 	cfg::main_layout = layout;
 	cfg::desk_interval_s = interval;
 	cfg::desk_pages = pages;
-	cfg::desk_home = home;
 	deskNormalizeConfig();
 
 	if (old_mode == cfg::epd_refresh_mode && old_layout == cfg::main_layout &&

@@ -53,6 +53,10 @@ bool analyticsHistoryHasData();
 
 void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_screen_values_t &values);
 void analyticsIngestHourSample(const analytics_screen_values_t &values);
+/** Display task: skip flash I/O while the e-paper is painting or refreshing. */
+void analyticsSetPersistBlocked(bool blocked);
+/** Sensor-task only: load NVS night + SPIFFS desk, then save when the panel is idle. */
+void analyticsPollHourHistory();
 void analyticsDevLogStatus15m();
 void populateAnalyticsPeriodStats(analytics_screen_values_t &values);
 

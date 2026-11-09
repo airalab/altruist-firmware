@@ -137,6 +137,7 @@ enum ConfigShapeId {
 	Config_encrypt_no2,
 	Config_encrypt_fast_aqi,
 	Config_encrypt_epa_aqi,
+	Config_analytics_screen,
 };
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -246,6 +247,7 @@ static constexpr char CFG_KEY_ENCRYPT_O3[] PROGMEM = "encrypt_o3";
 static constexpr char CFG_KEY_ENCRYPT_NO2[] PROGMEM = "encrypt_no2";
 static constexpr char CFG_KEY_ENCRYPT_FAST_AQI[] PROGMEM = "encrypt_fast_aqi";
 static constexpr char CFG_KEY_ENCRYPT_EPA_AQI[] PROGMEM = "encrypt_epa_aqi";
+static constexpr char CFG_KEY_ANALYTICS_SCREEN[] PROGMEM = "analytics_screen";
 static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_lang)-1, CFG_KEY_CURRENT_LANG, cfg::current_lang },
 	{ Config_Type_String, sizeof(cfg::wlanssid)-1, CFG_KEY_WLANSSID, cfg::wlanssid },
@@ -355,6 +357,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_NO2, &cfg::encrypt_no2 },
 	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_FAST_AQI, &cfg::encrypt_fast_aqi },
 	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_EPA_AQI, &cfg::encrypt_epa_aqi },
+	{ Config_Type_UInt, 0, CFG_KEY_ANALYTICS_SCREEN, &cfg::analytics_screen },
 };
           
 #endif // __CONFIG_H__

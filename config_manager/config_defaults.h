@@ -125,6 +125,8 @@ namespace cfg {
 	extern unsigned analytics_night_end_hour;
 	extern bool analytics_morning_autoswitch;
 	extern unsigned analytics_morning_end_hour;
+	/** Analytics e-paper: 0 = night score (face), 1 = CO2-centered (default). */
+	extern unsigned analytics_screen;
 
 	// data sharing preferences
 	extern bool share_temperature;

@@ -406,14 +406,6 @@ void webserver_hub_advanced(String& page_content, WebServer& server, bool wifico
 	append_hub_backup_section(page_content);
 	append_hub_section_end(page_content);
 
-	append_hub_section_start(page_content, FPSTR(INTL_PROVISION_TITLE), "provision");
-	page_content += F("<p class='form-hint'>");
-	page_content += FPSTR(INTL_PROVISION_CARD_HINT);
-	page_content += F("</p><p><a class='encrypt-key-btn encrypt-key-btn--ghost' href='/provision'>");
-	page_content += FPSTR(INTL_PROVISION_OPEN);
-	page_content += F("</a></p>");
-	append_hub_section_end(page_content);
-
 	append_hub_section_start(page_content, FPSTR(INTL_RESTART_SENSOR), "restart");
 	append_hub_restart_section(page_content);
 	append_hub_section_end(page_content);

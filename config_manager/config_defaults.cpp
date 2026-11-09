@@ -107,6 +107,7 @@ namespace cfg {
 	unsigned analytics_night_end_hour = 7 * 60;    // exclusive end, minutes (07:00)
 	bool analytics_morning_autoswitch = true;
 	unsigned analytics_morning_end_hour = 12 * 60; // exclusive end (12:00 local)
+	unsigned analytics_screen = ANALYTICS_SCREEN_CO2;
 
 	// data sharing preferences (all shared by default)
 	bool share_temperature = true;

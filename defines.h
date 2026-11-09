@@ -124,6 +124,8 @@ void firmwareBlockingYieldHook(void);
 
 #define MAIN_LAYOUT_DEFAULT 0u
 #define MAIN_LAYOUT_DESK 1u
+#define ANALYTICS_SCREEN_SCORE 0u
+#define ANALYTICS_SCREEN_CO2 1u
 #define DESK_PAGE_AIR 0u
 #define DESK_PAGE_CLIMATE 1u
 #define DESK_PAGE_CO2 2u
@@ -134,10 +136,10 @@ void firmwareBlockingYieldHook(void);
 #define DESK_PAGE_COUNT 6u
 #define DESK_PAGES_ALL 0x3Fu
 #define DESK_PAGES_ALL_V1 0x1Fu
-#define DESK_INTERVAL_MIN_S 15u
+#define DESK_INTERVAL_MIN_S 30u
 #define DESK_INTERVAL_MAX_S 300u
 #define DESK_INTERVAL_DEFAULT_S 60u
-#define DESK_GRAPH_INTERVAL_S 15u
+#define DESK_GRAPH_INTERVAL_S 30u
 #define DESK_GRAPH_HOURS 6u
 
 #define LEN_ROBONOMICS_PUBLIC_NODE 70

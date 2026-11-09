@@ -1048,9 +1048,10 @@ void sensorAndAPIWorker(void *pvParameters) {
 		// Keep analytics history collection independent from Analytics screen rendering.
 		if (xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
 			extractAnalyticsRollupValuesFromSensors(sensors_data, analytics_rollup_values);
-			analyticsIngestHourSample(analytics_rollup_values);
 			xSemaphoreGive(mutex);
+			analyticsIngestHourSample(analytics_rollup_values);
 		}
+		analyticsPollHourHistory();
 		(void)sensors_updated;
 		analyticsDevLogStatus15m();
 #endif

@@ -214,6 +214,9 @@ void webserver_config_send_body_post(WebServer &server) {
 	if (cfg::analytics_morning_end_hour <= 6 * 60) {
 		cfg::analytics_morning_end_hour = 12 * 60;
 	}
+	if (cfg::analytics_screen > ANALYTICS_SCREEN_CO2) {
+		cfg::analytics_screen = ANALYTICS_SCREEN_CO2;
+	}
 #endif
 	// Climate chart on sensors.map shows temperature + humidity together.
 	cfg::encrypt_humidity = cfg::encrypt_temperature;
@@ -689,7 +692,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<section class='config-section");
 	page_content += F("'");
 	append_section_anchor("cfg-sleep");
-	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_SLEEP_ANALYTICS "</h2>"
+		page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_SLEEP_ANALYTICS "</h2>"
 		"<div class='config-section__body'>");
 	{
 		unsigned start_m = altruistNightCfgRawToMinutes(cfg::analytics_night_start_hour, 22u * 60u);
@@ -697,7 +700,31 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		cfgClampNightWindowToMaxHours(&start_m, &end_m, 12u);
 		const String start_v = altruistFormatHHMM(start_m);
 		const String end_v = altruistFormatHHMM(end_m);
+		const unsigned screen = (cfg::analytics_screen > ANALYTICS_SCREEN_CO2)
+		                            ? ANALYTICS_SCREEN_CO2
+		                            : cfg::analytics_screen;
+		auto addScreenRadio = [&](unsigned mode, const __FlashStringHelper *label,
+		                          const __FlashStringHelper *hint) {
+			page_content += F("<label class='guest-option'><input type='radio' name='analytics_screen' value='");
+			page_content += String(mode);
+			page_content += F("'");
+			if (mode == screen) {
+				page_content += F(" checked");
+			}
+			page_content += F("/><span><strong>");
+			page_content += label;
+			page_content += F("</strong><span class='dash-row__desc'>");
+			page_content += hint;
+			page_content += F("</span></span></label>");
+		};
 		page_content += F("<div class='config-cluster'><h3 class='config-cluster__title'>");
+		page_content += FPSTR(INTL_ANALYTICS_GROUP_SCREEN);
+		page_content += F("</h3>");
+		addScreenRadio(ANALYTICS_SCREEN_SCORE, FPSTR(INTL_ANALYTICS_SCREEN_SCORE),
+		               FPSTR(INTL_ANALYTICS_SCREEN_SCORE_HINT));
+		addScreenRadio(ANALYTICS_SCREEN_CO2, FPSTR(INTL_ANALYTICS_SCREEN_CO2),
+		               FPSTR(INTL_ANALYTICS_SCREEN_CO2_HINT));
+		page_content += F("</div><div class='config-cluster'><h3 class='config-cluster__title'>");
 		page_content += FPSTR(INTL_ANALYTICS_GROUP_NIGHT);
 		page_content += F("</h3><div class='form-fields-pack'>"
 			"<div class='form-group'><label for='analytics_night_start_time'>");

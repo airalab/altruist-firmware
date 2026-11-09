@@ -198,6 +198,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             xSemaphoreGive(epd_draw_mutex);
             debug_outln_info(F("[EPD] Recovered stuck draw depth"), String(s_epd_draw_depth));
             s_epd_draw_depth = 0;
+            analyticsSetPersistBlocked(false);
         }
     }
 
@@ -213,6 +214,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             xSemaphoreTake(epd_draw_mutex, portMAX_DELAY);
         }
         s_epd_draw_depth++;
+        analyticsSetPersistBlocked(true);
         Paint_SelectImage(BlackImage);
         Paint_Clear(WHITE);
         showLogoPage();
@@ -220,6 +222,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         epdDisplay(DisplayMode::FULL, BlackImage);
         last_refresh_time = millis();
         s_epd_draw_depth--;
+        if (s_epd_draw_depth == 0) {
+            analyticsSetPersistBlocked(false);
+        }
         if (epd_draw_mutex) {
             xSemaphoreGive(epd_draw_mutex);
         }
@@ -626,6 +631,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             return;
         }
         s_epd_draw_depth++;
+        analyticsSetPersistBlocked(true);
         debug_outln_verbose(F("[Display] Starting refresh cycle for screen "), String((int)currentScreenID));
         refresh_now = false;
         Paint_SelectImage(BlackImage);
@@ -820,7 +826,7 @@ draw_complete:
 
         // Default MAIN: next refresh near the local minute tick so the header
         // clock changes when the minute changes. Desk slides wait until after
-        // epdDisplay() so the dwell (15 s graph / configured numbers) is the
+        // epdDisplay() so the dwell (30 s graph / configured numbers) is the
         // time the finished image stays on the panel, not including refresh.
         bool desk_hold_until_epd = false;
         bool desk_graph_slide = false;
@@ -913,6 +919,9 @@ draw_complete:
             showImageFast(BlackImage, currentScreenID);
         }
         s_epd_draw_depth--;
+        if (s_epd_draw_depth == 0) {
+            analyticsSetPersistBlocked(false);
+        }
         if (epd_draw_mutex) {
             xSemaphoreGive(epd_draw_mutex);
         }

@@ -17,6 +17,7 @@
 extern SDCard sdCardLogger;
 #endif
 #include <Preferences.h>
+#include <SPIFFS.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,8 +28,10 @@ constexpr float kNoTempData = -1000.0f;
 constexpr float kNoData = -1.0f;
 constexpr float kEpsilon = 0.1f;
 constexpr float kPi = 3.14159265f;
-/** Prod analytics: CO2 over the configured night window. Old score/cards stay in drawNightSinglePage. */
-constexpr bool kAnalyticsProdCo2Curve = true;
+/** CO2 graph vs the original night-score face. Chosen in Local → Analytics. */
+static bool analyticsUseCo2Screen() {
+    return cfg::analytics_screen != ANALYTICS_SCREEN_SCORE;
+}
 /** Clock-time cap for the night window (settings + clamp). */
 constexpr uint8_t kAnalyticsCo2WindowHoursMax = 12;
 /** Bars: 12 h window plus the end hour (22:00–10:00 still shows 10). */
@@ -77,10 +80,29 @@ constexpr uint8_t kAnalyticsHistVersion = 7;
 constexpr uint8_t kAnalyticsHistVersionV6 = 6;
 constexpr uint8_t kAnalyticsHistVersionV5 = 5;
 constexpr uint8_t kAnalyticsHistVersionPrev = 4; // pre-max_v buckets
-constexpr float kNoisePeakThresholdDb = 45.0f;
-constexpr uint32_t kAnalyticsPersistIntervalMs = 60UL * 60UL * 1000UL; // 1 hour
+constexpr float kNoisePeakThresholdDb = 40.0f;
+/** Packed 24h window: desk 6h plus last night (22:00 still there the next evening). */
+constexpr uint8_t kPersistHours = 24;
+constexpr uint8_t kNightSeries = 7;
+constexpr uint8_t kDeskSeries = 6;
+constexpr uint8_t kLegacyAllSeries = 13;
+constexpr size_t kPersistBytes = sizeof(RollingHourBucket) * kPersistHours;
+constexpr uint32_t kAnalyticsPersistIntervalMs = 5UL * 60UL * 1000UL;
+constexpr char kHistPath[] = "/hour_hist.bin";
+constexpr char kHistTmp[] = "/hour_hist.tmp";
+constexpr char kDeskMagic[4] = {'A', 'H', 'D', '7'};
+constexpr char kNightMagic[4] = {'A', 'H', 'N', '7'};
+constexpr char kAllMagic[4] = {'A', 'H', 'H', '7'};
+constexpr char kNightNvsKey[] = "h_night";
 bool g_hist_loaded = false;
+bool g_hist_nvs_ok = false;
 bool g_hist_dirty = false;
+bool g_persist_force = false;
+bool g_persist_allow_empty = false;
+bool g_persist_disabled = false;
+bool g_persist_blocked = false;
+bool g_nvs_needs_compact = false;
+uint8_t g_persist_fails = 0;
 uint32_t g_hist_last_save_ms = 0;
 uint32_t g_hist_last_day_key = 0;
 uint32_t g_hist_first_save_ts = 0;
@@ -98,6 +120,11 @@ uint32_t g_dev_last_status_log_ms = 0;
 static uint32_t currentLocalHourKey(time_t now);
 static void formatHourKey(char *out, size_t out_sz, uint32_t hour_key);
 static void saveRollingHistoryIfNeeded(bool force);
+
+/** Unset RTC is 1970; same floor as protobuf send. */
+static bool analyticsTimePlausible(time_t now) {
+    return now >= (time_t)1600000000;
+}
 
 /** v4 bucket layout (no max_v). Natural align → 12 bytes on ESP32. */
 struct RollingHourBucketV4 {
@@ -169,6 +196,40 @@ static void seedCo2AboveFromAvg(RollingHourHistory &hist) {
     }
 }
 
+static void unpackDeskHours(RollingHourHistory &hist, const RollingHourBucket *src, uint8_t n) {
+    for (uint8_t i = 0; i < n; i++) {
+        if (src[i].count == 0) {
+            continue;
+        }
+        hist.buckets[src[i].hour_key % 48U] = src[i];
+    }
+}
+
+static void packDeskHours(const RollingHourHistory &hist, RollingHourBucket *dst, uint8_t n) {
+    memset(dst, 0, (size_t)n * sizeof(RollingHourBucket));
+    uint32_t max_key = 0;
+    bool any = false;
+    for (int i = 0; i < 48; i++) {
+        if (hist.buckets[i].count == 0) {
+            continue;
+        }
+        if (!any || hist.buckets[i].hour_key > max_key) {
+            max_key = hist.buckets[i].hour_key;
+        }
+        any = true;
+    }
+    if (!any) {
+        return;
+    }
+    for (uint8_t i = 0; i < n; i++) {
+        const uint32_t key = max_key - (uint32_t)(n - 1u - i);
+        const RollingHourBucket &b = hist.buckets[key % 48U];
+        if (b.count > 0 && b.hour_key == key) {
+            dst[i] = b;
+        }
+    }
+}
+
 static bool loadHourHistoryV5(Preferences &prefs, const char *key, RollingHourHistory &hist) {
     const size_t n = prefs.getBytesLength(key);
     if (n == sizeof(hist)) {
@@ -181,7 +242,91 @@ static bool loadHourHistoryV5(Preferences &prefs, const char *key, RollingHourHi
         migrateHourHistoryV6ToV7(hist, old);
         return true;
     }
+    if (n > 0 && n <= sizeof(hist) && (n % sizeof(RollingHourBucket)) == 0) {
+        RollingHourBucket packed[48];
+        prefs.getBytes(key, packed, n);
+        unpackDeskHours(hist, packed, (uint8_t)(n / sizeof(RollingHourBucket)));
+        return true;
+    }
     return false;
+}
+
+struct HourHistFileHeader {
+    char magic[4];
+    uint8_t n_hours;
+    uint8_t n_series;
+    uint16_t bucket_bytes;
+    uint32_t first_save_ts;
+    uint32_t last_save_ts;
+} __attribute__((packed));
+
+static RollingHourHistory *histForDesk(uint8_t i) {
+    switch (i) {
+    case 0: return &g_temp_urban_hour_hist;
+    case 1: return &g_hum_urban_hour_hist;
+    case 2: return &g_press_in_hour_hist;
+    case 3: return &g_press_urb_hour_hist;
+    case 4: return &g_pm10_hour_hist;
+    case 5: return &g_noise_avg_hour_hist;
+    default: return nullptr;
+    }
+}
+
+static RollingHourHistory *histForNight(uint8_t i) {
+    switch (i) {
+    case 0: return &g_temp_hour_hist;
+    case 1: return &g_hum_hour_hist;
+    case 2: return &g_dew_hour_hist;
+    case 3: return &g_pm25_hour_hist;
+    case 4: return &g_co2_hour_hist;
+    case 5: return &g_noise_hour_hist;
+    case 6: return &g_voc_hour_hist;
+    default: return nullptr;
+    }
+}
+
+static RollingHourHistory *histForLegacyAll(uint8_t i) {
+    if (i < kDeskSeries) {
+        return histForDesk(i);
+    }
+    return histForNight((uint8_t)(i - kDeskSeries));
+}
+
+static bool histHasSamples(const RollingHourHistory &hist) {
+    for (int i = 0; i < 48; i++) {
+        if (hist.buckets[i].count > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool nightHistHasSamples() {
+    for (uint8_t i = 0; i < kNightSeries; i++) {
+        if (histHasSamples(*histForNight(i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool deskHistHasSamples() {
+    for (uint8_t i = 0; i < kDeskSeries; i++) {
+        if (histHasSamples(*histForDesk(i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void stampPersistTimes() {
+    const uint32_t now_ts = (uint32_t)time(nullptr);
+    if (now_ts > 0 && g_hist_first_save_ts == 0) {
+        g_hist_first_save_ts = now_ts;
+    }
+    if (now_ts > 0) {
+        g_hist_last_save_ts = now_ts;
+    }
 }
 
 static bool loadHourHistoryMigratingV4(Preferences &prefs, const char *key, RollingHourHistory &hist) {
@@ -192,130 +337,303 @@ static bool loadHourHistoryMigratingV4(Preferences &prefs, const char *key, Roll
     return true;
 }
 
-static void loadRollingHistoryIfNeeded() {
-    if (g_hist_loaded) return;
-    g_hist_loaded = true;
-
-    Preferences prefs;
-    // Use read-write open here so first boot can create namespace without noisy NOT_FOUND logs.
-    if (!prefs.begin("analytics", false)) {
-        return;
-    }
-
-    const uint8_t version = prefs.getUChar("ver", 0);
-    if (version != kAnalyticsHistVersion && version != kAnalyticsHistVersionV6 &&
-        version != kAnalyticsHistVersionV5 && version != kAnalyticsHistVersionPrev) {
-        prefs.end();
-        return;
-    }
-    g_hist_first_save_ts = prefs.getULong("fst_ts", 0);
-    g_hist_last_save_ts = prefs.getULong("lst_ts", 0);
-
-    bool migrated = false;
-    if (version == kAnalyticsHistVersionPrev) {
-        // v4 → v6: keep averages; fill max_v from avg; above_count starts at 0.
-        migrated |= loadHourHistoryMigratingV4(prefs, "h_temp", g_temp_hour_hist);
-        migrated |= loadHourHistoryMigratingV4(prefs, "h_hum", g_hum_hour_hist);
-        migrated |= loadHourHistoryMigratingV4(prefs, "h_dew", g_dew_hour_hist);
-        migrated |= loadHourHistoryMigratingV4(prefs, "h_pm25", g_pm25_hour_hist);
-        migrated |= loadHourHistoryMigratingV4(prefs, "h_co2", g_co2_hour_hist);
-        migrated |= loadHourHistoryMigratingV4(prefs, "h_noise", g_noise_hour_hist);
-        seedCo2AboveFromAvg(g_co2_hour_hist);
-    } else {
-        loadHourHistoryV5(prefs, "h_temp", g_temp_hour_hist);
-        loadHourHistoryV5(prefs, "h_hum", g_hum_hour_hist);
-        loadHourHistoryV5(prefs, "h_dew", g_dew_hour_hist);
-        loadHourHistoryV5(prefs, "h_pm25", g_pm25_hour_hist);
-        loadHourHistoryV5(prefs, "h_co2", g_co2_hour_hist);
-        loadHourHistoryV5(prefs, "h_noise", g_noise_hour_hist);
-        if (version == kAnalyticsHistVersion || version == kAnalyticsHistVersionV6) {
-            loadHourHistoryV5(prefs, "h_voc", g_voc_hour_hist);
-        } else {
-            // v5 padding was unused — do not treat leftover bytes as minutes-above.
-            clearAboveCounts(g_temp_hour_hist);
-            clearAboveCounts(g_hum_hour_hist);
-            clearAboveCounts(g_dew_hour_hist);
-            clearAboveCounts(g_pm25_hour_hist);
-            seedCo2AboveFromAvg(g_co2_hour_hist);
-            clearAboveCounts(g_noise_hour_hist);
-            migrated = true;
+static bool unpackSeriesFromReader(File &f, RollingHourHistory *(*hist_at)(uint8_t), uint8_t n_series,
+                                   uint8_t n_hours) {
+    const size_t nbytes = (size_t)n_hours * sizeof(RollingHourBucket);
+    for (uint8_t s = 0; s < n_series; s++) {
+        RollingHourBucket packed[48];
+        if (f.read((uint8_t *)packed, nbytes) != nbytes) {
+            return false;
         }
+        unpackDeskHours(*hist_at(s), packed, n_hours);
     }
-    loadHourHistoryV5(prefs, "h_t_urb", g_temp_urban_hour_hist);
-    loadHourHistoryV5(prefs, "h_h_urb", g_hum_urban_hour_hist);
-    loadHourHistoryV5(prefs, "h_p_in", g_press_in_hour_hist);
-    loadHourHistoryV5(prefs, "h_p_urb", g_press_urb_hour_hist);
-    loadHourHistoryV5(prefs, "h_pm10", g_pm10_hour_hist);
-    loadHourHistoryV5(prefs, "h_n_avg", g_noise_avg_hour_hist);
-    if (version != kAnalyticsHistVersion) {
-        migrated = true;
-    }
-    prefs.end();
+    return true;
+}
 
-    if (migrated) {
-        g_hist_dirty = true;
-        saveRollingHistoryIfNeeded(true);
-#if defined(ALTRUIST_BUILD_DEBUG)
-        debug_outln_info(F("[ANALYTICS] migrated hour history → v7"));
-#endif
+static bool loadHourHistoryFile() {
+    if (!SPIFFS.begin(false) || !SPIFFS.exists(kHistPath)) {
+        return false;
+    }
+    File f = SPIFFS.open(kHistPath, "r");
+    if (!f) {
+        return false;
+    }
+    HourHistFileHeader hdr{};
+    if (f.read((uint8_t *)&hdr, sizeof(hdr)) != sizeof(hdr)) {
+        f.close();
+        return false;
+    }
+    const bool desk_file = memcmp(hdr.magic, kDeskMagic, 4) == 0 && hdr.n_series == kDeskSeries;
+    const bool legacy_all = memcmp(hdr.magic, kAllMagic, 4) == 0 && hdr.n_series == kLegacyAllSeries;
+    if ((!desk_file && !legacy_all) || hdr.bucket_bytes != sizeof(RollingHourBucket) ||
+        hdr.n_hours == 0 || hdr.n_hours > 48) {
+        f.close();
+        return false;
+    }
+    const bool ok = unpackSeriesFromReader(f, desk_file ? histForDesk : histForLegacyAll, hdr.n_series,
+                                           hdr.n_hours);
+    f.close();
+    if (!ok) {
+        return false;
+    }
+    if (hdr.first_save_ts != 0) {
+        g_hist_first_save_ts = hdr.first_save_ts;
+    }
+    if (hdr.last_save_ts != 0) {
+        g_hist_last_save_ts = hdr.last_save_ts;
+    }
+    return true;
+}
+
+static bool writeDeskHistoryFile() {
+    if (!SPIFFS.begin(false)) {
+        return false;
+    }
+    stampPersistTimes();
+    File f = SPIFFS.open(kHistTmp, "w");
+    if (!f) {
+        return false;
+    }
+    HourHistFileHeader hdr{};
+    memcpy(hdr.magic, kDeskMagic, 4);
+    hdr.n_hours = kPersistHours;
+    hdr.n_series = kDeskSeries;
+    hdr.bucket_bytes = (uint16_t)sizeof(RollingHourBucket);
+    hdr.first_save_ts = g_hist_first_save_ts;
+    hdr.last_save_ts = g_hist_last_save_ts;
+    bool ok = f.write((const uint8_t *)&hdr, sizeof(hdr)) == sizeof(hdr);
+    for (uint8_t s = 0; ok && s < kDeskSeries; s++) {
+        RollingHourBucket packed[kPersistHours];
+        packDeskHours(*histForDesk(s), packed, kPersistHours);
+        ok = f.write((const uint8_t *)packed, kPersistBytes) == kPersistBytes;
+    }
+    f.close();
+    if (!ok) {
+        SPIFFS.remove(kHistTmp);
+        return false;
+    }
+    SPIFFS.remove(kHistPath);
+    if (!SPIFFS.rename(kHistTmp, kHistPath)) {
+        SPIFFS.remove(kHistTmp);
+        return false;
+    }
+    return true;
+}
+
+static void removeLegacyNvsKeys(Preferences &prefs) {
+    static const char *const keys[] = {
+        "h_temp", "h_hum", "h_dew", "h_pm25", "h_co2", "h_noise", "h_voc",
+        "h_t_urb", "h_h_urb", "h_p_in", "h_p_urb", "h_pm10", "h_n_avg"};
+    for (uint8_t i = 0; i < (uint8_t)(sizeof(keys) / sizeof(keys[0])); i++) {
+        if (prefs.getBytesLength(keys[i]) > 0) {
+            prefs.remove(keys[i]);
+        }
     }
 }
 
-static void saveRollingHistoryIfNeeded(bool force) {
-    if (!g_hist_loaded || !g_hist_dirty) return;
+static bool unpackNightBlob(Preferences &prefs) {
+    const size_t n = prefs.getBytesLength(kNightNvsKey);
+    if (n < sizeof(HourHistFileHeader)) {
+        return false;
+    }
+    uint8_t buf[sizeof(HourHistFileHeader) + sizeof(RollingHourBucket) * kNightSeries * kPersistHours];
+    if (n > sizeof(buf) || prefs.getBytes(kNightNvsKey, buf, n) != n) {
+        return false;
+    }
+    HourHistFileHeader hdr;
+    memcpy(&hdr, buf, sizeof(hdr));
+    if (memcmp(hdr.magic, kNightMagic, 4) != 0 || hdr.n_series != kNightSeries ||
+        hdr.bucket_bytes != sizeof(RollingHourBucket) || hdr.n_hours == 0 || hdr.n_hours > 48) {
+        return false;
+    }
+    const size_t nbytes = (size_t)hdr.n_hours * sizeof(RollingHourBucket);
+    const uint8_t *p = buf + sizeof(hdr);
+    if (sizeof(hdr) + nbytes * hdr.n_series > n) {
+        return false;
+    }
+    for (uint8_t s = 0; s < hdr.n_series; s++) {
+        RollingHourBucket packed[48];
+        memcpy(packed, p, nbytes);
+        p += nbytes;
+        unpackDeskHours(*histForNight(s), packed, hdr.n_hours);
+    }
+    if (hdr.first_save_ts != 0) {
+        g_hist_first_save_ts = hdr.first_save_ts;
+    }
+    if (hdr.last_save_ts != 0) {
+        g_hist_last_save_ts = hdr.last_save_ts;
+    }
+    return true;
+}
 
+static bool writeNightHistoryNvs() {
+    Preferences prefs;
+    if (!prefs.begin("analytics", false)) {
+        return false;
+    }
+    stampPersistTimes();
+    HourHistFileHeader hdr{};
+    memcpy(hdr.magic, kNightMagic, 4);
+    hdr.n_hours = kPersistHours;
+    hdr.n_series = kNightSeries;
+    hdr.bucket_bytes = (uint16_t)sizeof(RollingHourBucket);
+    hdr.first_save_ts = g_hist_first_save_ts;
+    hdr.last_save_ts = g_hist_last_save_ts;
+    uint8_t buf[sizeof(hdr) + sizeof(RollingHourBucket) * kNightSeries * kPersistHours];
+    memcpy(buf, &hdr, sizeof(hdr));
+    uint8_t *p = buf + sizeof(hdr);
+    for (uint8_t s = 0; s < kNightSeries; s++) {
+        RollingHourBucket packed[kPersistHours];
+        packDeskHours(*histForNight(s), packed, kPersistHours);
+        memcpy(p, packed, kPersistBytes);
+        p += kPersistBytes;
+    }
+    const size_t n = sizeof(buf);
+    bool ok = prefs.putUChar("ver", kAnalyticsHistVersion) > 0;
+    ok = (prefs.putULong("fst_ts", g_hist_first_save_ts) > 0) && ok;
+    ok = (prefs.putULong("lst_ts", g_hist_last_save_ts) > 0) && ok;
+    ok = (prefs.putBytes(kNightNvsKey, buf, n) == n) && ok;
+    if (ok && g_nvs_needs_compact) {
+        removeLegacyNvsKeys(prefs);
+        g_nvs_needs_compact = false;
+    }
+    prefs.end();
+    return ok;
+}
+
+static bool loadLegacyNightKeys(Preferences &prefs, uint8_t version) {
+    bool any = false;
+    if (version == kAnalyticsHistVersionPrev) {
+        if (loadHourHistoryMigratingV4(prefs, "h_temp", g_temp_hour_hist)) any = true;
+        if (loadHourHistoryMigratingV4(prefs, "h_hum", g_hum_hour_hist)) any = true;
+        if (loadHourHistoryMigratingV4(prefs, "h_dew", g_dew_hour_hist)) any = true;
+        if (loadHourHistoryMigratingV4(prefs, "h_pm25", g_pm25_hour_hist)) any = true;
+        if (loadHourHistoryMigratingV4(prefs, "h_co2", g_co2_hour_hist)) any = true;
+        if (loadHourHistoryMigratingV4(prefs, "h_noise", g_noise_hour_hist)) any = true;
+        seedCo2AboveFromAvg(g_co2_hour_hist);
+        return any;
+    }
+    if (loadHourHistoryV5(prefs, "h_temp", g_temp_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_hum", g_hum_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_dew", g_dew_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_pm25", g_pm25_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_co2", g_co2_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_noise", g_noise_hour_hist)) any = true;
+    if (version == kAnalyticsHistVersion || version == kAnalyticsHistVersionV6) {
+        if (loadHourHistoryV5(prefs, "h_voc", g_voc_hour_hist)) any = true;
+    } else {
+        clearAboveCounts(g_temp_hour_hist);
+        clearAboveCounts(g_hum_hour_hist);
+        clearAboveCounts(g_dew_hour_hist);
+        clearAboveCounts(g_pm25_hour_hist);
+        seedCo2AboveFromAvg(g_co2_hour_hist);
+        clearAboveCounts(g_noise_hour_hist);
+    }
+    return any;
+}
+
+static bool loadLegacyDeskKeys(Preferences &prefs) {
+    bool any = false;
+    if (loadHourHistoryV5(prefs, "h_t_urb", g_temp_urban_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_h_urb", g_hum_urban_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_p_in", g_press_in_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_p_urb", g_press_urb_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_pm10", g_pm10_hour_hist)) any = true;
+    if (loadHourHistoryV5(prefs, "h_n_avg", g_noise_avg_hour_hist)) any = true;
+    return any;
+}
+
+static bool loadHourHistoryFromNvs(bool have_desk_file) {
+    Preferences prefs;
+    if (!prefs.begin("analytics", false)) {
+        return false;
+    }
+    const uint8_t version = prefs.getUChar("ver", 0);
+    bool any = false;
+    if (unpackNightBlob(prefs)) {
+        any = true;
+    } else if (version == kAnalyticsHistVersion || version == kAnalyticsHistVersionV6 ||
+               version == kAnalyticsHistVersionV5 || version == kAnalyticsHistVersionPrev) {
+        g_hist_first_save_ts = prefs.getULong("fst_ts", g_hist_first_save_ts);
+        g_hist_last_save_ts = prefs.getULong("lst_ts", g_hist_last_save_ts);
+        if (loadLegacyNightKeys(prefs, version)) {
+            any = true;
+            g_nvs_needs_compact = true;
+        }
+    }
+    if (!have_desk_file && loadLegacyDeskKeys(prefs)) {
+        any = true;
+        g_nvs_needs_compact = true;
+        g_hist_dirty = true;
+    }
+    if (prefs.getBytesLength("h_temp") > 0 || prefs.getBytesLength("h_t_urb") > 0) {
+        g_nvs_needs_compact = true;
+    }
+    prefs.end();
+    return any;
+}
+
+static void loadRollingHistoryIfNeeded() {
+    if (g_hist_loaded) {
+        return;
+    }
+    if (g_persist_blocked) {
+        return;
+    }
+    const bool have_desk_file = loadHourHistoryFile();
+    (void)loadHourHistoryFromNvs(have_desk_file);
+    if (have_desk_file && g_nvs_needs_compact) {
+        g_hist_dirty = true;
+    }
+    g_hist_loaded = true;
+    g_hist_nvs_ok = true;
+}
+
+static void saveRollingHistoryIfNeeded(bool force) {
+    if (g_persist_disabled || g_persist_blocked || !g_hist_loaded || !g_hist_nvs_ok) {
+        return;
+    }
+    if (!g_hist_dirty && !force && !g_nvs_needs_compact) {
+        return;
+    }
     const uint32_t now_ms = millis();
-    // After reboot, g_hist_last_save_ms is 0. Do not throttle the first save in this boot.
     if (!force && g_hist_last_save_ms != 0U &&
         (now_ms - g_hist_last_save_ms) < kAnalyticsPersistIntervalMs) {
         return;
     }
-
-    bool persisted = false;
-    const uint32_t now_ts = (uint32_t)time(nullptr);
-    Preferences prefs;
-    if (prefs.begin("analytics", false)) {
-        prefs.putUChar("ver", kAnalyticsHistVersion);
-        if (now_ts > 0 && g_hist_first_save_ts == 0) {
-            g_hist_first_save_ts = now_ts;
-        }
-        if (now_ts > 0) {
-            g_hist_last_save_ts = now_ts;
-        }
-        prefs.putULong("fst_ts", g_hist_first_save_ts);
-        prefs.putULong("lst_ts", g_hist_last_save_ts);
-        prefs.putBytes("h_temp", &g_temp_hour_hist, sizeof(g_temp_hour_hist));
-        prefs.putBytes("h_hum", &g_hum_hour_hist, sizeof(g_hum_hour_hist));
-        prefs.putBytes("h_dew", &g_dew_hour_hist, sizeof(g_dew_hour_hist));
-        prefs.putBytes("h_pm25", &g_pm25_hour_hist, sizeof(g_pm25_hour_hist));
-        prefs.putBytes("h_co2", &g_co2_hour_hist, sizeof(g_co2_hour_hist));
-        prefs.putBytes("h_noise", &g_noise_hour_hist, sizeof(g_noise_hour_hist));
-        prefs.putBytes("h_voc", &g_voc_hour_hist, sizeof(g_voc_hour_hist));
-        prefs.putBytes("h_t_urb", &g_temp_urban_hour_hist, sizeof(g_temp_urban_hour_hist));
-        prefs.putBytes("h_h_urb", &g_hum_urban_hour_hist, sizeof(g_hum_urban_hour_hist));
-        prefs.putBytes("h_p_in", &g_press_in_hour_hist, sizeof(g_press_in_hour_hist));
-        prefs.putBytes("h_p_urb", &g_press_urb_hour_hist, sizeof(g_press_urb_hour_hist));
-        prefs.putBytes("h_pm10", &g_pm10_hour_hist, sizeof(g_pm10_hour_hist));
-        prefs.putBytes("h_n_avg", &g_noise_avg_hour_hist, sizeof(g_noise_avg_hour_hist));
-        prefs.end();
-        persisted = true;
+    const bool write_night = nightHistHasSamples() || g_persist_allow_empty;
+    const bool write_desk = deskHistHasSamples() || g_persist_allow_empty;
+    if (!write_night && !write_desk) {
+        return;
     }
 
-    if (!persisted) return;
-#if defined(USE_SD_CARD) && defined(ALTRUIST_BUILD_DEBUG)
-    dumpAnalyticsToSdDev(now_ts, force);
-#endif
-    g_hist_dirty = false;
+    bool ok = true;
+    if (write_night) {
+        ok = writeNightHistoryNvs() && ok;
+    }
+    if (write_desk) {
+        ok = writeDeskHistoryFile() && ok;
+    }
     g_hist_last_save_ms = now_ms;
+    if (!ok) {
+        g_persist_fails++;
+#if defined(ALTRUIST_BUILD_DEBUG)
+        debug_outln_info(F("[ANALYTICS] hour history save incomplete"));
+#endif
+        return;
+    }
+
+    g_persist_fails = 0;
+    g_hist_dirty = false;
     g_hist_save_count++;
     g_hist_last_save_forced = force;
+    g_persist_force = false;
+    g_persist_allow_empty = false;
+#if defined(USE_SD_CARD) && defined(ALTRUIST_BUILD_DEBUG)
+    dumpAnalyticsToSdDev((uint32_t)time(nullptr), force);
+#endif
 #if defined(ALTRUIST_BUILD_DEBUG)
-    const uint32_t saved_hour_key = currentLocalHourKey((time_t)now_ts);
-    char saved_hour_buf[24];
-    formatHourKey(saved_hour_buf, sizeof(saved_hour_buf), saved_hour_key);
-    debug_outln_info(F("[ANALYTICS][DEV] persisted NVS hour_key"), String(saved_hour_key));
-    debug_outln_info(F("[ANALYTICS][DEV] persisted NVS local hour"), String(saved_hour_buf));
-    debug_outln_info(F("[ANALYTICS][DEV] persisted reason"), String(force ? "day-change" : "interval"));
+    debug_outln_info(F("[ANALYTICS][DEV] persisted night NVS + desk SPIFFS"));
 #endif
 }
 
@@ -823,6 +1141,10 @@ static int metricScoreRangeBest(float value, float best_low, float best_high, fl
 
 } // namespace
 
+void analyticsSetPersistBlocked(bool blocked) {
+    g_persist_blocked = blocked;
+}
+
 static String g_analytics_qr_url;
 static unsigned char *g_analytics_qr_bmp = nullptr;
 static int g_analytics_qr_w = 0;
@@ -837,12 +1159,13 @@ bool analyticsHistoryPersistenceEnabled() {
 }
 
 bool analyticsHistoryIsLoaded() {
-    loadRollingHistoryIfNeeded();
     return g_hist_loaded;
 }
 
 bool analyticsHistoryHasData() {
-    loadRollingHistoryIfNeeded();
+    if (!g_hist_loaded) {
+        return false;
+    }
     const bool indoor = rollingHistoryHasAnyData(g_temp_hour_hist) ||
                         rollingHistoryHasAnyData(g_hum_hour_hist) ||
                         rollingHistoryHasAnyData(g_dew_hour_hist) ||
@@ -877,15 +1200,13 @@ const char* analyticsViewLabel() {
 }
 
 static const char* analyticsViewLabelTitle() {
-    if (!kAnalyticsProdCo2Curve) {
-        return A_TXT("Sleep analytics", "Аналитика сна");
+    if (!analyticsUseCo2Screen()) {
+        return A_TXT("Night score", "Оценка ночи");
     }
     return A_TXT("CO2 analysis", "Анализ CO2");
 }
 
 void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_screen_values_t &values) {
-    loadRollingHistoryIfNeeded();
-
     values = analytics_screen_values_t{};
     JsonObjectConst data = doc.as<JsonObjectConst>();
 
@@ -1037,11 +1358,14 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
 
 void analyticsIngestHourSample(const analytics_screen_values_t &values) {
     loadRollingHistoryIfNeeded();
+    if (!g_hist_loaded) {
+        return;
+    }
 
     // Update low-memory rolling aggregates (48 hour buckets).
     time_t now = time(nullptr);
     bool updated = false;
-    if (now > 0) {
+    if (analyticsTimePlausible(now)) {
         uint32_t day_key = currentLocalDayKey(now);
         uint32_t hour_key = currentLocalHourKey(now);
         uint8_t updated_metrics = 0;
@@ -1142,7 +1466,9 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
             const bool day_changed = (g_hist_last_day_key != 0U && g_hist_last_day_key != day_key);
             g_hist_last_day_key = day_key;
             const bool hour_persist_due = shouldPersistForCurrentHour(now, hour_key);
-            saveRollingHistoryIfNeeded(day_changed || hour_persist_due);
+            if (day_changed || hour_persist_due) {
+                g_persist_force = true;
+            }
 #if defined(ALTRUIST_BUILD_DEBUG)
             if (g_dev_last_ingest_hour_key != hour_key) {
                 char ingest_hour_buf[24];
@@ -1160,6 +1486,11 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
     }
 }
 
+void analyticsPollHourHistory() {
+    loadRollingHistoryIfNeeded();
+    saveRollingHistoryIfNeeded(g_persist_force);
+}
+
 void analyticsClearUrbanNightHistory() {
     loadRollingHistoryIfNeeded();
     memset(&g_pm25_hour_hist, 0, sizeof(g_pm25_hour_hist));
@@ -1170,7 +1501,8 @@ void analyticsClearUrbanNightHistory() {
     memset(&g_hum_urban_hour_hist, 0, sizeof(g_hum_urban_hour_hist));
     memset(&g_press_urb_hour_hist, 0, sizeof(g_press_urb_hour_hist));
     g_hist_dirty = true;
-    saveRollingHistoryIfNeeded(true);
+    g_persist_force = true;
+    g_persist_allow_empty = true;
     debug_outln_info(F("[ANALYTICS] Cleared Urban PM/noise night history"));
 }
 
@@ -1214,8 +1546,6 @@ void analyticsDevLogStatus15m() {
 }
 
 void populateAnalyticsPeriodStats(analytics_screen_values_t &values) {
-    loadRollingHistoryIfNeeded();
-
     // "24H" is derived from hourly history: prefer completed local day, fallback to current day.
     time_t now = time(nullptr);
     if (now > 0) {
@@ -1450,7 +1780,6 @@ static const RollingHourBucket *findHourBucket(const RollingHourHistory &hist, u
 }
 
 void analyticsReadLastHours(analytics_hour_series_t series, analytics_last_hours_t &out) {
-    loadRollingHistoryIfNeeded();
     out = analytics_last_hours_t{};
     out.n = DESK_GRAPH_HOURS;
     const RollingHourHistory *hist = nullptr;
@@ -1472,7 +1801,7 @@ void analyticsReadLastHours(analytics_hour_series_t series, analytics_last_hours
         return;
     }
     const time_t now = time(nullptr);
-    if (now <= 0) {
+    if (!analyticsTimePlausible(now)) {
         return;
     }
     const uint32_t hk = currentLocalHourKey(now);
@@ -1565,22 +1894,46 @@ static uint8_t collectNightWindowCo2(uint8_t *n_out, float *vals, bool *has_out,
     return found;
 }
 
+static uint16_t vocEventsForOneHour(uint32_t hour_key) {
+    const RollingHourBucket *b = findHourBucket(g_voc_hour_hist, hour_key);
+    if (!b || b->sum_v <= 0.0f) {
+        return 0;
+    }
+    const long n = lroundf(b->sum_v);
+    if (n <= 0) {
+        return 0;
+    }
+    if (n > 65535L) {
+        return 65535;
+    }
+    return (uint16_t)n;
+}
+
 static uint16_t vocEventsForHourKeys(const uint32_t *keys, uint8_t n) {
     uint32_t total = 0;
     if (!keys || n == 0) {
         return 0;
     }
     for (uint8_t i = 0; i < n; i++) {
-        const RollingHourBucket *b = findHourBucket(g_voc_hour_hist, keys[i]);
-        if (!b || b->sum_v <= 0.0f) {
-            continue;
-        }
-        total += (uint32_t)lroundf(b->sum_v);
+        total += (uint32_t)vocEventsForOneHour(keys[i]);
     }
     if (total > 65535U) {
         total = 65535U;
     }
     return (uint16_t)total;
+}
+
+static const char *vocNightPhrase(uint16_t night_events) {
+    if (night_events == 0) {
+        return INTL_DISP_VOC_PHRASE_NONE;
+    }
+    if (night_events == 1) {
+        return INTL_DISP_VOC_PHRASE_LOW;
+    }
+    if (night_events <= 3) {
+        return INTL_DISP_VOC_PHRASE_MED;
+    }
+    return INTL_DISP_VOC_PHRASE_HIGH;
 }
 
 static void drawTrackArc(int cx, int cy, int outer_r, int inner_r, float start_deg, float sweep_deg, float fill_norm) {
@@ -2334,7 +2687,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     if (has_noise) {
         drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h,
                        A_TXT("Noise", "Шум"), nv, A_TXT("peaks", "пиков"), f_noise, -1, false, 4, true, true,
-                       A_TXT(">45 dBA/night", ">45 дБА/ночь"));
+                       A_TXT(">40 dBA/night", ">40 дБА/ночь"));
         metric_row++;
     }
     drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, "RH", hv, "", f_hum, -1, false, 4, true, true);
@@ -2468,8 +2821,6 @@ static void nightDrawVocBars(int left, int cy, int n_filled, int n_total) {
 static void drawNightCo2Curve12h(int content_left, int content_top, int content_width,
                                  const analytics_screen_values_t &values,
                                  const char *sensor_ss58) {
-    loadRollingHistoryIfNeeded();
-
     uint8_t n = 0;
     float vals[kAnalyticsCo2HoursMax];
     float maxs[kAnalyticsCo2HoursMax];
@@ -2631,6 +2982,15 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
         Paint_DrawRectangle((UWORD)x0, (UWORD)y_top, (UWORD)x1, (UWORD)plot_bottom,
                             BLACK, DOT_PIXEL_1X1,
                             over ? DRAW_FILL_FULL : DRAW_FILL_EMPTY);
+        if (vocEventsForOneHour(keys[i]) > 0) {
+            const int mx = x0 + bar_w / 2;
+            int my = y_top - 5;
+            if (my < plot_top + 2) {
+                my = plot_top + 2;
+            }
+            Paint_DrawCircle((UWORD)mx, (UWORD)my, 2, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+            Paint_DrawCircle((UWORD)mx, (UWORD)my, 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+        }
     }
 
     if (kCo2CurveBandPpm >= ymin && kCo2CurveBandPpm <= ymax) {
@@ -2745,18 +3105,15 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
                        BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     }
 
-    char tip1[36];
-    char tip2[36];
-    nightFillAdvice(tip1, sizeof(tip1), tip2, sizeof(tip2), n, has, vals, minutes_above, max_ppm);
+    const uint16_t voc_night = vocEventsForHourKeys(keys, n);
+    char voc_count[12];
+    snprintf(voc_count, sizeof(voc_count), "%u", (unsigned)voc_night);
+    const char *voc_phrase = vocNightPhrase(voc_night);
     const int tip_block_h = Font12.Height * 3 + 8;
     int tip_top = face_area_bot + ((tip_bot - face_area_bot) - tip_block_h) / 2;
     if (tip_top < face_area_bot + 6) {
         tip_top = face_area_bot + 6;
     }
-    const char *tip_lab = A_TXT("Tip", "Итог");
-    uint16_t tw = Paint_GetStringWidth_Display(tip_lab, &Font12, &font_12_cyrillic, &font_12_ascii);
-    Paint_DrawString_Display(cx - (int)tw / 2, tip_top, tip_lab,
-                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     auto drawTipLine = [&](const char *s, int y) {
         if (!s || !s[0]) {
             return;
@@ -2768,8 +3125,9 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
         }
         Paint_DrawString_Display(lx, y, s, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     };
-    drawTipLine(tip1, tip_top + Font12.Height + 4);
-    drawTipLine(tip2, tip_top + Font12.Height + 4 + Font12.Height + 4);
+    drawTipLine("VOC", tip_top);
+    drawTipLine(voc_count, tip_top + Font12.Height + 4);
+    drawTipLine(voc_phrase, tip_top + Font12.Height + 4 + Font12.Height + 4);
 
     if (qr_side > 0) {
         int qx = cx - qr_side / 2;
@@ -2827,7 +3185,7 @@ void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &value
     const int content_width = content_right - content_left;
     const int content_top = header_bottom_border_y + 12;
 
-    if (kAnalyticsProdCo2Curve) {
+    if (analyticsUseCo2Screen()) {
         drawNightCo2Curve12h(content_left, content_top, content_width, values, sensor_ss58.c_str());
     } else {
         drawNightSinglePage(content_left, content_top, content_width, values);

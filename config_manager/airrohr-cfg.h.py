@@ -109,6 +109,7 @@ Bool		encrypt_o3
 Bool		encrypt_no2
 Bool		encrypt_fast_aqi
 Bool		encrypt_epa_aqi
+UInt		analytics_screen
 """
 
 with open("airrohr-cfg.h", "w") as h:

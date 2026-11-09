@@ -1267,9 +1267,6 @@ void append_app_sidebar(String& page_content) {
 		"<a class='app-sidebar__subitem' href='/advanced#backup'>");
 	page_content += FPSTR(INTL_DEVICE_BACKUP_TITLE);
 	page_content += F("</a>"
-		"<a class='app-sidebar__subitem' href='/provision'>");
-	page_content += FPSTR(INTL_PROVISION_TITLE);
-	page_content += F("</a>"
 		"<a class='app-sidebar__subitem' href='/advanced#restart'>");
 	page_content += FPSTR(INTL_RESTART_SENSOR);
 	page_content += F("</a>"
