@@ -1,0 +1,46 @@
+name: 'Deploy Altruist firmware to OTA update server'
+description: >-
+  Sync the webflasher checkout on upd.sensors.robonomics.network to origin/main,
+  create today's dated snapshot dirs and repoint the `latest` symlinks so that
+  sensors download the stable firmware published to airalab/webflasher.
+inputs:
+  ssh-host:
+    description: 'OTA update server host'
+    required: true
+  ssh-user:
+    description: 'OTA update server SSH user'
+    required: true
+  ssh-key:
+    description: 'SSH private key for the OTA update server'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up SSH key
+      shell: bash
+      env:
+        OTA_SSH_KEY: ${{ inputs.ssh-key }}
+      run: |
+        set -euo pipefail
+        install -d -m 700 ~/.ssh
+        printf '%s\n' "$OTA_SSH_KEY" > ~/.ssh/ota_deploy_key
+        chmod 600 ~/.ssh/ota_deploy_key
+        # host keys of the OTA update server, pinned to avoid TOFU
+        printf '%s\n' \
+          '145.239.10.201 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDGm958wbwewuPtof0WfdvfTHAnz+yfBVbFmfsVA/WFMQiXckUoLsszbkEzcWoovhwueDvUamKRxaUSPxs7A9DdgRa3F5nn/BOh/1rgu2fWoOg8m402v3iK8r/HUqYOSPpJ2hWLxfUL8s74DFZVicVqQO9rz+rB6FUC40Q9/h2/pWJPRn4J1xtNmvedAbh7hAmHMVbnnspZNOFAHot+Zf1ZBzxZJIesgb+ikhcZ7Tzj87bZOvm5JXjO4OQEgguawIqgph7aw4ff9MyC1Sjce04J+qgusLP4xmJA6NIv8r2ZuMyZHwc4bk4o0WWwWD/vn07DVSwy4y2YdR4R0Y6kDfU2MTEpzsWTFX9yE+mq2Nng/GSTqj7cQq6WsQWHGGWtWeE1SQmQHT+l++OjWSmvNlypvLl3VwZcg5EJzNGf3HMSMDGiYsXW5wyAp56czbTRxBmp2eWUINyVm2IG/fOrBIne9w665DrTMtsKyxhEtaRindNQWqt8w067nBmzau3iyPM=' \
+          '145.239.10.201 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBPHmWEHqBhInIVRjuIEbmPOo/i+ZHImaAtkwq+CiGZRUmzXrGUiOovzy5VwljRhV8W+dfLlaGR4JtoLQ6XwFnTg=' \
+          '145.239.10.201 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJCKYXf5WLBsFYAng+T/+at76SC9qRC1Ku1HfWKdCb3T' \
+          > ~/.ssh/known_hosts
+
+    - name: Run update script on the OTA server
+      shell: bash
+      env:
+        OTA_SSH_HOST: ${{ inputs.ssh-host }}
+        OTA_SSH_USER: ${{ inputs.ssh-user }}
+      run: |
+        set -euo pipefail
+        ssh -i ~/.ssh/ota_deploy_key \
+          -o IdentitiesOnly=yes \
+          -o ServerAliveInterval=15 \
+          -o ServerAliveCountMax=4 \
+          "$OTA_SSH_USER@$OTA_SSH_HOST" 'bash -s' < scripts/ota-update-server.sh

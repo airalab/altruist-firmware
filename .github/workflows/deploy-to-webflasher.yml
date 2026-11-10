@@ -7,6 +7,9 @@ on:
       - esp32-dev
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 concurrency:
   group: altruist-webflasher-deployment
   cancel-in-progress: false
@@ -116,3 +119,24 @@ jobs:
           git add firmware/Altruist manifest
           git commit -m "Update Altruist ${label} firmware from ${SHA:0:8}" || exit 0
           git push origin HEAD:main
+
+  deploy-ota:
+    # Rotate the stable firmware snapshots on the OTA update server after the
+    # stable webflasher deployment succeeded (esp32 branch only; esp32-dev is
+    # the testing channel and is not served by the OTA server).
+    if: github.ref_name == 'esp32'
+    needs: deploy
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: altruist-ota-deployment
+      cancel-in-progress: false
+    steps:
+      - name: Checkout altruist-firmware
+        uses: actions/checkout@v4
+
+      - name: Rotate stable firmware on the OTA update server
+        uses: ./.github/actions/deploy-ota
+        with:
+          ssh-host: ${{ secrets.OTA_SSH_HOST }}
+          ssh-user: ${{ secrets.OTA_SSH_USER }}
+          ssh-key: ${{ secrets.OTA_SSH_KEY }}
