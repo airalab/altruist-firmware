@@ -13,7 +13,7 @@ static void append_debug_log(String &page_content) {
 		"var busy=false;"
 		"function slog_update(){"
 		"if(busy)return;busy=true;"
-		"fetch('/serial').then(function(r){return r.status===204?Promise.resolve(''):r.text();})"
+		"fetch('/serial',{cache:'no-store'}).then(function(r){return r.status===204?Promise.resolve(''):r.text();})"
 		".then(function(t){"
 		"if(!t)return;"
 		"var el=document.getElementById('slog');if(!el)return;"
@@ -30,6 +30,10 @@ static void append_debug_log(String &page_content) {
 
 namespace {
 void apply_log_request(WebServer& server) {
+	if (server.arg("status") == "1") {
+		logSupportStatus();
+		return;
+	}
 	if (server.hasArg("lvl")) {
 		const String value = server.arg("lvl");
 		if (value.length() == 1 && value[0] >= '0' && value[0] <= '5') {
@@ -37,45 +41,64 @@ void apply_log_request(WebServer& server) {
 #if !defined(ALTRUIST_BUILD_DEBUG)
 			level = min(level, static_cast<unsigned int>(DEBUG_MIN_INFO));
 #endif
+			// Legacy warning-only (2) has no separate operational event class.
+			// Normalize it to errors; keep the stored config key compatible.
+			if (level == DEBUG_WARNING) {
+				level = DEBUG_ERROR;
+			}
+#if defined(ALTRUIST_BUILD_DEBUG)
+			if (level < static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL)) {
+				return;
+			}
+#endif
 			cfg::debug = level;
 			if (effectiveRuntimeLogLevel() == 0) {
 				while (Debug.popLines().length() > 0) {}
 			}
+			logSupportEvent(0, F("logging"), F("mode_changed"), effectiveRuntimeLogLevel());
 		}
-	}
-	if (server.arg("status") == "1") {
-		logSupportStatus();
 	}
 }
 
 void append_log_controls(String& page_content, const char* path) {
-	page_content += F("<p>");
-	page_content += FPSTR(INTL_DEBUG_LEVEL);
-	page_content += F(": ");
-	page_content += String(effectiveRuntimeLogLevel());
-	page_content += F("</p><p>" INTL_SUPPORT_VOLATILE "</p>");
+	page_content += F("<p>" INTL_SUPPORT_VOLATILE "</p>");
 #if !defined(ALTRUIST_BUILD_DEBUG)
 	page_content += F("<p>" INTL_SUPPORT_LIMIT "</p>");
+#else
+#if ALTRUIST_FORCE_LOG_LEVEL > 0
+	page_content += F("<p>" INTL_SUPPORT_FORCED "</p>");
+#endif
 #endif
 	page_content += F("<div class='debug-level-grid'>");
 	const unsigned int levels[] = {0, 1, 3,
 #if defined(ALTRUIST_BUILD_DEBUG)
-		5,
+		4, 5,
 #endif
 	};
+	unsigned int active = effectiveRuntimeLogLevel();
+	if (active == DEBUG_WARNING) {
+		active = DEBUG_ERROR;
+	}
 	for (unsigned int level : levels) {
+#if defined(ALTRUIST_BUILD_DEBUG)
+		if (level < static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL)) {
+			continue;
+		}
+#endif
 		page_content += F("<a class='debug-level-btn' href='");
 		page_content += path;
 		page_content += F("?lvl=");
 		page_content += String(level);
+		page_content += F("' aria-pressed='");
+		page_content += active == level ? F("true") : F("false");
 		page_content += F("'>");
-		page_content += level == 0 ? F(INTL_NONE) : level == 1 ? F(INTL_ERROR) :
-		                level == 3 ? F(INTL_SUPPORT_EVENTS) : F(INTL_MAX_INFO);
+		page_content += level == 0 ? F(INTL_SUPPORT_OFF) : level == 1 ? F(INTL_SUPPORT_ERRORS) :
+		                level == 3 ? F(INTL_SUPPORT_EVENTS) : level == 4 ? F(INTL_SUPPORT_DETAIL) : F(INTL_SUPPORT_MAX_DETAIL);
 		page_content += F("</a>");
 	}
-	page_content += F("<a class='debug-level-btn' href='");
+	page_content += F("</div><p><a class='debug-level-btn' href='");
 	page_content += path;
-	page_content += F("?status=1'>" INTL_SUPPORT_STATUS "</a></div>");
+	page_content += F("?status=1'>" INTL_SUPPORT_STATUS "</a> " INTL_SUPPORT_STATUS_HINT "</p>");
 }
 } // namespace
 
@@ -83,7 +106,7 @@ void webserver_debug_level(WebServer& server, String& page_content, bool hub_emb
 	apply_log_request(server);
 	if (!hub_embed) {
 		page_content += F("<section class='app-panel'><h3 class='app-panel__title'>");
-		page_content += FPSTR(INTL_DEBUG_LEVEL);
+		page_content += F(INTL_SUPPORT_LOG_TITLE);
 		page_content += F("</h3>");
 	}
 	append_debug_log(page_content);

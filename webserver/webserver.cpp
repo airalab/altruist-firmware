@@ -690,6 +690,7 @@ void SensorWebServer::_webserver_removeConfig() {
 }
 
 void SensorWebServer::_webserver_serial() {
+    server.sendHeader(F("Cache-Control"), F("no-store"));
     if (!webserver_request_auth()) {
         return;
     }
@@ -721,11 +722,12 @@ void SensorWebServer::_webserver_wifi() {
 }
 
 void SensorWebServer::_webserver_debug_level() {
+    server.sendHeader(F("Cache-Control"), F("no-store"));
     if (!webserver_request_auth())
 	{ return; }
 
 	RESERVE_STRING(page_content, LARGE_STR);
-	start_html_page(page_content, FPSTR(INTL_DEBUG_LEVEL), false, "settings");
+	start_html_page(page_content, F(INTL_SUPPORT_LOG_TITLE), false, "settings");
 	append_app_page_body_start(page_content, F(INTL_PAGE_DEBUG_INTRO));
     webserver_debug_level(server, page_content);
 	append_app_page_body_end(page_content);

@@ -639,12 +639,15 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<section class='config-section");
 	page_content += F("'");
 	append_section_anchor("cfg-debug");
-	page_content += F("><h2 class='config-section__title'>" INTL_PANEL_TITLE_DEBUG "</h2>"
-		"<div class='config-section__body'>");
-	add_form_input(page_content, Config_debug, FPSTR(INTL_DEBUG_LEVEL), 1);
-#if !defined(ALTRUIST_BUILD_DEBUG)
-	page_content += F("<p>" INTL_SUPPORT_LIMIT "</p>");
-#endif
+	page_content += F("><h2 class='config-section__title'>");
+	page_content += FPSTR(INTL_MEASUREMENT_INTERVAL);
+	page_content += F("</h2><div class='config-section__body'>");
+	page_content += F("<input type='hidden' name='debug' value='");
+	page_content += String(cfg::debug);
+	page_content += F("'>");
+	if (!hub_mode) {
+		page_content += F("<p><a href='/advanced#debug'>" INTL_SUPPORT_LOG_TITLE "</a></p>");
+	}
 	add_form_input(page_content, Config_sending_intervall_ms, FPSTR(INTL_MEASUREMENT_INTERVAL), 5);
 	page_content += F("</div></section>");
 	}

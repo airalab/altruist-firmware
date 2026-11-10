@@ -1,15 +1,18 @@
 # Diagnostic profiles and operational support logs
 
 Current source baseline: `7e4189a` on `17ab154`; policy revised by the user
-2026-11-09. The original L2а changes on `344f123` disabled all project release
+2026-11-09; log-mode UI revised 2026-11-10 on `962cfd5`. The original L2а changes on `344f123` disabled all project release
 logs. The user subsequently approved a bounded operational release log for
 local web support and the webflasher USB console. Detailed sensor acceptance
 remains debug-only. Stable/Testing are publication channels, release/debug are
 build profiles; no third profile is introduced.
 
 These source changes have not been compiled, flashed or checked on hardware.
-The earlier 15-minute captures of `48ab87d` validate the previous silent-release
-policy only. They are not validation of this revision.
+The earlier 15-minute captures of `48ab87d` validate silent release only.
+The 2026-11-10 batch on `962cfd5` confirms operational release output on 0F38
+and debug measurements on 12FC. The UI changes below are not hardware-verified.
+The reported loss of web access after a configuration save happened after the
+capture and remains unresolved pending post-reboot logs/network observations.
 
 ## Profiles and inventory
 
@@ -31,7 +34,7 @@ therefore receives operational USB logs without needing debug firmware.
 | Sensor initialization | Internal sensor names with ready/unavailable; explicit standard sensor read/init errors | Existing detailed driver diagnostics |
 | OTA / config / SD / display | Existing error hooks without paths/details; OTA started/verified, SD-ready | Existing detailed logs |
 | Watchdog | Curated restart event and numeric section | Existing detailed restart reason; watchdog actions unchanged |
-| Web /serial and log pages | Same configured authentication as /debug; shared RAM log tail and levels 0/1/3 | Same interface, level 5 also available |
+| Web /serial and log pages | Same configured authentication as /debug; shared RAM log tail and named modes | Same interface, level 5 also available |
 | USB | Curated operational lines through actual Serial.write | Existing detailed USB output |
 | UART0 / LoRa | Support log never writes HardwareSerial; functional structured writes remain active | Existing structured LoRa protection |
 | Improv | Binary protocol preserved; USB support lines muted by debugSetUsbQuiet | Existing provisioning behavior |
@@ -42,11 +45,27 @@ therefore receives operational USB logs without needing debug firmware.
 ## Operational vocabulary and levels
 
 Automatic release logging follows the saved cfg::debug, capped at 3. Forced
-project levels do not override that cap. Default is 3. Level 0 is off, 1 is
-errors, 3 adds events. Legacy level 2 also admits errors; 4/5 are capped at 3.
-A web log-page level selection changes RAM state until reboot, and reports the
-effective level. Permanent changes use the existing configuration form. Debug
-retains its forced level behavior; selecting 0 does not override a debug force.
+project levels do not override that cap. Default is 3. The UI presents only named
+modes: Off, Errors only, Events; it highlights the active mode and shows no numeric
+input or numeric current-level indicator. Internal compatibility values are 0/1/3.
+Legacy 2 means warning threshold; operational events have no separate warning
+class, so a request for 2 is normalized to Errors only (1), and a stored 2 is
+shown as Errors only. Release still caps legacy 4/5 to Events.
+
+Debug adds Detailed (4) and Most detailed (5). Its configured force remains a
+minimum: the standard force=4 build offers only Detailed and Most detailed,
+with a visible explanation, instead of buttons that cannot take effect.
+A live mode change does not save config or restart. The existing Save and restart
+form persists the current selection through a hidden `debug` field; there is no
+second numeric control. Saving that form deliberately reboots the device.
+Automatic logs may therefore be quiet after reboot at Errors only. A compile-time
+default change or app-only reflash does not necessarily replace persisted config.
+
+Status snapshot is separate from mode controls. It preserves the mode even when
+a request includes both status=1 and lvl; the status action takes precedence.
+Selecting Most detailed and then taking a snapshot keeps Most detailed selected.
+Explicit mode changes emit a short mode_changed acknowledgement, even for Off;
+it is not an automatic event. The polling endpoint and log page are not cached.
 
 The application does not re-enable all INFO/ERROR messages: their existing
 content can include transport internals. A separate small event emitter accepts
@@ -106,10 +125,11 @@ the tested standard target scope.
 
 ## Verification and operator protocol
 
-`python3 tests/diagnostics/check_profiles.py -q` runs 9 static checks using host
+`python3 tests/diagnostics/check_profiles.py -q` runs 11 static checks using host
 cpp with platform includes omitted. They cover the 12 metadata targets × two
 channels × health 0/1; maximum release verbosity flags; debug-only JSON/tags,
-operational sink routing/snapshot fields, event redaction, web controls/auth,
+operational sink routing/snapshot fields, event redaction, named controls/auth,
+snapshot mode preservation, hidden persistence/no numeric duplicate,
 queue/throttle guards and lifecycle hooks. This does not test C++ types, link
 SDK libraries, instantiate the actual FreeRTOS queue or exercise web requests.
 No PlatformIO invocation or firmware build is performed by these tests.
@@ -121,8 +141,7 @@ Still required from the operator:
 2. Capture release startup in the webflasher console: BUILD and short LOG events
    at level 3, only errors at level 1, no automatic logs at 0. Custom forced/core
    flags=5 and either publication channel must not expose detailed diagnostics.
-3. Verify /debug and /advanced levels, persistent config versus transient page
-   levels, queue updates and Status snapshot even with logging off. When web
+3. Verify /debug and /advanced named modes, persistence via Save and restart versus live changes, queue updates and Status snapshot even with logging off. When web
    auth is configured, /serial must request the same credentials.
 4. Exercise HTTP/RPC failure codes, Wi-Fi disconnect/reconnect, sensor and SD
    errors; check repeat suppression and both distinct fallback result codes.

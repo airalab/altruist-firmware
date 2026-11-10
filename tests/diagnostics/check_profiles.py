@@ -169,11 +169,44 @@ class DiagnosticsProfiles(unittest.TestCase):
             self.assertIn("cfg::debug = level", output)
             self.assertIn("logSupportStatus()", output)
             levels = re.search(r"levels\[\] = \{([^}]+)\}", output)[1]
-            self.assertEqual([int(n) for n in re.findall(r"\d+", levels)], [0, 1, 3, 5] if debug else [0, 1, 3])
+            self.assertEqual([int(n) for n in re.findall(r"\d+", levels)], [0, 1, 3, 4, 5] if debug else [0, 1, 3])
         output = preprocess(ROOT / "webserver/webserver.cpp", ["ESP32"])
         endpoint = output[output.index("void SensorWebServer::_webserver_serial()"):]
         self.assertLess(endpoint.index("webserver_request_auth()"), endpoint.index("Debug.popLines()"))
         self.assertIn('server.arg("status") == "1"', endpoint)
+
+    def test_log_ui_has_one_named_mode_control(self):
+        source = (ROOT / "webserver/pages/config.cpp").read_text()
+        self.assertNotIn("add_form_input(page_content, Config_debug", source)
+        self.assertIn("type='hidden' name='debug'", source)
+        self.assertIn("String(cfg::debug)", source)
+        for debug in (False, True):
+            defines = ["ESP32", "ALTRUIST_FORCE_LOG_LEVEL=4"]
+            if debug:
+                defines.append("ALTRUIST_BUILD_DEBUG")
+            output = preprocess(ROOT / "webserver/pages/debug.cpp", defines)
+            self.assertNotIn("String(effectiveRuntimeLogLevel())", output)
+            self.assertIn("INTL_SUPPORT_OFF", output)
+            self.assertIn("INTL_SUPPORT_ERRORS", output)
+            self.assertIn("aria-pressed", output)
+            if debug:
+                self.assertIn("INTL_SUPPORT_FORCED", output)
+                self.assertIn("level < static_cast<unsigned int>(4)", output)
+            self.assertIn("if (level == DEBUG_WARNING)", output)
+            self.assertIn("level = DEBUG_ERROR", output)
+            self.assertIn('F("mode_changed")', output)
+
+    def test_snapshot_does_not_select_or_save_a_mode(self):
+        output = preprocess(ROOT / "webserver/pages/debug.cpp", ["ESP32"])
+        request = output[output.index("void apply_log_request"):output.index("void append_log_controls")]
+        snapshot_branch = request[request.index('if (server.arg("status")'):request.index('if (server.hasArg("lvl")')]
+        self.assertIn("logSupportStatus()", snapshot_branch)
+        self.assertIn("return;", snapshot_branch)
+        self.assertNotIn("cfg::debug =", snapshot_branch)
+        self.assertNotIn("writeConfig", request)
+        self.assertNotIn("sensor_restart", request)
+        self.assertNotIn("esp_restart", request)
+        self.assertIn("INTL_SUPPORT_STATUS_HINT", output)
 
     def test_operational_lifecycle_hooks(self):
         for path, events in {

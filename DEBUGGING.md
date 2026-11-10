@@ -1,9 +1,16 @@
+Log UI update 2026-11-10: use the named Off / Errors only / Events controls.
+Debug adds Detailed / Most detailed, hiding modes below its forced minimum.
+The active mode is highlighted; there is no duplicate numeric input. Status
+snapshot preserves the mode. Save and restart persists the live mode through a
+hidden compatibility field and deliberately reboots. Loss of web access reported
+after a save is not explained by the existing pre-save capture; post-reboot
+evidence is still needed.
+
 # Operational logs in release
 
 Policy revised 2026-11-09: release supports local web and USB operational logs.
 Use levels 0 (off), 1 (errors), 3 (events); release caps higher levels at 3.
-The log pages change the level until reboot, while the configuration form saves
-it. Status snapshot emits BUILD and short LOG state even with automatic logs off.
+The log pages change the level until reboot, while Save and restart persists the current named selection. Status snapshot emits BUILD and short LOG state even with automatic logs off.
 Detailed project helpers, sensor JSON/values, transport bodies, library dumps and
 SD diagnostic files remain debug-only. See [DIAGNOSTICS.md](DIAGNOSTICS.md) for
 routing, bounded buffering, repeat suppression and the required hardware checks.

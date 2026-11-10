@@ -274,7 +274,7 @@ body[data-page=local] .app-page-title{display:none}
 
 .debug-level-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 16px 16px}
 .debug-level-btn{display:flex;align-items:center;justify-content:center;padding:12px 10px;background:#fafafa;border:1px solid #ddd;border-radius:10px;font-size:14px;font-weight:600;color:#111;text-align:center;min-height:44px;margin:0;box-shadow:none}
-.debug-level-btn:hover{background:#fff;border-color:#999;color:#000}
+.debug-level-btn[aria-pressed="true"],.debug-level-btn:hover{background:#fff;border-color:#999;color:#000}
 .app-shell.configuration .app-page-lead{max-width:900px}
 .confirm-action{padding:4px 2px 2px}
 .app-panel .confirm-action{padding:14px 16px 16px}

@@ -1354,7 +1354,7 @@ void append_app_sidebar(String& page_content) {
 	page_content += FPSTR(INTL_NAV_MAINTENANCE);
 	page_content += F("</span>"
 		"<a class='app-sidebar__subitem' href='/advanced#debug'>");
-	page_content += FPSTR(INTL_DEBUG_LEVEL);
+	page_content += F(INTL_SUPPORT_LOG_TITLE);
 	page_content += F("</a>"
 		"<a class='app-sidebar__subitem' href='/advanced#backup'>");
 	page_content += FPSTR(INTL_DEVICE_BACKUP_TITLE);
