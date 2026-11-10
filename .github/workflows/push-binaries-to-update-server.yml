@@ -11,6 +11,9 @@ name: Redeploy OTA server from webflasher
 on:
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 concurrency:
   group: altruist-ota-deployment
   cancel-in-progress: false
