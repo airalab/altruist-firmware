@@ -351,47 +351,52 @@ void debugRedirectConsoleToUsb()
 LoggingSerial::LoggingSerial()
     : HardwareSerial(0)
 {
-	m_buffer = nullptr;
 #if defined(ALTRUIST_BUILD_DEBUG)
 	m_buffer = xQueueCreate(LARGE_STR, sizeof(uint8_t));
+#else
+	m_buffer = xQueueCreate(2048, sizeof(uint8_t));
 #endif
 	m_write_mutex = xSemaphoreCreateMutex();
 }
 
 size_t LoggingSerial::write(uint8_t c)
 {
-#if !defined(ALTRUIST_BUILD_DEBUG)
-	return 1;
-#else
-	if (m_write_mutex) {
-		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
-	}
-	xQueueSendToBack(m_buffer, ( void * ) &c, ( TickType_t ) 1);
-	const size_t n = m_structured_output ? 1 : HardwareSerial::write(c);
-	if (m_write_mutex) {
-		xSemaphoreGive(m_write_mutex);
-	}
-	return n;
-#endif
+	return write(&c, 1);
 }
 
 size_t LoggingSerial::write(const uint8_t *buffer, size_t size)
 {
-#if !defined(ALTRUIST_BUILD_DEBUG)
-	return size;
-#else
+	if (!buffer || !m_buffer) {
+		return 0;
+	}
 	if (m_write_mutex) {
 		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
 	}
-	for (size_t i = 0; i < size; i++) {
-		xQueueSendToBack(m_buffer, ( void * ) &buffer[i], ( TickType_t ) 1);
+#if !defined(ALTRUIST_BUILD_DEBUG)
+	// Support records arrive as complete lines. Evict whole old records first.
+	while (uxQueueSpacesAvailable(m_buffer) < size && uxQueueMessagesWaiting(m_buffer)) {
+		uint8_t discarded;
+		while (xQueueReceive(m_buffer, &discarded, 0) == pdPASS && discarded != '\n') {}
 	}
+#endif
+	for (size_t i = 0; i < size; i++) {
+		// Keep the newest bytes without blocking the device when nobody polls
+		// the web log. popLines shares this lock so eviction is atomic.
+		if (xQueueSendToBack(m_buffer, &buffer[i], 0) != pdPASS) {
+			uint8_t discarded;
+			xQueueReceive(m_buffer, &discarded, 0);
+			xQueueSendToBack(m_buffer, &buffer[i], 0);
+		}
+	}
+#if defined(ALTRUIST_BUILD_DEBUG)
 	const size_t n = m_structured_output ? size : HardwareSerial::write(buffer, size);
+#else
+	const size_t n = size;
+#endif
 	if (m_write_mutex) {
 		xSemaphoreGive(m_write_mutex);
 	}
 	return n;
-#endif
 }
 
 void LoggingSerial::beginStructuredOutput(unsigned long baud, int8_t rx_pin, int8_t tx_pin)
@@ -464,11 +469,16 @@ int LoggingSerial::readStructured()
 String LoggingSerial::popLines()
 {
 	String r;
-#if defined(ALTRUIST_BUILD_DEBUG)
+	if (!m_buffer) {
+		return r;
+	}
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
 	uint8_t c;
 	// Drain several lines per poll so the web log keeps up at max debug level.
 	unsigned lines = 0;
-	while (lines < 40 && xQueueReceive(m_buffer, &(c), (TickType_t) 1)) {
+	while (lines < 40 && xQueueReceive(m_buffer, &(c), 0)) {
 		r += (char) c;
 		if (c == '\n') {
 			++lines;
@@ -480,7 +490,9 @@ String LoggingSerial::popLines()
 			break;
 		}
 	}
-#endif
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
 	return r;
 }
 
@@ -488,8 +500,85 @@ unsigned int effectiveRuntimeLogLevel() {
 #if defined(ALTRUIST_BUILD_DEBUG)
 	return max(static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL), cfg::debug);
 #else
-	return 0;
+	return min(cfg::debug, static_cast<unsigned int>(DEBUG_MIN_INFO));
 #endif
+}
+
+namespace {
+void writeSupportLine(const String& text, unsigned int level) {
+	if (level > effectiveRuntimeLogLevel()) {
+		return;
+	}
+	const String line = text + '\n';
+	Debug.write(reinterpret_cast<const uint8_t*>(line.c_str()), line.length());
+	if (!s_usb_log_quiet) {
+		Serial.write(reinterpret_cast<const uint8_t*>(line.c_str()), line.length());
+	}
+}
+} // namespace
+
+void logSupportEvent(unsigned int level, const String& subsystem,
+                     const __FlashStringHelper* event, int code) {
+	if (level > effectiveRuntimeLogLevel()) {
+		return;
+	}
+	// A fixed table limits repeated events across tasks without retaining bodies,
+	// paths or credentials. Distinguish numeric codes so HTTP 403 does not
+	// hide a different failure from a fallback route.
+	const String key = subsystem + '/' + String(event) + '/' + String(code);
+	uint32_t hash = 2166136261u;
+	for (size_t i = 0; i < key.length(); ++i) {
+		hash = (hash ^ static_cast<uint8_t>(key[i])) * 16777619u;
+	}
+	struct EventStamp { uint32_t hash; unsigned long at; bool used; };
+	static EventStamp recent[16] = {};
+	static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+	const unsigned long now = millis();
+	portENTER_CRITICAL(&mux);
+	size_t slot = 0;
+	for (size_t i = 0; i < 16; ++i) {
+		if (recent[i].used && recent[i].hash == hash) {
+			slot = i;
+			break;
+		}
+		if (!recent[i].used || now - recent[i].at > now - recent[slot].at) {
+			slot = i;
+		}
+	}
+	EventStamp& stamp = recent[slot];
+	const bool suppressed = stamp.used && stamp.hash == hash && now - stamp.at < 30000UL;
+	if (!suppressed) {
+		stamp = {hash, now, true};
+	}
+	portEXIT_CRITICAL(&mux);
+	if (suppressed) {
+		return;
+	}
+	writeSupportLine(String(F("[LOG] uptime=")) + String(millis() / 1000UL) +
+	                 F(" level=") + (level == DEBUG_ERROR ? F("error") : F("event")) + F(" subsystem=") +
+	                 subsystem + F(" event=") + String(event) +
+	                 F(" code=") + String(code), level);
+}
+
+void logSupportStatus(unsigned int level) {
+	if (level > effectiveRuntimeLogLevel()) {
+		return;
+	}
+	writeSupportLine(String(F("[BUILD] version=")) + SOFTWARE_VERSION_STR +
+	                 F(" channel=") + ALTRUIST_BUILD_CHANNEL +
+	                 F(" commit=") + ALTRUIST_BUILD_COMMIT +
+	                 F(" model=") + ALTRUIST_BUILD_MODEL +
+	                 F(" target=") + ALTRUIST_BUILD_TARGET +
+	                 F(" language=") + ALTRUIST_BUILD_LANGUAGE +
+	                 F(" profile=") + ALTRUIST_BUILD_PROFILE, level);
+	writeSupportLine(String(F("[LOG] status uptime=")) + String(millis() / 1000UL) +
+	                 F(" boot=") + String(system_metrics.boot_counter) +
+	                 F(" reset_reason=") + system_metrics.reset_reason +
+	                 F(" heap=") + String(ESP.getFreeHeap()) +
+	                 F(" wifi=") + String(WiFi.status() == WL_CONNECTED ? 1 : 0) +
+	                 F(" wifi_errors=") + String(system_metrics.err_wifi_reconnects) +
+	                 F(" sensor_errors=") + String(system_metrics.err_sensor) +
+	                 F(" sd_errors=") + String(system_metrics.err_sd_write), level);
 }
 
 void debugSetUsbQuiet(bool quiet) {
@@ -589,6 +678,8 @@ void debug_outln_info_bool(const __FlashStringHelper* text, const bool option) {
 
 #undef debug_level_check
 
+#endif
+
 void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason) {
 	logSubsystemEvent(level, subsystem, reason, String());
 }
@@ -599,6 +690,10 @@ void logSubsystemEvent(
 	const __FlashStringHelper* reason,
 	const String& details
 ) {
+#if !defined(ALTRUIST_BUILD_DEBUG)
+	logSupportEvent(String(level) == F("error") ? DEBUG_ERROR : DEBUG_MIN_INFO,
+	                subsystem, reason);
+#else
 	if (s_usb_log_quiet) {
 		return;
 	}
@@ -613,6 +708,7 @@ void logSubsystemEvent(
 		Serial.print(details);
 	}
 	Serial.println();
+#endif
 }
 
 void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason) {
@@ -623,7 +719,6 @@ void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashString
 	logSubsystemEvent(F("error"), subsystem, reason, details);
 }
 
-#endif
 
 /*****************************************************************
  * helper to see if a given string is numeric                    *

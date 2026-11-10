@@ -61,6 +61,7 @@ namespace
 
     void logDatalogAttempt(size_t payload_len, const char *encoding, bool using_self_owner)
     {
+        logSupportEvent(DEBUG_MIN_INFO, F("datalog"), F("attempt"));
 #if defined(ALTRUIST_BUILD_DEBUG)
         Serial.print(F("[DATALOG] attempt payload_len="));
         Serial.print(payload_len);
@@ -73,6 +74,7 @@ namespace
 
     void logDatalogSuccess(size_t response_len)
     {
+        logSupportEvent(DEBUG_MIN_INFO, F("datalog"), F("success"));
 #if defined(ALTRUIST_BUILD_DEBUG)
         Serial.print(F("\r\n[DATALOG] success response_len="));
         Serial.println(response_len);
@@ -81,6 +83,7 @@ namespace
 
     void logDatalogLocalFailure(const char *reason)
     {
+        logSupportEvent(DEBUG_ERROR, F("datalog"), F("local_failure"));
 #if defined(ALTRUIST_BUILD_DEBUG)
         Serial.print(F("[DATALOG] failed reason="));
         Serial.println(reason);
@@ -89,6 +92,7 @@ namespace
 
     void logDatalogFailure(const String &reason, int code, const String &message, size_t response_len)
     {
+        logSupportEvent(DEBUG_ERROR, F("datalog"), F("send_failed"), code);
 #if defined(ALTRUIST_BUILD_DEBUG)
         Serial.print(F("\r\n[DATALOG] failed reason="));
         Serial.print(reason);

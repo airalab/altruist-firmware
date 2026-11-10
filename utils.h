@@ -179,6 +179,10 @@ extern class LoggingSerial Debug;
 /** After LoRa owns UART0, send libc/ROM/IDF console to USB CDC (not GPIO22). */
 extern void debugRedirectConsoleToUsb();
 extern unsigned int effectiveRuntimeLogLevel();
+extern void logSupportEvent(unsigned int level, const String& subsystem,
+                            const __FlashStringHelper* event, int code = 0);
+/** Explicit support snapshot; level 0 permits an on-demand snapshot with logs off. */
+extern void logSupportStatus(unsigned int level = 0);
 /** Mute USB CDC logs while Improv Serial owns the port (webflasher). */
 extern void debugSetUsbQuiet(bool quiet);
 #if defined(ALTRUIST_BUILD_DEBUG)
@@ -194,10 +198,6 @@ extern void debug_outln_info(const __FlashStringHelper* text, const String& opti
 extern void debug_outln_info(const __FlashStringHelper* text, float value);
 extern void debug_outln_verbose(const __FlashStringHelper* text, const String& option);
 extern void debug_outln_info_bool(const __FlashStringHelper* text, const bool option);
-extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
-extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
-extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
-extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
 
 #else
 inline void debug_out(const String& , unsigned int) {}
@@ -212,12 +212,14 @@ inline void debug_outln_info(const __FlashStringHelper* , const String&) {}
 inline void debug_outln_info(const __FlashStringHelper* , float) {}
 inline void debug_outln_verbose(const __FlashStringHelper* , const String&) {}
 inline void debug_outln_info_bool(const __FlashStringHelper* , const bool) {}
-inline void logSubsystemEvent(const __FlashStringHelper* , const __FlashStringHelper* , const __FlashStringHelper*) {}
-inline void logSubsystemEvent(const __FlashStringHelper* , const __FlashStringHelper* , const __FlashStringHelper* , const String&) {}
-inline void logSubsystemError(const __FlashStringHelper* , const __FlashStringHelper*) {}
-inline void logSubsystemError(const __FlashStringHelper* , const __FlashStringHelper* , const String&) {}
 
 #endif
+
+extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
+extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
+extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
+extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
+
 
 
 extern bool isNumeric(const String& str);

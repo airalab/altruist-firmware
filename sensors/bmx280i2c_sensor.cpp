@@ -89,12 +89,14 @@ BMX280Sensor::BMX280Sensor(unsigned long sending_timeout)
 bool BMX280Sensor::begin() {
     I2cBusLock bus;
     if (!bus.ok()) {
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_bus_lock_failed"));
         debug_outln_error(F("BMX280 I2C bus lock failed"));
         return false;
     }
 
     bool res;
     if (!begin(0x76, I2C_MASTER_NUM) && !begin(0x77, I2C_MASTER_NUM)) {
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_not_found"));
         debug_outln_error(F("Check BMx280 wiring"));
         res = false;
     } else {
@@ -109,12 +111,14 @@ bool BMX280Sensor::begin() {
 void BMX280Sensor::_fetch(JsonDocument &data) {
     I2cBusLock bus;
     if (!bus.ok()) {
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_bus_lock_failed"));
         debug_outln_error(F("BMX280 I2C bus lock failed in fetch"));
         return;
     }
 
     if (_sensorID != BMP280_SENSOR_ID && _sensorID != BME280_SENSOR_ID) {
         if (!begin(0x76, I2C_MASTER_NUM) && !begin(0x77, I2C_MASTER_NUM)) {
+            logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_not_found"));
             debug_outln_error(F("Check BMx280 wiring"));
             return;
         }
@@ -134,6 +138,7 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
 		temperature = -128.0;
 		humidity = -1.0;
 		pressure = -1.0;
+		logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_read_failed"));
 		debug_outln_error(F("BMP/BME280 read failed"));
 	} else {
 		temperature = t + readCorrectionOffset(cfg::temp_correction);

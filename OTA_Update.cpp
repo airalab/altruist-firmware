@@ -328,6 +328,7 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
             continue;
         }
 
+        logSupportEvent(DEBUG_MIN_INFO, F("ota"), F("verified"));
         debug_outln_info(F("OTA successful and verified"));
 		applyRegionFromOtaHostIfAuto(host);
         http.end();
@@ -456,6 +457,7 @@ void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
 	debug_outln_info(F("Sketch md5: "), ESP.getSketchMD5());
 
 	// Show "Updating firmware" screen before download starts
+	logSupportEvent(DEBUG_MIN_INFO, F("ota"), F("started"));
 	deviceStatus.ota_in_progress = true;
 	deviceStatus.ota_progress_percent = 0;
 	// Give display a chance to refresh (main loop runs displayManager.process)

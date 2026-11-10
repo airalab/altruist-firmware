@@ -36,6 +36,7 @@ bool BME680Sensor::begin() {
     debug_outln_info(F("Begin BME680Sensor"));
     I2cBusLock bus;
     if (!bus.ok()) {
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_bus_lock_failed"));
         debug_outln_error(F("BME680 I2C bus lock failed"));
         return false;
     }
@@ -63,6 +64,7 @@ bool BME680Sensor::begin() {
         return true;
     }
 
+    logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_not_found"));
     return false;
 }
 
@@ -89,11 +91,13 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     {
         I2cBusLock bus;
         if (!bus.ok()) {
+            logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_bus_lock_failed"));
             debug_outln_error(F("BME680 I2C bus lock failed in fetch"));
             return;
         }
 
         if (!bme680->performReading()) {
+            logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_read_failed"));
             debug_outln_error(F("BME680 reading failed"));
             return;
         }
@@ -392,6 +396,7 @@ void BME680Sensor::persistVocDay() {
     doc["e"] = voc_event_open;
     File f = SPIFFS.open(F("/voc_day.json"), "w");
     if (!f) {
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_voc_save_failed"));
         debug_outln_error(F("BME680 VOC day save failed"));
         return;
     }

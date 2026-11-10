@@ -123,6 +123,70 @@ class DiagnosticsProfiles(unittest.TestCase):
             output = preprocess(ROOT / "library_diagnostics.h", ["ALTRUIST_BUILD_DEBUG"] if debug else [])
             self.assertEqual("class AltruistSilentLibrarySerial" in output, not debug)
 
+    def test_release_support_routes_and_snapshot(self):
+        output = preprocess(ROOT / "utils.cpp", ["ESP32", "ALTRUIST_FORCE_LOG_LEVEL=5"])
+        self.assertIn("return min(cfg::debug, static_cast<unsigned int>(DEBUG_MIN_INFO))", output)
+        self.assertIn("xQueueCreate(2048", output)
+        self.assertIn("Debug.write(reinterpret_cast<const uint8_t*>(line.c_str())", output)
+        self.assertIn("Serial.write(reinterpret_cast<const uint8_t*>(line.c_str())", output)
+        self.assertIn("if (!s_usb_log_quiet)", output)
+        snapshot = output[output.index("void logSupportStatus("):output.index("void debugSetUsbQuiet(")]
+        self.assertIn('"[BUILD] version="', snapshot)
+        for field in ("uptime", "reset_reason", "heap", "wifi", "sensor_errors", "sd_errors"):
+            self.assertIn(field + "=", snapshot)
+        for forbidden in ("payload", "private_key", "signature", "temperature", "co2", "cfg::wlanpwd"):
+            self.assertNotIn(forbidden, snapshot)
+        self.assertIn("now - stamp.at < 30000UL", output)
+        self.assertIn("portENTER_CRITICAL", output)
+        self.assertIn("xQueueSendToBack(m_buffer, &buffer[i], 0)", output)
+        self.assertIn("uxQueueSpacesAvailable", output)
+
+    def test_release_event_details_remain_debug_only(self):
+        for path in ("apis/robonomics_http_api.cpp", "apis/robonomics_datalog_api.cpp"):
+            output = preprocess(ROOT / path, ["ESP32"])
+            # Only the logging helpers precede these functional helpers.
+            end = output.index("bool isRuRegion") if "http_api" in path else output.index("bool parseRpcError")
+            logging = output[:end]
+            self.assertIn("logSupportEvent(DEBUG_ERROR", logging)
+            self.assertNotIn("Serial.print", logging)
+            self.assertNotIn("response_len=", logging)
+            self.assertNotIn("host=", logging)
+            self.assertNotIn("message=", logging)
+        output = preprocess(ROOT / "utils.cpp", ["ESP32"])
+        subsystem = output[output.index("void logSubsystemEvent(\n"):output.index("void logSubsystemError(")]
+        self.assertIn("subsystem, reason", subsystem)
+        self.assertNotIn("Serial.print", subsystem)
+        self.assertNotIn("+ details", subsystem)
+        header = preprocess(ROOT / "utils.h", ["ESP32"])
+        self.assertIn("inline void debug_outln_info", header)
+        self.assertIn("inline void debug_outln_verbose", header)
+
+    def test_support_web_controls_in_both_profiles(self):
+        for debug in (False, True):
+            defines = ["ESP32", "ALTRUIST_BUILD_DEBUG"] if debug else ["ESP32"]
+            output = preprocess(ROOT / "webserver/pages/debug.cpp", defines)
+            self.assertIn("Debug.popLines()", output)
+            self.assertIn("cfg::debug = level", output)
+            self.assertIn("logSupportStatus()", output)
+            levels = re.search(r"levels\[\] = \{([^}]+)\}", output)[1]
+            self.assertEqual([int(n) for n in re.findall(r"\d+", levels)], [0, 1, 3, 5] if debug else [0, 1, 3])
+        output = preprocess(ROOT / "webserver/webserver.cpp", ["ESP32"])
+        endpoint = output[output.index("void SensorWebServer::_webserver_serial()"):]
+        self.assertLess(endpoint.index("webserver_request_auth()"), endpoint.index("Debug.popLines()"))
+        self.assertIn('server.arg("status") == "1"', endpoint)
+
+    def test_operational_lifecycle_hooks(self):
+        for path, events in {
+            "airrohr-firmware.ino": ["ready", "unavailable", "connected", "disconnected", "watchdog_restart"],
+            "OTA_Update.cpp": ["started", "verified"],
+            "sensors/scd4x_sensor.cpp": ["scd4x_read_timeout", "scd4x_not_found"],
+            "sensors/bmx680i2c_sensor.cpp": ["bme680_not_found", "bme680_read_failed"],
+        }.items():
+            with self.subTest(path=path):
+                output = preprocess(ROOT / path, ["ESP32", "ALTRUIST_INSIGHT"])
+                for event in events:
+                    self.assertIn('"' + event + '"', output)
+
     def test_core_levels_are_compile_time_clamped(self):
         with subprocess.Popen(["cpp", "-dM", "-DCORE_DEBUG_LEVEL=5", "-DLOG_LOCAL_LEVEL=5",
                                str(ROOT / "diagnostics.h")], stdout=subprocess.PIPE, text=True) as process:

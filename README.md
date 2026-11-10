@@ -123,13 +123,28 @@ channel controls firmware identity, artifact names, and OTA policy; the build
 profile controls diagnostic verbosity. Debug builds force verbose project logs
 with `ALTRUIST_FORCE_LOG_LEVEL=4`.
 
-USB acceptance diagnostics require a `_debug` target. Project logs, sensor JSON,
-`[BOOT]`, `[BUILD]`, `[LOG]`, `[HEALTH]`, `[PAYLOAD]`, `[DATALOG]`,
-`[CONNECTIVITY]`, and `[SUBSYSTEM]` are debug-only. Release cannot enable them
-through runtime levels, forced levels or the Testing channel. Web diagnostic
-logs and new SD boot/runtime logs are also debug-only; normal UI/API,
-provisioning, SD sensor CSV and network payloads remain available.
-See [diagnostic policy, inventory and remaining verification](DIAGNOSTICS.md).
+USB sensor acceptance diagnostics require a `_debug` target. Full sensor JSON,
+`[BOOT]`, `[HEALTH]`, `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`, `[SUBSYSTEM]`
+details and protocol/library dumps remain debug-only.
+
+Release includes a bounded operational log for local support and the webflasher
+USB console: `[BUILD]` identity, `[LOG]` status snapshots, curated subsystem
+errors, Wi-Fi transitions, sensor availability, OTA and upload results. It never
+logs sensor readings, payloads, remote response bodies, credentials or signatures.
+The saved log level selects off (0), errors (1), or events (3); higher values are
+capped at 3 and forced levels cannot enable debug output. The local `/debug` and
+`/advanced` controls change this level until reboot. The configuration form saves
+it persistently. **Status snapshot** shows identity and runtime counters on
+request, including when automatic logging is off; `/serial?status=1` also returns
+it. `/serial` uses the same configured authentication as the debug page.
+
+The release web log is a 2048-byte RAM tail; old records are evicted without waiting for a reader. Repeated event/code pairs are limited for 30 seconds using a fixed
+16-entry recent-event cache. Web polling drains the shared queue; it is not a
+persistent archive or an independent log for every viewer. USB is also muted
+while Improv provisioning owns the port. Core/library dumps and SD boot/runtime
+diagnostic files remain debug-only. Working UI/API, SD sensor CSV and network
+payloads remain available in both profiles.
+See [policy, inventory and verification](DIAGNOSTICS.md).
 
 CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
 `ALTRUIST_BUILD_COMMIT` explicitly, so published builds do not depend on local
@@ -141,7 +156,7 @@ external compatibility and point to the same Testing firmware.
 
 Stable firmware keeps the base version, for example `R-URB_2026-06.1`. Testing
 firmware includes its source revision, for example
-`R-URB_2026-06.1-testing+7445b03`. Debug UART startup logs and the status page expose
+`R-URB_2026-06.1-testing+7445b03`. UART support identity and the status page expose
 the channel, commit, model, target, language, and profile.
 
 Insight builds use the `ALTRUIST_INSIGHT` compile-time flag. The previous

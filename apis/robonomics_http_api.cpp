@@ -11,6 +11,7 @@ namespace
 
 	void logConnectivityAttempt(uint32_t seq, const String &region, const String &host)
 	{
+        logSupportEvent(DEBUG_MIN_INFO, F("connectivity"), F("attempt"));
 #if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] attempt channel=sensors-connectivity seq="));
 		Serial.print(seq);
@@ -23,6 +24,7 @@ namespace
 
 	void logConnectivitySuccess(uint32_t seq, const String &host, int code, const String &region)
 	{
+        logSupportEvent(DEBUG_MIN_INFO, F("connectivity"), F("success"), code);
 #if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] success channel=sensors-connectivity seq="));
 		Serial.print(seq);
@@ -37,6 +39,7 @@ namespace
 
 	void logConnectivityFailure(uint32_t seq, const String &reason)
 	{
+        logSupportEvent(DEBUG_ERROR, F("connectivity"), F("local_failure"));
 #if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
 		Serial.print(seq);
@@ -47,6 +50,7 @@ namespace
 
 	void logConnectivityFailure(uint32_t seq, const String &reason, const String &host, int code, size_t response_len = 0)
 	{
+        logSupportEvent(DEBUG_ERROR, F("connectivity"), F("send_failed"), code);
 #if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
 		Serial.print(seq);
@@ -78,6 +82,7 @@ namespace
 
 	void logConnectivityNoServer(uint32_t seq, const String &region, const String &hosts)
 	{
+        logSupportEvent(DEBUG_ERROR, F("connectivity"), F("no_server_available"));
 #if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
 		Serial.print(seq);

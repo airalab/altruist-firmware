@@ -17,6 +17,9 @@ bool I2SNoiseSensor::begin() {
     fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
     last_send_time = millis();
     debug_outln_info(F("I2S Noise Sensor started with fetch interval (sec): "), String(sending_timeout/1000));
+    if (db_mean <= 0) {
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("i2s_init_failed"));
+    }
     return db_mean > 0;
 }
 

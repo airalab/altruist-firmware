@@ -690,6 +690,12 @@ void SensorWebServer::_webserver_removeConfig() {
 }
 
 void SensorWebServer::_webserver_serial() {
+    if (!webserver_request_auth()) {
+        return;
+    }
+    if (server.arg("status") == "1") {
+        logSupportStatus();
+    }
     String s(Debug.popLines());
 
 	server.send(s.length() ? 200 : 204, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), s);

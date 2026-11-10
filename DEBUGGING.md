@@ -1,3 +1,19 @@
+# Operational logs in release
+
+Policy revised 2026-11-09: release supports local web and USB operational logs.
+Use levels 0 (off), 1 (errors), 3 (events); release caps higher levels at 3.
+The log pages change the level until reboot, while the configuration form saves
+it. Status snapshot emits BUILD and short LOG state even with automatic logs off.
+Detailed project helpers, sensor JSON/values, transport bodies, library dumps and
+SD diagnostic files remain debug-only. See [DIAGNOSTICS.md](DIAGNOSTICS.md) for
+routing, bounded buffering, repeat suppression and the required hardware checks.
+
+Политика пересмотрена 2026-11-09: release сохраняет краткие логи для поддержки
+через web и USB. Уровни: 0 — выключено, 1 — ошибки, 3 — события; максимум 3.
+Страница журнала меняет уровень до перезагрузки, форма настроек — постоянно.
+«Снимок состояния» выдаёт BUILD и краткий LOG даже при выключенных автологах.
+Показания, payload/ответы серверов и подробная диагностика остаются в debug.
+
 ## Debugging Insight / Urban firmware
 
 This document describes how to build and debug the **Insight** and **Urban** firmware variants, and how to use the SD‑card based logging that was added for long‑running issues (freezes, sporadic resets, missing Urban data, etc.).
@@ -112,15 +128,15 @@ pio run -e esp32c3_urban_ru_debug -t upload
 
 ### 3. Serial logging
 
-The firmware has three logging layers, all gated by `ALTRUIST_BUILD_DEBUG`.
-Release has no project diagnostic UART/web/SD output. See [DIAGNOSTICS.md](DIAGNOSTICS.md)
+Detailed diagnostics have three layers gated by `ALTRUIST_BUILD_DEBUG`.
+Release has curated operational USB/web logs and no detailed diagnostic SD output. See [DIAGNOSTICS.md](DIAGNOSTICS.md)
 for the inventory, system-output boundary, static checks and pending hardware checks.
 
 
 1. **Project logs** use `debug_outln_error`, `debug_outln_info`, and
    `debug_outln_verbose` from `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` initializes
    `cfg::debug`, while `ALTRUIST_FORCE_LOG_LEVEL` sets its minimum effective value.
-   Stable and Testing release builds both disable project diagnostics.
+   Stable and Testing release builds both restrict output to curated operational logs.
    Debug builds force level 4, so an older saved configuration cannot suppress
    verbose project diagnostics.
 2. **Arduino core logs** are controlled at compile time by `CORE_DEBUG_LEVEL`.
@@ -226,7 +242,7 @@ acceptance testing. They cover boot/build identity, health telemetry, payload
 metadata, upload results, and critical storage, sensor payload, Wi-Fi recovery,
 display, configuration, and OTA failures in `_debug` builds.
 
-All project diagnostics require debug, including stable tagged lines, raw JSON,
+Detailed project diagnostics require debug, including acceptance tags and raw JSON,
 HTTP bodies, signing internals and memory traces. Runtime/forced log levels
 and the Testing channel cannot enable them in release.
 
@@ -663,8 +679,8 @@ pio run -e esp32c3_urban_ru_debug -t upload
 
 ### 3. Логирование через serial
 
-Все три уровня логирования доступны только при `ALTRUIST_BUILD_DEBUG`.
-В release проектная диагностика UART/web/SD отключена. Инвентаризация,
+Подробные диагностические уровни доступны при `ALTRUIST_BUILD_DEBUG`.
+В release доступен краткий эксплуатационный журнал USB/web; подробная диагностика и SD-логи отключены. Инвентаризация,
 системные исключения и оставшиеся проверки — в [DIAGNOSTICS.md](DIAGNOSTICS.md).
 
 
@@ -672,7 +688,7 @@ pio run -e esp32c3_urban_ru_debug -t upload
    `debug_outln_verbose` из `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` задает
    начальное значение `cfg::debug`, а `ALTRUIST_FORCE_LOG_LEVEL` — минимальный
    эффективный уровень. Stable и Testing release-сборки используют одинаковое
-   отсутствие проектной диагностики. В Debug-сборках уровень 4 принудителен,
+   ограниченный эксплуатационный журнал. В Debug-сборках уровень 4 принудителен,
    поэтому старое сохраненное значение не может отключить подробные
    диагностические сообщения.
 2. **Логи Arduino core** управляются compile-time флагом `CORE_DEBUG_LEVEL`.
@@ -717,8 +733,8 @@ debug-only формате:
 payload metadata, результаты отправки и критичные ошибки SD/config, sensor
 payload, Wi-Fi recovery, display и OTA; для их получения требуется `_debug` прошивка.
 
-Вся проектная диагностика, включая стабильные tagged-строки и открытые JSON,
-требует debug. Runtime/forced log level и канал Testing не включают её в release.
+Подробная диагностика, включая приёмочные tagged-строки и открытые JSON,
+требует debug. В release доступны BUILD и краткие LOG для поддержки. Runtime/forced log level и канал Testing не включают её в release.
 
 После загрузки сохраненной конфигурации debug-прошивка сообщает фактически применяемые
 уровни:

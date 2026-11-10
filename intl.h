@@ -1347,4 +1347,16 @@
 #define INTL_REMOVE_EXTRA_URBAN "Remove"
 #endif
 
+#if defined(INTL_RU)
+#define INTL_SUPPORT_EVENTS "События"
+#define INTL_SUPPORT_STATUS "Снимок состояния"
+#define INTL_SUPPORT_LIMIT "Доступны ошибки и события. Подробная диагностика требует отладочной прошивки."
+#define INTL_SUPPORT_VOLATILE "Уровень действует до перезагрузки; постоянное значение задаётся в настройках."
+#else
+#define INTL_SUPPORT_EVENTS "Events"
+#define INTL_SUPPORT_STATUS "Status snapshot"
+#define INTL_SUPPORT_LIMIT "Errors and events are available. Detailed diagnostics require debug firmware."
+#define INTL_SUPPORT_VOLATILE "This level lasts until reboot; set the persistent value in settings."
+#endif
+
 #endif

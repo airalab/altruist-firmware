@@ -355,6 +355,7 @@ static void datalogSendWatchdogEnd() {
 }
 
 static void watchdogReboot(const __FlashStringHelper* reason, uint8_t crash_section) {
+	logSupportEvent(DEBUG_ERROR, F("system"), F("watchdog_restart"), crash_section);
 	debug_outln_error(reason);
 	// Freeze the section breadcrumb so other tasks can't overwrite it back to Idle
 	// while we are about to reboot (Insight has multiple tasks that may still run briefly).
@@ -604,8 +605,10 @@ static void powerOnTestSensors() {
 			activeSensors[activeSensorsCount] = new_sensor;
 			activeSensorsCount++;
 			deviceStatus.sensor_names.push_back(new_sensor->sensor_name);
+			logSupportEvent(DEBUG_MIN_INFO, supported_sensor_names[i], F("ready"));
 			debug_outln_info(F("Sensor was added: "), supported_sensor_names[i]);
 		} else {
+			logSupportEvent(DEBUG_MIN_INFO, supported_sensor_names[i], F("unavailable"));
 			debug_outln_info(F("Sensor was not added: "), supported_sensor_names[i]);
 		}
 	}
@@ -1043,9 +1046,11 @@ void sensorAndAPIWorker(void *pvParameters) {
 		{
 			const bool sta_connected_now = wifiStaLinkReady();
 			if (sta_connected_now && !prev_sta_connected) {
+				logSupportEvent(DEBUG_MIN_INFO, F("wifi"), F("connected"));
 				refresh_web_and_mdns();
 				maybeEnsureNetworkTime(true);
 			} else if (!sta_connected_now && prev_sta_connected) {
+				logSupportEvent(DEBUG_ERROR, F("wifi"), F("disconnected"));
 #if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 				MDNS.end();
 #endif
@@ -1603,6 +1608,9 @@ void setup(void) {
 #endif
 
 	init_config();
+#if !defined(ALTRUIST_BUILD_DEBUG)
+	logSupportStatus(DEBUG_MIN_INFO);
+#endif
 	setupLoRaUart();
 #if defined(ALTRUIST_BUILD_DEBUG)
 #if defined(CORE_DEBUG_LEVEL)
@@ -1734,6 +1742,7 @@ void setup(void) {
 #if defined(USE_SD_CARD)
 	deviceStatus.sd_card_connected = sdCardLogger.begin();
 	if (deviceStatus.sd_card_connected) {
+		logSupportEvent(DEBUG_MIN_INFO, F("sd"), F("ready"));
 		debug_outln_info(F("[SDCardLogger] SD card connected"));
 	} else {
 		debug_outln_error(F("[SDCardLogger] SD card NOT connected"));
@@ -1869,6 +1878,10 @@ void setup(void) {
 	delay(10);
 	
 	markMainLoopAlive();
+	logSupportEvent(DEBUG_MIN_INFO, F("system"), F("ready"));
+#if !defined(ALTRUIST_BUILD_DEBUG)
+	logSupportStatus(DEBUG_MIN_INFO);
+#endif
 	debug_outln_info(F("Setup finished"));
 	
 	// button_controller.init();

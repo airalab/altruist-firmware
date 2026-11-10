@@ -36,11 +36,15 @@ bool SDS011Sensor::begin() {
     is_SDS_running = cmd(PmSensorCmd::Stop);
     last_measure_time = millis() - (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS));
     debug_outln_info(F("SDS011 started with fetch interval (sec): "), String(sending_timeout/1000));
+    if (last_value_SDS_version.length() == 0) {
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("sds011_not_found"));
+    }
     return last_value_SDS_version.length() > 0;
 }
 
 void SDS011Sensor::sdsUartRecover() {
 	sds_recovery_count++;
+	logSupportEvent(DEBUG_ERROR, F("sensor"), F("sds011_recovery"));
 	debug_outln_info(F("[SDS011] recover: drain UART, re-init, idle cycle"));
 	debug_outln_info(F("[SDS011] recovery count: "), String(sds_recovery_count));
 	while (serialSDS.available()) {
@@ -212,6 +216,7 @@ bool SDS011Sensor::rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, cons
 	buf[18] = 0xAB;
 	const size_t written = serialSDS.write(buf, cmd_len);
 	if (written != cmd_len) {
+		logSupportEvent(DEBUG_ERROR, F("sensor"), F("sds011_command_failed"));
 		debug_outln_error(F("[SDS011] command write failed"));
 		return false;
 	}
