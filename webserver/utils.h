@@ -7,8 +7,12 @@
 
 /** Flush a built HTML chunk over chunked HTTP and yield so sensors/WiFi keep running. */
 void web_page_flush_chunk(String& page_content, WebServer* server);
-/** Stream PROGMEM bytes into the current chunked HTTP response. */
+/** Stream RAM bytes in small pieces so a short TCP write cannot break chunked encoding. */
+void web_send_content_ram(WebServer* server, const char* data, size_t len);
+/** Stream PROGMEM bytes into the current HTTP response (chunked or Content-Length). */
 void web_send_content_progmem(WebServer* server, const char* data, size_t len);
+/** Send a PROGMEM file with Content-Length, streamed in small pieces. */
+void web_send_static_progmem(WebServer* server, const __FlashStringHelper* type, const char* data, size_t len);
 /** Send the final empty chunk to close a chunked HTTP response. */
 void web_page_finish_chunked(WebServer* server);
 
@@ -44,6 +48,7 @@ String form_select_altruist(JsonDocument& data);
 String form_extra_urban_pages(JsonDocument& data);
 #endif
 String form_select_timezone();
+String form_select_dst();
 String form_select_reg();
 String form_select_pressure_unit();
 String form_select_temp_unit();

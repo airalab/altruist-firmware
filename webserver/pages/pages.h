@@ -50,6 +50,7 @@ void webserver_hub_social(String &page_content, const String &robonomics_address
                           WebServer &server, JsonDocument &data, RwsGroupApplyResult group_save, bool wificonfig_loop);
 void webserver_hub_custom(String &page_content, WebServer &server);
 void webserver_hub_advanced(String &page_content, WebServer &server, bool wificonfig_loop);
+void webserver_provision_page(String &page_content);
 /** Firmware Update block (check / install / switch language). */
 void webserver_append_ota_section(String &page_content, device_status_t &deviceStatus, const char *form_action = "/");
 void webserver_wifi(struct_wifiInfo* wifiInfo, uint8_t count_wifiInfo, String &page_content);

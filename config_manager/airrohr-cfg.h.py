@@ -66,6 +66,7 @@ String      date_format
 String      local_hostname
 String      chosen_altruist_urban
 String      timezone
+String      timezone_dst
 UInt		leds_brightness
 Bool        leds_on
 UInt        leds_off_hour
@@ -77,6 +78,10 @@ Bool		use_custom_urban
 Bool		standalone
 String		extra_urbans
 UInt		epd_refresh_mode
+UInt		main_layout
+UInt		desk_interval_s
+UInt		desk_pages
+UInt		desk_home
 Bool		analytics_sleep_add_urban
 Bool		analytics_morning_autoswitch
 UInt		analytics_morning_end_hour
@@ -104,6 +109,7 @@ Bool		encrypt_o3
 Bool		encrypt_no2
 Bool		encrypt_fast_aqi
 Bool		encrypt_epa_aqi
+UInt		analytics_screen
 """
 
 with open("airrohr-cfg.h", "w") as h:

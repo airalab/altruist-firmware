@@ -80,6 +80,9 @@ bool httpUrbanCyclePrevView();
 bool httpUrbanCanCycleOnMain();
 void httpUrbanResetToMainPage();
 void httpUrbanSyncToJson(JsonDocument &data);
+/** Main Urban snap only (not the extra-Urban pager). For hourly ingest. */
+bool httpUrbanCopyMainSnap(float *pm10, float *pm25, float *noise_avg, float *noise_max,
+                           float *temp, float *hum, float *press_pa);
 bool httpUrbanGetOutdoorView(uint8_t *index1, uint8_t *total, bool *snap_valid,
                              float *pm10, float *pm25, float *noise_avg, float *noise_max,
                              float *temp, float *hum, float *press_pa, char *ip, size_t ip_len,

@@ -87,11 +87,16 @@ namespace cfg {
 	char local_hostname[LEN_LOCAL_HOSTNAME] = "";
 	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	char timezone[LEN_TIMEZONE] = "<+00>0";
+	char timezone_dst[LEN_DST_RULE] = DST_RULE_NONE;
 	char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	bool use_custom_urban = false;
 	bool standalone = false;
 	char extra_urbans[LEN_EXTRA_URBANS] = "";
 	unsigned epd_refresh_mode = EPD_REFRESH_SAFE;
+	unsigned main_layout = MAIN_LAYOUT_DEFAULT;
+	unsigned desk_interval_s = DESK_INTERVAL_DEFAULT_S;
+	unsigned desk_pages = DESK_PAGES_ALL;
+	unsigned desk_home = DESK_PAGE_AIR;
 	bool analytics_sleep_add_urban = false;
 
 	unsigned leds_brightness = 100; // Default 100% = 30% actual brightness (scaled down)
@@ -102,6 +107,7 @@ namespace cfg {
 	unsigned analytics_night_end_hour = 7 * 60;    // exclusive end, minutes (07:00)
 	bool analytics_morning_autoswitch = true;
 	unsigned analytics_morning_end_hour = 12 * 60; // exclusive end (12:00 local)
+	unsigned analytics_screen = ANALYTICS_SCREEN_CO2;
 
 	// data sharing preferences (all shared by default)
 	bool share_temperature = true;

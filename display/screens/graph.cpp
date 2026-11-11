@@ -434,7 +434,7 @@ static bool buildGraphUpdateNote(char *out, size_t out_size, GraphValue value, c
             unit = "ug/m3";
             break;
         case GraphValue::URBAN_NOISE:
-            unit = "dB";
+            unit = "dBA";
             break;
         default:
             unit = "";

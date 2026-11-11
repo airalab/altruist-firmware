@@ -119,8 +119,8 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
         if (sds_val_count > 0) {
             last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
             last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
-            addValueToJSON(data, F("P1"), last_value_SDS_P1, "PM10", F("ppm"));
-            addValueToJSON(data, F("P2"), last_value_SDS_P2, "PM2.5", F("ppm"));
+            addValueToJSON(data, F("P1"), last_value_SDS_P1, "PM10", F("µg/m³"));
+            addValueToJSON(data, F("P2"), last_value_SDS_P2, "PM2.5", F("µg/m³"));
             sds_bad_window_streak = 0;
             debug_outln_verbose(F("PM10: "), String(last_value_SDS_P1));
             debug_outln_verbose(F("PM2.5: "), String(last_value_SDS_P2));

@@ -35,11 +35,26 @@ void append_data_block_open(String& page_content, const String& label, const cha
 
 } // namespace
 
+void web_send_content_ram(WebServer* server, const char* data, size_t len) {
+	if (!server || !data || len == 0) {
+		return;
+	}
+	constexpr size_t kChunk = 512;
+	while (len > 0) {
+		const size_t n = (len > kChunk) ? kChunk : len;
+		server->sendContent(data, n);
+		data += n;
+		len -= n;
+		markMainLoopAlive();
+		yield();
+	}
+}
+
 void web_page_flush_chunk(String& page_content, WebServer* server) {
 	if (!server || page_content.length() == 0) {
 		return;
 	}
-	server->sendContent(page_content);
+	web_send_content_ram(server, page_content.c_str(), page_content.length());
 	page_content = emptyString;
 	markMainLoopAlive();
 	yield();
@@ -59,6 +74,15 @@ void web_send_content_progmem(WebServer* server, const char* data, size_t len) {
 		markMainLoopAlive();
 		yield();
 	}
+}
+
+void web_send_static_progmem(WebServer* server, const __FlashStringHelper* type, const char* data, size_t len) {
+	if (!server) {
+		return;
+	}
+	server->setContentLength(len);
+	server->send(200, String(type), emptyString);
+	web_send_content_progmem(server, data, len);
 }
 
 void web_page_finish_chunked(WebServer* server) {
@@ -438,7 +462,7 @@ String form_select_timezone() {
 	String s_select = F(" selected='selected'");
 	String s = F(
     "<div class='form-group'>"
-    "<label for='timezone'>Timezone:</label>"
+    "<label for='timezone'>" INTL_TIMEZONE "</label>"
     "<select id='timezone' name='timezone'>"
         "<option value='<-12>12'>UTC-12</option>"
         "<option value='<-11>11'>UTC-11</option>"
@@ -469,6 +493,25 @@ String form_select_timezone() {
     "</div>");
 
 	s.replace("'" + String(cfg::timezone) + "'>", "'" + String(cfg::timezone) + "'" + s_select + ">");
+	return s;
+}
+
+String form_select_dst() {
+	String s_select = F(" selected='selected'");
+	String s = F(
+    "<div class='form-group'>"
+    "<label for='timezone_dst'>" INTL_DST "</label>"
+    "<select id='timezone_dst' name='timezone_dst'>"
+        "<option value='" DST_RULE_NONE "'>" INTL_DST_OFF "</option>"
+        "<option value='" DST_RULE_EU "'>" INTL_DST_EU "</option>"
+        "<option value='" DST_RULE_UK "'>" INTL_DST_UK "</option>"
+        "<option value='" DST_RULE_US "'>" INTL_DST_US "</option>"
+        "<option value='" DST_RULE_AU "'>" INTL_DST_AU "</option>"
+    "</select>"
+    "<p class='form-hint'>" INTL_DST_HINT "</p>"
+    "</div>");
+
+	s.replace("'" + String(cfg::timezone_dst) + "'>", "'" + String(cfg::timezone_dst) + "'" + s_select + ">");
 	return s;
 }
 

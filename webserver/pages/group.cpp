@@ -244,6 +244,8 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 	}
 	page_content += F("'/></div><p class='form-hint'>");
 	page_content += FPSTR(INTL_GROUP_MANUAL_HINT);
+	page_content += F("</p><p class='form-hint'>");
+	page_content += FPSTR(INTL_RWS_OWNER_HINT);
 	page_content += F("</p></div></section>");
 
 	page_content += F("<div class='page-form-footer'>"

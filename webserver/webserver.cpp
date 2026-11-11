@@ -7,9 +7,11 @@
 #else
 #include "script-js.h"
 #endif
+#include "provision-js.h"
 #include "utils.h"
 #include "../config_manager/config_helpers.h"
 #include "../config_manager/device_backup.h"
+#include "../apis/helpers/value_crypto.h"
 #include "../apis/rws_group.h"
 #include "../defines.h"
 #include "../utils.h"
@@ -138,6 +140,8 @@ void SensorWebServer::setup() {
 	server.on(F("/backup.json"), std::bind(&SensorWebServer::_webserver_backup_json, this));
 	server.on(F("/restore-backup"), HTTP_POST, std::bind(&SensorWebServer::_webserver_restore_backup_post, this),
 	         std::bind(&SensorWebServer::_webserver_restore_backup_upload, this));
+	server.on(F("/api/sensor-key"), std::bind(&SensorWebServer::_webserver_provision_key, this));
+	server.on(F("/provision"), std::bind(&SensorWebServer::_webserver_provision, this));
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
 	server.on(F("/ota-check.json"), HTTP_GET, std::bind(&SensorWebServer::_webserver_ota_check_json, this));
@@ -145,14 +149,16 @@ void SensorWebServer::setup() {
 	server.on(F("/ota-progress.json"), HTTP_GET, std::bind(&SensorWebServer::_webserver_ota_progress_json, this));
 	server.on(F("/finish_setup"), std::bind(&SensorWebServer::_webserver_finish_setup, this));
 	server.on(F("/group"), std::bind(&SensorWebServer::_webserver_group, this));
+	server.on(F("/guest_setup_ack"), [this]() {
+#ifdef ALTRUIST_INSIGHT
+		insightGuestClearFinishPending();
+#endif
+		server.send(204, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), emptyString);
+	});
 #ifdef ALTRUIST_INSIGHT
 	server.on(F("/screen"), std::bind(&SensorWebServer::_webserver_screen, this));
 	server.on(F("/select_urban"), std::bind(&SensorWebServer::_webserver_select_urban, this));
 	server.on(F("/scan_urbans"), std::bind(&SensorWebServer::_webserver_scan_urbans, this));
-	server.on(F("/guest_setup_ack"), [this]() {
-		insightGuestClearFinishPending();
-		server.send(204, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), emptyString);
-	});
 #endif
 	server.onNotFound(std::bind(&SensorWebServer::_webserver_not_found, this)); // x
 
@@ -215,15 +221,25 @@ void SensorWebServer::_webserver_data_json() {
 
 void SensorWebServer::_webserver_not_found() {
 	debug_outln_info(F("ws: not found: "), server.uri());
-	if (WiFi.status() != WL_CONNECTED) {
-		if ((server.uri().indexOf(F("success.html")) != -1) || (server.uri().indexOf(F("detect.html")) != -1)) {
+	const String uri = server.uri();
+	const bool captive_probe =
+		uri.indexOf(F("hotspot-detect")) != -1 ||
+		uri.indexOf(F("success.html")) != -1 ||
+		uri.indexOf(F("detect.html")) != -1 ||
+		uri.indexOf(F("generate_204")) != -1 ||
+		uri.indexOf(F("ncsi")) != -1 ||
+		uri.indexOf(F("connecttest")) != -1 ||
+		uri.indexOf(F("captive")) != -1;
+	// Keep the phone on the setup sheet while the portal AP is up, even if STA already joined.
+	if (wificonfig_loop || WiFi.status() != WL_CONNECTED) {
+		if (captive_probe) {
 			server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), FPSTR(WEB_IOS_REDIRECT));
 		} else {
 			sendHttpRedirectGuest();
 		}
-	} else {
-		server.send(404, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Not found."));
+		return;
 	}
+	server.send(404, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Not found."));
 }
 
 void SensorWebServer::_webserver_static() {
@@ -256,14 +272,21 @@ void SensorWebServer::_webserver_static() {
 		return;
 	}
 #endif
+	if (resource == F("provision")) {
+		server.sendHeader(F("Cache-Control"), F("no-cache"));
+		web_send_static_progmem(&server, FPSTR(TXT_CONTENT_TYPE_TEXT_JS),
+			WEB_PAGE_PROVISION_JS, sizeof(WEB_PAGE_PROVISION_JS) - 1);
+		return;
+	}
+
 	server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
 
 	if (server.arg(String('r')) == F("css")) {
-		server.send_P(200, TXT_CONTENT_TYPE_TEXT_CSS,
-			WEB_PAGE_STATIC_CSS, sizeof(WEB_PAGE_STATIC_CSS)-1);
+		web_send_static_progmem(&server, FPSTR(TXT_CONTENT_TYPE_TEXT_CSS),
+			WEB_PAGE_STATIC_CSS, sizeof(WEB_PAGE_STATIC_CSS) - 1);
 	} else if (server.arg(String('r')) == F("js")) {
-		server.send_P(200, TXT_CONTENT_TYPE_TEXT_JS,
-			WEB_PAGE_STATIC_JS_CONFIG, sizeof(WEB_PAGE_STATIC_JS_CONFIG)-1);
+		web_send_static_progmem(&server, FPSTR(TXT_CONTENT_TYPE_TEXT_JS),
+			WEB_PAGE_STATIC_JS_CONFIG, sizeof(WEB_PAGE_STATIC_JS_CONFIG) - 1);
 	} else {
 		_webserver_not_found();
 	}
@@ -388,6 +411,117 @@ void SensorWebServer::_webserver_restore_backup_upload() {
 		backup_upload_size = 0;
 		backup_upload_overflow = true;
 	}
+}
+
+String SensorWebServer::provisionCurrentAddress() const {
+	if (robonomics_address.length() > 0 && strcasecmp(robonomics_address.c_str(), "Not Set") != 0) {
+		return robonomics_address;
+	}
+	const char *live = robonomics.getSs58Address();
+	if (live && live[0] != '\0') {
+		return String(live);
+	}
+	return emptyString;
+}
+
+bool SensorWebServer::provisionInstallRaw(const String& rawIn, String& addressOut) {
+	String raw = rawIn;
+	raw.trim();
+	if (raw.length() > 0 && raw[0] == '{') {
+		DynamicJsonDocument req(384);
+		if (deserializeJson(req, raw)) {
+			return false;
+		}
+		if (!req["private_key"].isNull()) {
+			raw = req["private_key"].as<String>();
+		} else if (!req["hex"].isNull()) {
+			raw = req["hex"].as<String>();
+		} else {
+			return false;
+		}
+		raw.trim();
+	}
+	uint8_t sk[VALUE_CRYPTO_KEY_LEN];
+	if (!valueCryptoParseHex32(raw.c_str(), sk)) {
+		return false;
+	}
+	char hex[LEN_PRIVATE_KEY];
+	for (size_t i = 0; i < VALUE_CRYPTO_KEY_LEN; i++) {
+		sprintf(hex + (i * 2), "%02x", sk[i]);
+	}
+	hex[64] = '\0';
+	saveRobonomicsPrivateKey(hex);
+	robonomics.setPrivateKey(hex);
+	addressOut = String(robonomics.getSs58Address());
+	setRobonomicsAddress(addressOut);
+	return true;
+}
+
+// Local seed install over HTTP on the LAN hub. Do not log or echo the hex.
+void SensorWebServer::_webserver_provision_key() {
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	server.sendHeader(F("Cache-Control"), F("no-store"));
+
+	if (server.method() == HTTP_GET) {
+		DynamicJsonDocument doc(256);
+		doc["address"] = provisionCurrentAddress();
+		String body;
+		serializeJson(doc, body);
+		server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), body);
+		return;
+	}
+
+	if (server.method() != HTTP_POST) {
+		server.send(405, FPSTR(TXT_CONTENT_TYPE_JSON), F("{\"ok\":false,\"error\":\"method\"}"));
+		return;
+	}
+
+	String payload;
+	if (server.hasArg("plain") && server.arg("plain").length() > 0) {
+		payload = server.arg("plain");
+	} else if (server.hasArg("private_key")) {
+		payload = server.arg("private_key");
+	} else if (server.hasArg("hex")) {
+		payload = server.arg("hex");
+	}
+	payload.trim();
+
+	String address;
+	if (!provisionInstallRaw(payload, address)) {
+		server.send(400, FPSTR(TXT_CONTENT_TYPE_JSON), F("{\"ok\":false,\"error\":\"hex\"}"));
+		return;
+	}
+	debug_outln_info(F("ws: provision-key saved, address="), address);
+
+	DynamicJsonDocument doc(384);
+	doc["ok"] = true;
+	doc["address"] = address;
+	doc["restart"] = true;
+	String body;
+	serializeJson(doc, body);
+	server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), body);
+	Serial.flush();
+	delay(400);
+	set_restart_reason(RESTART_REASON_CONFIG);
+	sensor_restart();
+}
+
+void SensorWebServer::_webserver_provision() {
+	if (WiFi.status() != WL_CONNECTED) {
+		sendHttpRedirectGuest();
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+	server.sendHeader(F("Cache-Control"), F("no-store"));
+	RESERVE_STRING(page_content, LARGE_STR);
+	start_html_page(page_content, FPSTR(INTL_PROVISION_TITLE), false, "advanced");
+	webserver_provision_page(page_content);
+	end_html_page_app(page_content);
 }
 
 void SensorWebServer::_webserver_restore_backup_post() {
@@ -640,7 +774,7 @@ void SensorWebServer::_webserver_guest() {
 		webserver_config_send_body_post(server);
 
 		stream_html_page_head(FPSTR(INTL_CONFIGURATION), true);
-		server.sendContent_P(WEB_GUEST_CONNECT_STATUS);
+		web_send_content_progmem(&server, WEB_GUEST_CONNECT_STATUS, strlen_P(WEB_GUEST_CONNECT_STATUS));
 		yield();
 
 #if defined(ESP32) || defined(ESP8266)
@@ -654,19 +788,22 @@ void SensorWebServer::_webserver_guest() {
 			WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
 		}
 
-		int counter = 0;
+		const unsigned long join_start = millis();
+		const unsigned long join_timeout_ms = 45000UL;
 		while (!wifiGuestPortalStaReady()) {
-			if (counter >= 80) {
+			if (millis() - join_start >= join_timeout_ms) {
+				debug_outln_info(F("[WiFi] Guest portal: STA wait timeout"));
 				break;
 			}
+			server.handleClient();
+			markMainLoopAlive();
 			yield();
-			delay(counter < 30 ? 100 : 250);
-			counter++;
+			delay(50);
 		}
-
 		RESERVE_STRING(page_content, XLARGE_STR);
 
 		if (wifiGuestPortalStaReady()) {
+			debug_outln_info(F("[WiFi] Guest portal: STA ready in ms="), String(millis() - join_start));
 			String address = WiFi.localIP().toString();
 			debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
 			debug_outln_info(F("STA IP: "), address);
@@ -1507,7 +1644,8 @@ void SensorWebServer::stream_html_page_head(const String& title, bool guest_page
 	s = FPSTR(WEB_PAGE_HEADER);
 	s.replace("{t}", title.length() ? title : String(F(INTL_DASH_TITLE)));
 	server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-	server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), s);
+	server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), emptyString);
+	web_send_content_ram(&server, s.c_str(), s.length());
 	yield();
 
 	if (app_page) {
@@ -1517,21 +1655,21 @@ void SensorWebServer::stream_html_page_head(const String& title, bool guest_page
 			s = FPSTR(WEB_PAGE_APP_HEADER_HEAD);
 		}
 		s.replace(F("{page}"), app_page);
-		server.sendContent(s);
+		web_send_content_ram(&server, s.c_str(), s.length());
 		yield();
 
 		s = FPSTR(WEB_PAGE_APP_TOPBAR_BODY);
 		fill_app_topbar_placeholders(s, deviceStatus, esp_chipid, robonomics_address);
-		server.sendContent(s);
+		web_send_content_ram(&server, s.c_str(), s.length());
 		yield();
 
 		s = FPSTR(WEB_PAGE_APP_LAYOUT_OPEN);
-		server.sendContent(s);
+		web_send_content_ram(&server, s.c_str(), s.length());
 		yield();
 
 		RESERVE_STRING(sidebar, LARGE_STR);
 		append_app_sidebar(sidebar);
-		server.sendContent(sidebar);
+		web_send_content_ram(&server, sidebar.c_str(), sidebar.length());
 		yield();
 
 		if (app_config_layout) {
@@ -1541,15 +1679,15 @@ void SensorWebServer::stream_html_page_head(const String& title, bool guest_page
 		}
 		s.replace(F("{t}"), title.length() ? title : String(F(INTL_DASH_TITLE)));
 		s.replace(F("{home}"), buildLocalAccessLabel());
-		server.sendContent(s);
+		web_send_content_ram(&server, s.c_str(), s.length());
 		yield();
 		return;
 	}
 
 	if (title.indexOf(FPSTR(INTL_CONFIGURATION)) != -1) {
-		server.sendContent_P(WEB_PAGE_HEADER_CONFIG_HEAD);
+		web_send_content_progmem(&server, WEB_PAGE_HEADER_CONFIG_HEAD, strlen_P(WEB_PAGE_HEADER_CONFIG_HEAD));
 	} else {
-		server.sendContent_P(WEB_PAGE_HEADER_HEAD);
+		web_send_content_progmem(&server, WEB_PAGE_HEADER_HEAD, strlen_P(WEB_PAGE_HEADER_HEAD));
 	}
 	yield();
 
@@ -1575,7 +1713,7 @@ void SensorWebServer::stream_html_page_head(const String& title, bool guest_page
 	}
 	s.replace("{id}", esp_chipid);
 	s.replace("{mac}", WiFi.macAddress());
-	server.sendContent(s);
+	web_send_content_ram(&server, s.c_str(), s.length());
 	yield();
 }
 
@@ -1586,34 +1724,34 @@ void SensorWebServer::start_html_page(String& page_content, const String& title,
 
 void SensorWebServer::end_html_page(String& page_content) {
 	if (page_content.length()) {
-		server.sendContent(page_content);
+		web_send_content_ram(&server, page_content.c_str(), page_content.length());
 		page_content = emptyString;
 	}
-	server.sendContent_P(WEB_PAGE_FOOTER);
+	web_send_content_progmem(&server, WEB_PAGE_FOOTER, strlen_P(WEB_PAGE_FOOTER));
 	web_page_finish_chunked(&server);
 }
 
 void SensorWebServer::end_html_page_guest(String& page_content) {
 	if (page_content.length()) {
-		server.sendContent(page_content);
+		web_send_content_ram(&server, page_content.c_str(), page_content.length());
 		page_content = emptyString;
 	}
-	server.sendContent_P(WEB_PAGE_GUEST_FOOTER);
+	web_send_content_progmem(&server, WEB_PAGE_GUEST_FOOTER, strlen_P(WEB_PAGE_GUEST_FOOTER));
 	web_page_finish_chunked(&server);
 }
 
 void SensorWebServer::end_html_page_root(String& page_content) {
 	if (page_content.length()) {
-		server.sendContent(page_content);
+		web_send_content_ram(&server, page_content.c_str(), page_content.length());
 		page_content = emptyString;
 	}
-	server.sendContent_P(WEB_PAGE_ROOT_FOOTER);
+	web_send_content_progmem(&server, WEB_PAGE_ROOT_FOOTER, strlen_P(WEB_PAGE_ROOT_FOOTER));
 	web_page_finish_chunked(&server);
 }
 
 void SensorWebServer::end_html_page_app(String& page_content) {
 	if (page_content.length()) {
-		server.sendContent(page_content);
+		web_send_content_ram(&server, page_content.c_str(), page_content.length());
 		page_content = emptyString;
 	}
 	// Sidebar TOC scroll-spy (#152): highlight the in-view hub card (before </body>).
@@ -1659,8 +1797,6 @@ void SensorWebServer::end_html_page_app(String& page_content) {
 		"});"
 		"onScroll();"
 		"})();</script>"));
-	RESERVE_STRING(footer, XLARGE_STR);
-	footer = FPSTR(WEB_PAGE_APP_FOOTER);
-	server.sendContent(footer);
+	web_send_content_progmem(&server, WEB_PAGE_APP_FOOTER, strlen_P(WEB_PAGE_APP_FOOTER));
 	web_page_finish_chunked(&server);
 }
