@@ -67,7 +67,7 @@ static bool s_desk_advance = false;
 static uint8_t s_desk_partial_count = 0;
 
 static bool deskLayoutActive() {
-    return cfg::main_layout == MAIN_LAYOUT_DESK;
+    return cfg::main_layout != MAIN_LAYOUT_DESK;
 }
 
 static void deskClampSlot() {

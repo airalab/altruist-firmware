@@ -28,7 +28,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 	"<link rel='icon' type='image/png' href='/favicon.ico' media='(prefers-color-scheme: light)'>" \
 	"<link rel='icon' type='image/png' href='/favicon-dark.ico' media='(prefers-color-scheme: dark)'>"
 
-#define STATIC_PREFIX "/" INTL_LANG "_s3.124"
+#define STATIC_PREFIX "/" INTL_LANG "_s3.132"
 // Bust browser cache after PNG→SVG / logo changes; `m` reflects build (insight vs urban).
 #define WEB_HEADER_LOGO_SRC STATIC_PREFIX "?r=logo&v=" SOFTWARE_VERSION_STR "&m=" DEVICE_MODEL
 #define WEB_NAV_ICON_LOCAL_SRC STATIC_PREFIX "?r=nav-local&v=" SOFTWARE_VERSION_STR
@@ -150,6 +150,7 @@ const char WEB_PAGE_APP_TOPBAR_BODY[] PROGMEM = "<header class='app-topbar'>\
 <h1 class='app-topbar__title'>" PM_SENSOR_NAME " — {device}</h1>\
 {tags}\
 </div></div>\
+{layout}\
 <div class='app-topbar__chips'>\
 {device_chip}\
 {send_chip}\
@@ -160,7 +161,7 @@ const char WEB_PAGE_APP_TOPBAR_BODY[] PROGMEM = "<header class='app-topbar'>\
 <span class='app-topbar__chip-hint'>" INTL_TOPBAR_TAP_COPY "</span>\
 </button>\
 </div></div>\
-<script>(function(){function c(t){if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t);return new Promise(function(r,j){try{var o=document.createElement('textarea');o.value=t;o.style.position='fixed';o.style.opacity='0';document.body.appendChild(o);o.select();document.execCommand('copy');document.body.removeChild(o);r()}catch(e){j(e)}})}function bindCopy(el,hintSel){el.addEventListener('click',function(ev){ev.stopPropagation();var v=el.getAttribute('data-copy')||'';if(!v||v==='—')return;var h=hintSel?el.querySelector(hintSel):null;var p=h?h.textContent:'';c(v).then(function(){if(h){h.textContent=el.getAttribute('data-copied')||'Copied';setTimeout(function(){h.textContent=p},1200)}}).catch(function(){})})}document.querySelectorAll('.app-topbar__chip--copy').forEach(function(b){bindCopy(b,'.app-topbar__chip-hint')});document.querySelectorAll('.app-topbar__chip-copy').forEach(function(b){bindCopy(b,null)})})();</script>\
+<script>(function(){function c(t){if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t);return new Promise(function(r,j){try{var o=document.createElement('textarea');o.value=t;o.style.position='fixed';o.style.opacity='0';document.body.appendChild(o);o.select();document.execCommand('copy');document.body.removeChild(o);r()}catch(e){j(e)}})}function bindCopy(el,hintSel){el.addEventListener('click',function(ev){ev.stopPropagation();var v=el.getAttribute('data-copy')||'';if(!v||v==='—')return;var h=hintSel?el.querySelector(hintSel):null;var p=h?h.textContent:'';c(v).then(function(){if(h){h.textContent=el.getAttribute('data-copied')||'Copied';setTimeout(function(){h.textContent=p},1200)}}).catch(function(){})})}document.querySelectorAll('.app-topbar__chip--copy').forEach(function(b){bindCopy(b,'.app-topbar__chip-hint')});document.querySelectorAll('.app-topbar__chip-copy').forEach(function(b){bindCopy(b,null)});var f=document.getElementById('topbar-layout');if(f){f.addEventListener('click',function(ev){var b=ev.target.closest('button[name=main_layout]');if(!b)return;if(b.classList.contains('is-on')){ev.preventDefault();return;}ev.preventDefault();var body='save_layout=1&main_layout='+encodeURIComponent(b.value);fetch(f.getAttribute('action')||'/screen',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body,credentials:'same-origin'}).then(function(){location.reload()}).catch(function(){f.submit()});});}})();</script>\
 </header>";
 
 const char WEB_PAGE_APP_LAYOUT_OPEN[] PROGMEM = "<div class='app-layout'>";

@@ -78,13 +78,13 @@ The PlatformIO environment and Git branch control different things:
 - **Environment** selects hardware, language, and build profile.
 - **Branch** selects the firmware publication channel.
 
-| Selection | Result |
-| --------- | ------ |
-| Environment without `_debug` | Release profile with normal project logs |
-| Environment with `_debug` | Local Debug profile with verbose project and framework logs |
-| Branch `esp32` | Stable channel |
-| Branch `esp32-dev` or a feature branch | Testing channel |
-| Detached/no-Git local build | Stable channel unless explicitly overridden |
+| Selection                              | Result                                                      |
+| -------------------------------------- | ----------------------------------------------------------- |
+| Environment without `_debug`           | Release profile with normal project logs                    |
+| Environment with `_debug`              | Local Debug profile with verbose project and framework logs |
+| Branch `esp32`                         | Stable channel                                              |
+| Branch `esp32-dev` or a feature branch | Testing channel                                             |
+| Detached/no-Git local build            | Stable channel unless explicitly overridden                 |
 
 Only release builds are published to webflasher. Debug builds are intended for
 local diagnostics and do not create publishable artifacts. The Debug profile
@@ -174,9 +174,12 @@ After configuration, the device restarts and connects to the specified WiFi netw
 
 **Reset button (GPIO7)**
 
-- **While powering on** (hold before/at power-on) — factory reset: deletes the full `config.json` including the Robonomics identity (same as Insight `SET` + `DOWN` at boot).
-- **While running** — hold for more than 10 seconds, then release: clears Wi‑Fi credentials and the web UI password only; Robonomics identity is preserved and the device reboots into the setup captive portal. Boot-time and runtime actions do not overlap — a power-on hold is consumed as factory reset only.
-- LEDs turn blue briefly while the runtime Wi‑Fi reset is applied.
+A pin that stays low (no button, stuck, older boards) never counts as a release, so it cannot wipe.
+
+- **Power on while holding, keep holding >8 s, then release** — factory reset: deletes `config.json` including the Robonomics identity (same as **System → Delete configuration**).
+- **While running: hold >8 s, then release** — clears Wi‑Fi credentials and the web UI password only; identity is preserved; reboot into the setup captive portal.
+- Insight still uses `SET` + `DOWN` at power-on for a full wipe.
+- LEDs turn blue briefly while the reset is applied.
 
 **Status LEDs** (NeoPixel ring on ESP32-C6 Urban; both pixels show the same color)
 
