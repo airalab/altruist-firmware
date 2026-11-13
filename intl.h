@@ -558,7 +558,10 @@
 #define INTL_SCREEN_MENU "Screen mode"
 #endif
 #ifndef INTL_SCREEN_INTRO
-#define INTL_SCREEN_INTRO "Choose how the e-paper display is refreshed."
+#define INTL_SCREEN_INTRO "Choose Wall or Desk for the main e-paper screen, then the refresh mode."
+#endif
+#ifndef INTL_SCREEN_REFRESH
+#define INTL_SCREEN_REFRESH "E-paper refresh"
 #endif
 #ifndef INTL_SCREEN_MODE_SAFE
 #define INTL_SCREEN_MODE_SAFE "Safe"
@@ -587,20 +590,29 @@
 #ifndef INTL_MAIN_LAYOUT
 #define INTL_MAIN_LAYOUT "Main screen"
 #endif
-#ifndef INTL_MAIN_LAYOUT_DEFAULT
-#define INTL_MAIN_LAYOUT_DEFAULT "Default (all metrics)"
+#ifndef INTL_MAIN_LAYOUT_WALL
+#define INTL_MAIN_LAYOUT_WALL "Wall"
+#endif
+#ifndef INTL_MAIN_LAYOUT_WALL_DESC
+#define INTL_MAIN_LAYOUT_WALL_DESC "Large numbers, one metric per slide"
 #endif
 #ifndef INTL_MAIN_LAYOUT_DESK
-#define INTL_MAIN_LAYOUT_DESK "Desk (one metric per slide)"
+#define INTL_MAIN_LAYOUT_DESK "Desk"
+#endif
+#ifndef INTL_MAIN_LAYOUT_DESK_DESC
+#define INTL_MAIN_LAYOUT_DESK_DESC "All metrics on one screen"
+#endif
+#ifndef INTL_MAIN_LAYOUT_DEFAULT
+#define INTL_MAIN_LAYOUT_DEFAULT INTL_MAIN_LAYOUT_WALL
 #endif
 #ifndef INTL_MAIN_LAYOUT_HINT
-#define INTL_MAIN_LAYOUT_HINT "Desk shows large values and flips slides automatically."
+#define INTL_MAIN_LAYOUT_HINT "Wall shows large values and flips slides automatically."
 #endif
 #ifndef INTL_DESK_INTERVAL
-#define INTL_DESK_INTERVAL "Desk slide interval (seconds)"
+#define INTL_DESK_INTERVAL "Wall slide interval (seconds)"
 #endif
 #ifndef INTL_DESK_PAGES
-#define INTL_DESK_PAGES "Desk slides"
+#define INTL_DESK_PAGES "Wall slides"
 #endif
 #ifndef INTL_DESK_PAGES_HINT
 #define INTL_DESK_PAGES_HINT "Checked slides rotate. Unchecked are skipped. One slide — the screen stays there."
@@ -886,6 +898,9 @@
 #endif
 #ifndef INTL_TOPBAR_STANDALONE
 #define INTL_TOPBAR_STANDALONE "Standalone"
+#endif
+#ifndef INTL_TOPBAR_LAYOUT
+#define INTL_TOPBAR_LAYOUT "Screen"
 #endif
 #ifndef INTL_TOPBAR_PAIRED
 #define INTL_TOPBAR_PAIRED "Urban paired"
