@@ -2,6 +2,18 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [Unreleased]
+
+## [R_2026-11.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-11.01) — 2026-11-13
+
+### Features
+
+- **Insight Wall / Desk** — The large-number carousel is now **Wall** (default). The original all-metrics screen is **Desk**. Existing Insights still on the old default switch to Wall on update. The **Wall | Desk** switch is in the hub header on every page; Screen mode also sits at the top of Local settings (no longer buried under Maintenance).
+
+### Bug Fixes
+
+- **Urban GPIO7 factory reset** — C6 Urban no longer wipes `config.json` just because GPIO7 is LOW at power-on (stuck / no button / old boards, e.g. 2026-01 → 11). Factory reset is only **power-on + hold >5 s + release**. A stuck pin never releases, so it cannot wipe. While running, hold **>5 s** then release still clears Wi‑Fi + web UI password only (identity kept).
+
 ## [R_2026-11](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-11) — 2026-11
 
 ### Features

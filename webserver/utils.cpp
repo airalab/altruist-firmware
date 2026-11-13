@@ -890,6 +890,30 @@ void fill_app_topbar_placeholders(String& topbar, const device_status_t& deviceS
 		tags += mode_html;
 	}
 #endif
+	String layout;
+#ifdef ALTRUIST_INSIGHT
+	{
+		const bool wall = (cfg::main_layout != MAIN_LAYOUT_DESK);
+		layout.reserve(520);
+		layout += F("<div class='app-topbar__layout-wrap'><span class='app-topbar__layout-lbl'>");
+		layout += FPSTR(INTL_TOPBAR_LAYOUT);
+		layout += F("</span><form method='POST' action='/screen' class='app-topbar__layout' id='topbar-layout'>"
+			"<input type='hidden' name='save_layout' value='1'/>"
+			"<button type='submit' class='app-topbar__layout-btn");
+		if (wall) {
+			layout += F(" is-on");
+		}
+		layout += F("' name='main_layout' value='1'>");
+		layout += FPSTR(INTL_MAIN_LAYOUT_WALL);
+		layout += F("</button><button type='submit' class='app-topbar__layout-btn");
+		if (!wall) {
+			layout += F(" is-on");
+		}
+		layout += F("' name='main_layout' value='2'>");
+		layout += FPSTR(INTL_MAIN_LAYOUT_DESK);
+		layout += F("</button></form></div>");
+	}
+#endif
 	if (tags.length() > 0) {
 		String wrap;
 		wrap.reserve(tags.length() + 40);
@@ -902,6 +926,7 @@ void fill_app_topbar_placeholders(String& topbar, const device_status_t& deviceS
 	topbar.replace(F("{device_chip}"), device_chip);
 	topbar.replace(F("{send_chip}"), send_chip);
 	topbar.replace(F("{tags}"), tags);
+	topbar.replace(F("{layout}"), layout);
 	topbar.replace(F("{ip}"), ip);
 	topbar.replace(F("{host}"), host);
 	topbar.replace(F("{device}"), chipid);
@@ -1170,8 +1195,13 @@ void append_app_sidebar(String& page_content) {
 	page_content += F("</a>"
 		"<span class='app-sidebar__heading'>");
 	page_content += FPSTR(INTL_NAV_SETTINGS);
-	page_content += F("</span>"
-		"<a class='app-sidebar__subitem' href='/#cfg-wifi'>");
+	page_content += F("</span>");
+#ifdef ALTRUIST_INSIGHT
+	page_content += F("<a class='app-sidebar__subitem' href='/#screen'>");
+	page_content += FPSTR(INTL_SCREEN_MENU);
+	page_content += F("</a>");
+#endif
+	page_content += F("<a class='app-sidebar__subitem' href='/#cfg-wifi'>");
 	page_content += FPSTR(INTL_PANEL_TITLE_WIFI);
 	page_content += F("</a>"
 		"<a class='app-sidebar__subitem' href='/#cfg-wifi-config'>");
@@ -1201,14 +1231,6 @@ void append_app_sidebar(String& page_content) {
 		"<a class='app-sidebar__subitem' href='/#ota'>");
 	page_content += FPSTR(INTL_OTA_UPDATE);
 	page_content += F("</a>");
-#ifdef ALTRUIST_INSIGHT
-	page_content += F("<span class='app-sidebar__heading'>");
-	page_content += FPSTR(INTL_NAV_MAINTENANCE);
-	page_content += F("</span>"
-		"<a class='app-sidebar__subitem' href='/#screen'>");
-	page_content += FPSTR(INTL_SCREEN_MENU);
-	page_content += F("</a>");
-#endif
 	page_content += F("</div>"
 		"<a class='app-sidebar__item app-sidebar__item--social' data-tab='social' href='/social'>");
 	page_content += FPSTR(INTL_DASH_GROUP_SOCIAL_TITLE);

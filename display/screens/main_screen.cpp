@@ -1049,7 +1049,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t content_width = (content_right > content_left) ? (content_right - content_left) : 0;
     const uint16_t body_top = header_bottom_border_y + 4;
 
-    if (cfg::main_layout == MAIN_LAYOUT_DESK) {
+    if (cfg::main_layout != MAIN_LAYOUT_DESK) {
         drawDeskMainBody(values, body_top, content_left, content_right, desk_page, desk_pos, desk_count,
                          desk_graph, desk_graph_i, insight_robonomics_address, urban_robonomics_address);
         return;

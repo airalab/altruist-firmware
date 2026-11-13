@@ -606,8 +606,8 @@ void readConfig(bool oldconfig) {
 			rewriteConfig = true;
 		}
 #ifdef ALTRUIST_INSIGHT
-		if (cfg::main_layout > MAIN_LAYOUT_DESK) {
-			cfg::main_layout = MAIN_LAYOUT_DEFAULT;
+		if (cfg::main_layout != MAIN_LAYOUT_WALL && cfg::main_layout != MAIN_LAYOUT_DESK) {
+			cfg::main_layout = MAIN_LAYOUT_WALL;
 			rewriteConfig = true;
 		}
 		if (cfg::analytics_screen > ANALYTICS_SCREEN_CO2) {

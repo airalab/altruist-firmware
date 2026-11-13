@@ -321,6 +321,12 @@ void webserver_hub_local(String& page_content, JsonDocument& data, device_status
 	append_hub_group_end(page_content);
 
 	append_hub_group_start(page_content, FPSTR(INTL_NAV_SETTINGS), nullptr, "settings");
+#ifdef ALTRUIST_INSIGHT
+	append_hub_section_start(page_content, FPSTR(INTL_SCREEN_MENU), "screen");
+	webserver_screen_page(page_content, ScreenSave_None, "/screen", true);
+	append_hub_section_end(page_content);
+	web_page_flush_chunk(page_content, &server);
+#endif
 	append_hub_settings_cards(server, page_content, wificonfig_loop, data, "/", kLocalSettingsOrder,
 	                         sizeof(kLocalSettingsOrder) / sizeof(kLocalSettingsOrder[0]));
 	web_page_flush_chunk(page_content, &server);
@@ -330,14 +336,6 @@ void webserver_hub_local(String& page_content, JsonDocument& data, device_status
 	webserver_append_ota_section(page_content, deviceStatus, "/");
 	append_hub_section_end(page_content);
 	append_hub_group_end(page_content);
-
-#ifdef ALTRUIST_INSIGHT
-	append_hub_group_start(page_content, FPSTR(INTL_NAV_MAINTENANCE), nullptr, "maintenance");
-	append_hub_section_start(page_content, FPSTR(INTL_SCREEN_MENU), "screen");
-	webserver_screen_page(page_content, ScreenSave_None, "/screen", true);
-	append_hub_section_end(page_content);
-	append_hub_group_end(page_content);
-#endif
 
 	append_hub_page_end(page_content);
 }

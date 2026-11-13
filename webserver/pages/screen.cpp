@@ -62,23 +62,29 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 	page_content += form_action;
 	page_content += F("'>");
 
-	appendModeRadio(page_content, EPD_REFRESH_SAFE, FPSTR(INTL_SCREEN_MODE_SAFE),
-	                FPSTR(INTL_SCREEN_MODE_SAFE_HINT), mode);
-	appendModeRadio(page_content, EPD_REFRESH_EXPERIMENTAL_PARTIAL, FPSTR(INTL_SCREEN_MODE_EXPERIMENTAL),
-	                FPSTR(INTL_SCREEN_MODE_EXPERIMENTAL_HINT), mode);
-
-	page_content += F("<div class='form-group'><label for='main_layout'>" INTL_MAIN_LAYOUT "</label>"
-		"<select id='main_layout' name='main_layout'>");
-	page_content += F("<option value='0'");
-	if (cfg::main_layout == MAIN_LAYOUT_DEFAULT) {
-		page_content += F(" selected='selected'");
-	}
-	page_content += F(">" INTL_MAIN_LAYOUT_DEFAULT "</option><option value='1'");
-	if (cfg::main_layout == MAIN_LAYOUT_DESK) {
-		page_content += F(" selected='selected'");
-	}
-	page_content += F(">" INTL_MAIN_LAYOUT_DESK "</option></select>"
-		"<p class='form-hint'>" INTL_MAIN_LAYOUT_HINT "</p></div>");
+	const unsigned layout_sel = (cfg::main_layout == MAIN_LAYOUT_DESK) ? MAIN_LAYOUT_DESK : MAIN_LAYOUT_WALL;
+	page_content += F("<div class='form-group'><span class='screen-refresh__title'>" INTL_MAIN_LAYOUT "</span>"
+		"<div class='layout-choice'>");
+	auto layoutCard = [&](unsigned value, const char *title, const char *desc) {
+		page_content += F("<label class='layout-choice__opt");
+		if (value == layout_sel) {
+			page_content += F(" is-on");
+		}
+		page_content += F("'><input type='radio' name='main_layout' value='");
+		page_content += String(value);
+		page_content += F("'");
+		if (value == layout_sel) {
+			page_content += F(" checked");
+		}
+		page_content += F("/><span><strong>");
+		page_content += title;
+		page_content += F("</strong><small>");
+		page_content += desc;
+		page_content += F("</small></span></label>");
+	};
+	layoutCard(MAIN_LAYOUT_WALL, INTL_MAIN_LAYOUT_WALL, INTL_MAIN_LAYOUT_WALL_DESC);
+	layoutCard(MAIN_LAYOUT_DESK, INTL_MAIN_LAYOUT_DESK, INTL_MAIN_LAYOUT_DESK_DESC);
+	page_content += F("</div><p class='form-hint'>" INTL_MAIN_LAYOUT_HINT "</p></div>");
 
 	page_content += F("<div id='desk-settings'>");
 	page_content += F("<div class='form-group'><label for='desk_interval_s'>" INTL_DESK_INTERVAL "</label>"
@@ -109,10 +115,19 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 	deskPageBox(DESK_PAGE_NOISE, "desk_page_noise", INTL_DESK_TITLE_NOISE);
 	deskPageBox(DESK_PAGE_PRESSURE, "desk_page_pressure", INTL_DESK_TITLE_PRESSURE);
 	page_content += F("</div><p class='form-hint'>" INTL_DESK_PAGES_HINT "</p></div>");
-	page_content += F("<script>(function(){function t(){var s=document.getElementById('main_layout');"
-		"var d=document.getElementById('desk-settings');if(!s||!d)return;"
-		"d.style.display=(s.value==='1')?'block':'none';}"
-		"var s=document.getElementById('main_layout');if(s){s.addEventListener('change',t);t();}})();</script>");
+	page_content += F("<div class='screen-refresh'><p class='screen-refresh__title'>");
+	page_content += FPSTR(INTL_SCREEN_REFRESH);
+	page_content += F("</p><div class='radio-list'>");
+	appendModeRadio(page_content, EPD_REFRESH_SAFE, FPSTR(INTL_SCREEN_MODE_SAFE),
+	                FPSTR(INTL_SCREEN_MODE_SAFE_HINT), mode);
+	appendModeRadio(page_content, EPD_REFRESH_EXPERIMENTAL_PARTIAL, FPSTR(INTL_SCREEN_MODE_EXPERIMENTAL),
+	                FPSTR(INTL_SCREEN_MODE_EXPERIMENTAL_HINT), mode);
+	page_content += F("</div></div>");
+	page_content += F("<script>(function(){function t(){var on=document.querySelector('input[name=main_layout]:checked');"
+		"var d=document.getElementById('desk-settings');if(d)d.style.display=(!on||on.value==='1')?'block':'none';"
+		"document.querySelectorAll('.layout-choice__opt').forEach(function(el){"
+		"el.classList.toggle('is-on',!!el.querySelector('input:checked'));});}"
+		"document.querySelectorAll('input[name=main_layout]').forEach(function(r){r.addEventListener('change',t);});t();})();</script>");
 
 	page_content += F("<div class='page-form-footer'>"
 		"<input type='hidden' name='save_screen' value='1'/>");
@@ -125,6 +140,30 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 }
 
 ScreenSaveResult webserver_screen_post(WebServer& server) {
+	if (server.hasArg(F("save_layout"))) {
+		unsigned layout = cfg::main_layout;
+		if (server.hasArg(F("main_layout"))) {
+			layout = static_cast<unsigned>(server.arg(F("main_layout")).toInt());
+		}
+		if (layout != MAIN_LAYOUT_WALL && layout != MAIN_LAYOUT_DESK) {
+			layout = MAIN_LAYOUT_WALL;
+		}
+		if (layout == cfg::main_layout) {
+			return ScreenSave_Ok;
+		}
+		const unsigned old_layout = cfg::main_layout;
+		cfg::main_layout = layout;
+		deskNormalizeConfig();
+		if (!writeConfig()) {
+			cfg::main_layout = old_layout;
+			debug_outln_error(F("[EPD] failed to save layout"));
+			return ScreenSave_ConfigFailed;
+		}
+		displayManager.requestEpdFullRefresh();
+		debug_outln_info(String(F("[EPD] layout set to ")) + String(cfg::main_layout));
+		return ScreenSave_Ok;
+	}
+
 	if (!server.hasArg(F("save_screen"))) {
 		return ScreenSave_None;
 	}
@@ -141,8 +180,8 @@ ScreenSaveResult webserver_screen_post(WebServer& server) {
 	if (server.hasArg(F("main_layout"))) {
 		layout = static_cast<unsigned>(server.arg(F("main_layout")).toInt());
 	}
-	if (layout > MAIN_LAYOUT_DESK) {
-		return ScreenSave_InvalidMode;
+	if (layout != MAIN_LAYOUT_WALL && layout != MAIN_LAYOUT_DESK) {
+		layout = MAIN_LAYOUT_WALL;
 	}
 
 	unsigned interval = cfg::desk_interval_s;

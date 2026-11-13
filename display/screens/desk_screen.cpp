@@ -212,8 +212,8 @@ unsigned deskSlideIntervalMs(bool is_graph) {
 }
 
 void deskNormalizeConfig() {
-	if (cfg::main_layout > MAIN_LAYOUT_DESK) {
-		cfg::main_layout = MAIN_LAYOUT_DEFAULT;
+	if (cfg::main_layout != MAIN_LAYOUT_WALL && cfg::main_layout != MAIN_LAYOUT_DESK) {
+		cfg::main_layout = MAIN_LAYOUT_WALL;
 	}
 	if (cfg::desk_interval_s < DESK_INTERVAL_MIN_S) {
 		cfg::desk_interval_s = DESK_INTERVAL_MIN_S;

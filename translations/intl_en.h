@@ -273,7 +273,8 @@ const char INTL_GROUP_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configurat
 const char INTL_GROUP_ERROR_INVALID_MASTER[] PROGMEM = "Enter a valid master Robonomics address.";
 const char INTL_GROUP_ERROR_INVALID_MANUAL_OWNER[] PROGMEM = "Enter a valid owner Robonomics address.";
 const char INTL_SCREEN_MENU[] PROGMEM = "Screen mode";
-const char INTL_SCREEN_INTRO[] PROGMEM = "Choose how the e-paper display is refreshed. Different display batches behave differently with partial updates.";
+const char INTL_SCREEN_INTRO[] PROGMEM = "Choose Wall or Desk for the main e-paper screen. Refresh mode is below — different display batches behave differently with partial updates.";
+const char INTL_SCREEN_REFRESH[] PROGMEM = "E-paper refresh";
 const char INTL_SCREEN_MODE_SAFE[] PROGMEM = "Safe";
 const char INTL_SCREEN_MODE_SAFE_HINT[] PROGMEM = "Uses full-screen clean refreshes only. Recommended for all devices. Prevents display artifacts.";
 const char INTL_SCREEN_MODE_EXPERIMENTAL[] PROGMEM = "Experimental partial refresh";
@@ -283,11 +284,13 @@ const char INTL_SCREEN_SAVE_FAILED[] PROGMEM = "Could not save screen mode.";
 const char INTL_SCREEN_SAVE_INVALID_MODE[] PROGMEM = "Invalid screen mode selected.";
 const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configuration to storage.";
 #define INTL_MAIN_LAYOUT "Main screen"
-#define INTL_MAIN_LAYOUT_DEFAULT "Default (all metrics)"
-#define INTL_MAIN_LAYOUT_DESK "Desk (one metric per slide)"
-#define INTL_MAIN_LAYOUT_HINT "Desk shows large values and flips slides automatically. Header and sidebar stay the same."
-#define INTL_DESK_INTERVAL "Desk slide interval (seconds)"
-#define INTL_DESK_PAGES "Desk slides"
+#define INTL_MAIN_LAYOUT_WALL "Wall"
+#define INTL_MAIN_LAYOUT_WALL_DESC "Large numbers, one metric per slide"
+#define INTL_MAIN_LAYOUT_DESK "Desk"
+#define INTL_MAIN_LAYOUT_DESK_DESC "All metrics on one screen"
+#define INTL_MAIN_LAYOUT_HINT "Wall shows large values and flips slides automatically. Header and sidebar stay the same."
+#define INTL_DESK_INTERVAL "Wall slide interval (seconds)"
+#define INTL_DESK_PAGES "Wall slides"
 #define INTL_DESK_PAGES_HINT "Checked slides rotate. Unchecked are skipped. One slide — the screen stays there."
 #define INTL_DESK_TITLE_AIR "AIR QUALITY"
 #define INTL_DESK_TITLE_CLIMATE "CLIMATE"
@@ -594,6 +597,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_TOPBAR_DEVICE "Device"
 #define INTL_TOPBAR_SEND "Send"
 #define INTL_TOPBAR_STANDALONE "Standalone"
+#define INTL_TOPBAR_LAYOUT "Screen"
 #define INTL_TOPBAR_PAIRED "Urban paired"
 #define INTL_TOPBAR_UPDATE "Update"
 #define INTL_TOPBAR_FW_CURRENT "Up to date"

@@ -17,13 +17,13 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIGHT)
-#define SOFTWARE_VERSION_BASE "R-INS_2026-11"
+#define SOFTWARE_VERSION_BASE "R-INS_2026-11.01"
 #define PM_SENSOR_NAME "Altruist Insight"
 #define DEVICE_MODEL DEVICE_MODEL_INSIGHT
 void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_BASE "R-URB_2026-11"
+#define SOFTWARE_VERSION_BASE "R-URB_2026-11.01"
 #define PM_SENSOR_NAME "Altruist Urban"
 #define DEVICE_MODEL DEVICE_MODEL_URBAN
 #endif
@@ -122,8 +122,12 @@ void firmwareBlockingYieldHook(void);
 #define EPD_REFRESH_SAFE 0u
 #define EPD_REFRESH_EXPERIMENTAL_PARTIAL 1u
 
-#define MAIN_LAYOUT_DEFAULT 0u
-#define MAIN_LAYOUT_DESK 1u
+// 0 = legacy dense default (pre-Wall); migrated to WALL on load.
+// 1 = Wall: large-number carousel (was called Desk).
+// 2 = Desk: all metrics on one screen (was called Default).
+#define MAIN_LAYOUT_WALL 1u
+#define MAIN_LAYOUT_DESK 2u
+#define MAIN_LAYOUT_DEFAULT MAIN_LAYOUT_WALL
 #define ANALYTICS_SCREEN_SCORE 0u
 #define ANALYTICS_SCREEN_CO2 1u
 #define DESK_PAGE_AIR 0u
@@ -432,8 +436,8 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 #define BTN_SET_PIN -1
 #define BTN_UP_PIN -1
 // Urban reset button pin.
-// Safe for OTA across mixed hardware: if the button is not populated, the pin
-// stays pulled-up and the long-press condition never triggers.
+// Factory reset: GPIO7 LOW at power-on, hold >5s, then release (stuck LOW never wipes).
+// Runtime: hold >5s then release = Wi-Fi + web UI password only.
 // Can be overridden via build flags (e.g. disable on rare legacy boards):
 //   -DURBAN_RESET_BTN_PIN=-1
 #ifndef URBAN_RESET_BTN_PIN
