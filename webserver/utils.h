@@ -32,8 +32,9 @@ void add_data_api_status_row(String& page_content, const String& api_name, const
 
 void add_reading_metrics_grid_start(String& page_content);
 void add_reading_metrics_grid_end(String& page_content);
-void add_reading_metric_card(String& page_content, const __FlashStringHelper* label, const String& value, const char* unit = nullptr);
-void add_reading_metric_card(String& page_content, const String& label, const String& value, const char* unit = nullptr);
+void add_reading_metric_card(String& page_content, const __FlashStringHelper* label, const String& value, const char* unit = nullptr, const char* icon_key = nullptr);
+void add_reading_metric_card(String& page_content, const String& label, const String& value, const char* unit = nullptr, const char* icon_key = nullptr);
+const char* reading_metric_icon_key(const String& type);
 void add_data_block_intro(String& page_content, const __FlashStringHelper* intro);
 
 int32_t calcWiFiSignalQuality(int32_t rssi);

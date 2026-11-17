@@ -80,6 +80,53 @@ static String buildUserAgent() {
 	return agent;
 }
 
+static bool otaParseMd5Hash(const String& raw, String& out) {
+	String s = raw;
+	s.trim();
+	s.replace(F("\r"), emptyString);
+	s.replace(F("\n"), emptyString);
+	int cut = s.indexOf(' ');
+	if (cut < 0) {
+		cut = s.indexOf('\t');
+	}
+	if (cut >= 0) {
+		s = s.substring(0, cut);
+		s.trim();
+	}
+	if (s.length() != 32) {
+		return false;
+	}
+	for (unsigned i = 0; i < 32; i++) {
+		const char c = s[i];
+		const bool hex = (c >= '0' && c <= '9') ||
+			(c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+		if (!hex) {
+			return false;
+		}
+	}
+	out = s;
+	return true;
+}
+
+static bool otaMd5MatchesSketch(const String& md5) {
+	return md5.equalsIgnoreCase(ESP.getSketchMD5());
+}
+
+static bool otaVersionMatchesDevice(const char* remote) {
+	return remote && remote[0] && strcmp(remote, SOFTWARE_VERSION_STR) == 0;
+}
+
+static void otaMarkNoNewerFirmware(device_status_t& deviceStatus, bool manual) {
+	debug_outln_info(F("No newer version available."));
+	deviceStatus.ota_in_progress = false;
+	deviceStatus.ota_failed = false;
+	deviceStatus.ota_success = false;
+	deviceStatus.ota_progress_percent = -1;
+	if (manual) {
+		deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_UpToDate;
+	}
+}
+
 static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostream, device_status_t &deviceStatus, const char** used_host = nullptr, unsigned long timeout_ms = FW_HOST_TIMEOUT_MS) {
 
 	String agent = buildUserAgent();
@@ -315,7 +362,14 @@ void otaCheckForUpdate(device_status_t &deviceStatus) {
 		applyRegionFromOtaHostIfAuto(md5_host);
 	}
 
-	newFwmd5.trim();
+	String md5;
+	if (!otaParseMd5Hash(newFwmd5, md5)) {
+		debug_outln_info(F("OTA check: invalid md5 payload"));
+		logSubsystemError(F("ota"), F("check_md5_invalid"), newFwmd5);
+		deviceStatus.last_update_attempt = millis();
+		return;
+	}
+
 	// Optional human-readable version next to the binary (may be missing on older mirrors).
 	{
 		StreamString ver;
@@ -331,14 +385,17 @@ void otaCheckForUpdate(device_status_t &deviceStatus) {
 	}
 
 	deviceStatus.last_update_attempt = millis();
-	if (newFwmd5.equalsIgnoreCase(ESP.getSketchMD5())) {
+	if (otaVersionMatchesDevice(deviceStatus.ota_remote_version) || otaMd5MatchesSketch(md5)) {
 		deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_UpToDate;
 		debug_outln_info(F("OTA check: up to date"));
+		if (deviceStatus.ota_remote_version[0]) {
+			debug_outln_info(F("OTA check: remote version="), String(deviceStatus.ota_remote_version));
+		}
 		return;
 	}
 
 	deviceStatus.ota_check_ui = device_status_t::OtaCheckUi_Available;
-	debug_outln_info(F("OTA check: update available md5="), newFwmd5);
+	debug_outln_info(F("OTA check: update available md5="), md5);
 	if (deviceStatus.ota_remote_version[0]) {
 		debug_outln_info(F("OTA check: remote version="), String(deviceStatus.ota_remote_version));
 	}
@@ -367,19 +424,35 @@ void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
 	if (!fwDownloadStream(client, fetch_md5_name, &newFwmd5, deviceStatus, &md5_host)){
 		debug_outln_info(F("download md5 fail"));
 		logSubsystemError(F("ota"), F("md5_download_failed"), String(F("path=")) + fetch_md5_name);
-		return;}
+		if (manual) {
+			deviceStatus.ota_failed = true;
+			deviceStatus.ota_in_progress = false;
+			deviceStatus.ota_progress_percent = -1;
+		}
+		return;
+	}
 	debug_outln_info(F("download md5 end"));
 	if (md5_host) {
 		applyRegionFromOtaHostIfAuto(md5_host);
 	}
 
-	newFwmd5.trim();
-	if (newFwmd5 == ESP.getSketchMD5()) {
-		debug_outln_info(F("No newer version available."));
+	String md5;
+	if (!otaParseMd5Hash(newFwmd5, md5)) {
+		debug_outln_info(F("download md5 invalid"));
+		logSubsystemError(F("ota"), F("md5_invalid"), newFwmd5);
+		if (manual) {
+			deviceStatus.ota_failed = true;
+			deviceStatus.ota_in_progress = false;
+			deviceStatus.ota_progress_percent = -1;
+		}
+		return;
+	}
+	if (otaMd5MatchesSketch(md5) || otaVersionMatchesDevice(deviceStatus.ota_remote_version)) {
+		otaMarkNoNewerFirmware(deviceStatus, manual);
 		return;
 	}
 
-	debug_outln_info(F("Update md5: "), newFwmd5);
+	debug_outln_info(F("Update md5: "), md5);
 	debug_outln_info(F("Sketch md5: "), ESP.getSketchMD5());
 
 	// Show "Updating firmware" screen before download starts
@@ -388,7 +461,7 @@ void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
 	// Give display a chance to refresh (main loop runs displayManager.process)
 	vTaskDelay(pdMS_TO_TICKS(800));
 
-	if (downloadAndUpdate(fetch_name.c_str(), newFwmd5, deviceStatus)) {
+	if (downloadAndUpdate(fetch_name.c_str(), md5, deviceStatus)) {
 		deviceStatus.ota_in_progress = false;
 		deviceStatus.ota_success = true;
 		// Give display time to show success screen before sensor_restart() shuts down peripherals

@@ -623,7 +623,7 @@ void readConfig(bool oldconfig) {
 			} else if (cfg::desk_interval_s > DESK_INTERVAL_MAX_S) {
 				cfg::desk_interval_s = DESK_INTERVAL_MAX_S;
 			}
-			if (cfg::desk_pages == DESK_PAGES_ALL_V1) {
+			if (cfg::desk_pages == DESK_PAGES_ALL_V1 || cfg::desk_pages == DESK_PAGES_ALL_V2) {
 				cfg::desk_pages = DESK_PAGES_ALL;
 			}
 			cfg::desk_pages &= DESK_PAGES_ALL;

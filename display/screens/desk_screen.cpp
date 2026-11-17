@@ -46,6 +46,7 @@ static const uint8_t kDeskOrder[DESK_PAGE_COUNT] = {
 	DESK_PAGE_CLIMATE,
 	DESK_PAGE_CLIMATE_INSIGHT,
 	DESK_PAGE_CO2,
+	DESK_PAGE_VOC,
 	DESK_PAGE_NOISE,
 	DESK_PAGE_PRESSURE,
 };
@@ -56,8 +57,8 @@ uint8_t deskEffectivePagesMask() {
 		mask &= ~((1u << DESK_PAGE_AIR) | (1u << DESK_PAGE_NOISE) | (1u << DESK_PAGE_CLIMATE));
 	}
 	if (mask == 0) {
-		mask = (1u << DESK_PAGE_CO2) | (1u << DESK_PAGE_CLIMATE_INSIGHT) |
-		       (1u << DESK_PAGE_PRESSURE);
+		mask = (1u << DESK_PAGE_CO2) | (1u << DESK_PAGE_VOC) |
+		       (1u << DESK_PAGE_CLIMATE_INSIGHT) | (1u << DESK_PAGE_PRESSURE);
 		if (!cfg::standalone) {
 			mask = DESK_PAGES_ALL;
 		}
@@ -220,7 +221,7 @@ void deskNormalizeConfig() {
 	} else if (cfg::desk_interval_s > DESK_INTERVAL_MAX_S) {
 		cfg::desk_interval_s = DESK_INTERVAL_MAX_S;
 	}
-	if (cfg::desk_pages == DESK_PAGES_ALL_V1) {
+	if (cfg::desk_pages == DESK_PAGES_ALL_V1 || cfg::desk_pages == DESK_PAGES_ALL_V2) {
 		cfg::desk_pages = DESK_PAGES_ALL;
 	}
 	cfg::desk_pages &= DESK_PAGES_ALL;
@@ -585,7 +586,8 @@ static uint16_t deskDrawTitle(uint16_t x, uint16_t y, uint16_t max_x, const unsi
                               uint16_t iw, uint16_t ih, const char *title,
                               const unsigned char *src_icon,
                               const char *leg_solid = nullptr, const char *leg_dot = nullptr,
-                              const char *subtitle = nullptr, uint16_t right_reserve = 0) {
+                              const char *subtitle = nullptr, uint16_t right_reserve = 0,
+                              const char *inline_note = nullptr) {
 	uint16_t cur = x;
 	if (icon && iw && ih) {
 		Paint_DrawImage(icon, cur, y, iw, ih);
@@ -629,6 +631,38 @@ static uint16_t deskDrawTitle(uint16_t x, uint16_t y, uint16_t max_x, const unsi
 	const uint16_t th = en->Height;
 	const uint16_t ty = (uint16_t)(y + (ih > th ? (ih - th) / 2 : 0));
 	deskDrawString(cur, ty, title, en, ru, ascii);
+	if (inline_note && inline_note[0]) {
+		char note[48];
+		snprintf(note, sizeof(note), "- %s", inline_note);
+		sFONT *nen = &Font12;
+		const Font *nru = &font_12_cyrillic;
+		const Font *nas = &font_12_ascii;
+		uint16_t nx = (uint16_t)(cur + tw + 8);
+		uint16_t n_avail = (title_max > nx) ? (uint16_t)(title_max - nx) : 0;
+		uint16_t nw = deskWidth(note, nen, nru, nas);
+		if (n_avail > 0 && nw > n_avail) {
+			nen = &Font8;
+			nru = &font_8_cyrillic;
+			nas = &font_8_ascii;
+			nw = deskWidth(note, nen, nru, nas);
+		}
+		if (n_avail > 0 && nw <= n_avail) {
+#if defined(INTL_RU)
+			const Font *note_ink = nru;
+#else
+			const Font *note_ink = nas;
+#endif
+			const uint16_t t_top = deskHugeInkTop(title, ascii, 1);
+			const uint16_t t_h = deskHugeInkHeight(title, ascii, 1);
+			const uint16_t n_top = deskHugeInkTop(note, note_ink, 1);
+			const uint16_t n_h = deskHugeInkHeight(note, note_ink, 1);
+			int ny = (int)ty + (int)t_top + (int)t_h / 2 - (int)n_top - (int)n_h / 2;
+			if (ny < 0) {
+				ny = 0;
+			}
+			deskDrawString(nx, (uint16_t)ny, note, nen, nru, nas);
+		}
+	}
 	const uint16_t bottom_icon = (uint16_t)(y + ih);
 	uint16_t bottom_text = (uint16_t)(ty + th);
 	uint16_t sub_max = (title_max > cur) ? (uint16_t)(title_max - cur) : 0;
@@ -868,6 +902,19 @@ static const char *deskBandCo2(float ppm) {
 	return INTL_DESK_BAND_HIGH;
 }
 
+static const char *deskBandVoc(int8_t voc_level, int16_t voc_ppb) {
+	if (voc_level < 0) {
+		return nullptr;
+	}
+	if (voc_ppb >= 2000) {
+		return INTL_DESK_BAND_HIGH;
+	}
+	if (voc_ppb >= 250) {
+		return INTL_DESK_BAND_ELEVATED;
+	}
+	return INTL_DESK_BAND_GOOD;
+}
+
 static bool deskBandWarn(const char *band) {
 	return deskHasText(band) && (strcmp(band, INTL_DESK_BAND_HIGH) == 0 ||
 	                             strcmp(band, INTL_DESK_BAND_LOW) == 0);
@@ -1075,9 +1122,11 @@ static void deskDrawFace(uint16_t cx, uint16_t cy, uint16_t r, int mood) {
 
 static void deskDrawCo2(uint16_t content_left, uint16_t area_w,
                         uint16_t stage_top, uint16_t stage_bot,
-                        const char *value, const char *band) {
-	const char *ppm = "ppm";
-	const uint16_t ppm_w = deskWidth(ppm, &Font24, &font_24_cyrillic, &font_24_ascii);
+                        const char *value, const char *unit, const char *band) {
+	if (!unit || unit[0] == '\0') {
+		unit = "ppm";
+	}
+	const uint16_t ppm_w = deskWidth(unit, &Font24, &font_24_cyrillic, &font_24_ascii);
 	const bool have_face = deskHasText(band);
 	uint16_t face_r = 28;
 	const uint16_t word_h = (uint16_t)(Font24.Height + 4);
@@ -1114,7 +1163,7 @@ static void deskDrawCo2(uint16_t content_left, uint16_t area_w,
 	if (ink_h > Font24.Height) {
 		ppm_y = (uint16_t)(ink_y + (ink_h - Font24.Height) / 2);
 	}
-	deskDrawString((uint16_t)(gx + huge.w + 8), ppm_y, ppm, &Font24, &font_24_cyrillic, &font_24_ascii);
+	deskDrawString((uint16_t)(gx + huge.w + 8), ppm_y, unit, &Font24, &font_24_cyrillic, &font_24_ascii);
 
 	if (!have_face) {
 		return;
@@ -1509,6 +1558,22 @@ static void deskFillInsight(char *out, size_t n, uint8_t page_id,
 		} else if (d >= 150.f) {
 			snprintf(out, n, INTL_DESK_GRAPH_ROSE, (unsigned)lroundf(d), (unsigned)ago);
 		} else if (d <= -150.f) {
+			snprintf(out, n, INTL_DESK_GRAPH_DROPPED, (unsigned)lroundf(-d), (unsigned)ago);
+		} else {
+			snprintf(out, n, INTL_DESK_GRAPH_PEAK, (unsigned)peak_h);
+		}
+		break;
+	case DESK_PAGE_VOC:
+		if (!have_span) {
+			break;
+		}
+		if (peak >= 2000.f) {
+			snprintf(out, n, "%s", INTL_DESK_GRAPH_VOC_HIGH);
+		} else if (last < 250.f && peak < 250.f) {
+			snprintf(out, n, "%s", INTL_DESK_GRAPH_VOC_CALM);
+		} else if (d >= 250.f) {
+			snprintf(out, n, INTL_DESK_GRAPH_ROSE, (unsigned)lroundf(d), (unsigned)ago);
+		} else if (d <= -250.f) {
 			snprintf(out, n, INTL_DESK_GRAPH_DROPPED, (unsigned)lroundf(-d), (unsigned)ago);
 		} else {
 			snprintf(out, n, INTL_DESK_GRAPH_PEAK, (unsigned)peak_h);
@@ -1983,6 +2048,8 @@ static const char *deskGraphMapType(uint8_t page_id, uint8_t graph_i) {
 		return graph_i >= 1 ? "humidity" : "temperature";
 	case DESK_PAGE_CO2:
 		return "co2";
+	case DESK_PAGE_VOC:
+		return "voc";
 	case DESK_PAGE_NOISE:
 		return "noise";
 	default:
@@ -2007,6 +2074,8 @@ static const char *deskGraphFooter(uint8_t page_id, uint8_t graph_i) {
 		return graph_i >= 1 ? INTL_DISP_HUMIDITY : INTL_DISP_TEMPERATURE;
 	case DESK_PAGE_CO2:
 		return INTL_DESK_FOOTER_CO2;
+	case DESK_PAGE_VOC:
+		return INTL_DESK_FOOTER_VOC;
 	case DESK_PAGE_NOISE:
 		return INTL_DESK_FOOTER_NOISE;
 	case DESK_PAGE_PRESSURE:
@@ -2117,6 +2186,17 @@ static void deskDrawGraphPage(const main_screen_values_t &values, uint8_t page_i
 		min_span = 400.f;
 		fill_hi = 1000.f;
 		unit = "ppm";
+		break;
+	case DESK_PAGE_VOC:
+		analyticsReadLastHours(analytics_hour_series_t::VocIndex, s);
+		live = (float)values.voc_ppb;
+		live_ok = values.voc_level >= 0 && values.voc_ppb >= 0;
+		pin = false;
+		floor_min = 0.f;
+		floor_max = 500.f;
+		min_span = 250.f;
+		fill_hi = 250.f;
+		unit = INTL_DESK_VOC_UNIT;
 		break;
 	case DESK_PAGE_NOISE:
 		analyticsReadLastHours(analytics_hour_series_t::NoiseAvg, s);
@@ -2242,6 +2322,11 @@ static void deskDrawGraphPage(const main_screen_values_t &values, uint8_t page_i
 			}
 		}
 	}
+	if (page_id == DESK_PAGE_VOC) {
+		if (ymin < 0.f) {
+			ymin = 0.f;
+		}
+	}
 	{
 		char hero[16];
 		hero[0] = 0;
@@ -2305,6 +2390,14 @@ void drawDeskMainBody(const main_screen_values_t &values,
 		title = INTL_DESK_TITLE_CO2;
 		footer = INTL_DESK_FOOTER_CO2;
 		break;
+	case DESK_PAGE_VOC:
+		icon = nullptr;
+		iw = 0;
+		ih = 0;
+		src_icon = insight_32x32;
+		title = INTL_DESK_TITLE_VOC;
+		footer = INTL_DESK_FOOTER_VOC;
+		break;
 	case DESK_PAGE_NOISE:
 		icon = ear_hearing_34x34;
 		src_icon = urban_32x32;
@@ -2344,7 +2437,8 @@ void drawDeskMainBody(const main_screen_values_t &values,
 	}
 	uint16_t title_bot = deskDrawTitle(content_left + 6, title_y, content_right, icon, iw, ih,
 	                                  title, src_icon, title_leg_s, title_leg_d, title_sub,
-	                                  is_graph ? 108u : 0u);
+	                                  is_graph ? 108u : 0u,
+	                                  page_id == DESK_PAGE_VOC ? INTL_DESK_VOC_NOTE : nullptr);
 	if (is_graph) {
 		const uint16_t hero_bot =
 		    (uint16_t)(title_y + 4 + Font12.Height + 6 + Font24.Height);
@@ -2410,7 +2504,16 @@ void drawDeskMainBody(const main_screen_values_t &values,
 		break;
 	case DESK_PAGE_CO2:
 		deskFormat(a, sizeof(a), values.co2, 0, false);
-		deskDrawCo2(inner_x0, inner_w, inner_y0, inner_y1, a, deskBandCo2(values.co2));
+		deskDrawCo2(inner_x0, inner_w, inner_y0, inner_y1, a, "ppm", deskBandCo2(values.co2));
+		break;
+	case DESK_PAGE_VOC:
+		if (values.voc_level < 0 || values.voc_ppb < 0) {
+			snprintf(a, sizeof(a), "%s", INTL_DISP_NO_DATA);
+		} else {
+			deskFormat(a, sizeof(a), (float)values.voc_ppb, 0, false);
+		}
+		deskDrawCo2(inner_x0, inner_w, inner_y0, inner_y1, a, INTL_DESK_VOC_UNIT,
+		            deskBandVoc(values.voc_level, values.voc_ppb));
 		break;
 	case DESK_PAGE_NOISE:
 		deskFormat(a, sizeof(a), values.noise_avg, 0, false);

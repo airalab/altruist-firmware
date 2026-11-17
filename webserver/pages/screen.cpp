@@ -112,6 +112,7 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result, c
 	deskPageBox(DESK_PAGE_CLIMATE, "desk_page_climate", INTL_DESK_TITLE_CLIMATE_URBAN);
 	deskPageBox(DESK_PAGE_CLIMATE_INSIGHT, "desk_page_climate_insight", INTL_DESK_TITLE_CLIMATE_INSIGHT);
 	deskPageBox(DESK_PAGE_CO2, "desk_page_co2", INTL_DESK_TITLE_CO2);
+	deskPageBox(DESK_PAGE_VOC, "desk_page_voc", INTL_DESK_TITLE_VOC);
 	deskPageBox(DESK_PAGE_NOISE, "desk_page_noise", INTL_DESK_TITLE_NOISE);
 	deskPageBox(DESK_PAGE_PRESSURE, "desk_page_pressure", INTL_DESK_TITLE_PRESSURE);
 	page_content += F("</div><p class='form-hint'>" INTL_DESK_PAGES_HINT "</p></div>");
@@ -201,6 +202,9 @@ ScreenSaveResult webserver_screen_post(WebServer& server) {
 	}
 	if (server.hasArg(F("desk_page_co2"))) {
 		pages |= (1u << DESK_PAGE_CO2);
+	}
+	if (server.hasArg(F("desk_page_voc"))) {
+		pages |= (1u << DESK_PAGE_VOC);
 	}
 	if (server.hasArg(F("desk_page_noise"))) {
 		pages |= (1u << DESK_PAGE_NOISE);

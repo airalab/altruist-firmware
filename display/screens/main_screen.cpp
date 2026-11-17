@@ -611,6 +611,16 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
                 values.voc_index = (uint8_t)index;
             }
         }
+        if (bme.containsKey("voc_ppb")) {
+            const int ppb = bme["voc_ppb"]["value"].as<int>();
+            if (ppb < 0) {
+                values.voc_ppb = 0;
+            } else if (ppb > 10000) {
+                values.voc_ppb = 10000;
+            } else {
+                values.voc_ppb = (int16_t)ppb;
+            }
+        }
     }
 }
 

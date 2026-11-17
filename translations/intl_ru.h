@@ -312,11 +312,15 @@ const char INTL_NODE_ID[] PROGMEM = "ID узла CPS (0 = не задан)";
 #define INTL_DESK_TITLE_CLIMATE_URBAN "КЛИМАТ URBAN"
 #define INTL_DESK_TITLE_CLIMATE_INSIGHT "КЛИМАТ INSIGHT"
 #define INTL_DESK_TITLE_CO2 "CO2"
+#define INTL_DESK_TITLE_VOC "VOC"
 #define INTL_DESK_TITLE_NOISE "ШУМ"
 #define INTL_DESK_TITLE_PRESSURE "ДАВЛЕНИЕ"
 #define INTL_DESK_FOOTER_AIR "ВОЗДУХ"
 #define INTL_DESK_FOOTER_CLIMATE "КЛИМАТ"
 #define INTL_DESK_FOOTER_CO2 "CO2"
+#define INTL_DESK_FOOTER_VOC "VOC"
+#define INTL_DESK_VOC_UNIT "ppb"
+#define INTL_DESK_VOC_NOTE "Относительно, не лабораторно"
 #define INTL_DESK_FOOTER_NOISE "ШУМ"
 #define INTL_DESK_FOOTER_PRESSURE "ДАВЛЕНИЕ"
 #define INTL_DESK_BAND_GOOD "Норма"
@@ -346,6 +350,8 @@ const char INTL_NODE_ID[] PROGMEM = "ID узла CPS (0 = не задан)";
 #define INTL_DESK_GRAPH_LOUD "Громче всего в %02u:00"
 #define INTL_DESK_GRAPH_HUM_LOW "Влажность низкая"
 #define INTL_DESK_GRAPH_HUM_HIGH "Влажность высокая"
+#define INTL_DESK_GRAPH_VOC_CALM "В основном норма"
+#define INTL_DESK_GRAPH_VOC_HIGH "Держался высоким"
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Адрес публичной ноды Робономики";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Хост Robonomics Map (connectivity)";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Пул хостов Robonomics Map (по одному в строке)";
@@ -568,6 +574,10 @@ const char INTL_VOC_INDEX[] PROGMEM = "Уровень VOC";
 const char INTL_VOC_AU[] PROGMEM = "из 100";
 #define INTL_VOC_INDEX_HINT INTL_VOC_INDEX_HINT
 const char INTL_VOC_INDEX_HINT[] PROGMEM = "0 — как обычно у Altruist Insight, 100 — заметно больше органических газов";
+#define INTL_VOC_PPB INTL_VOC_PPB
+const char INTL_VOC_PPB[] PROGMEM = "VOC";
+#define INTL_VOC_PPB_HINT INTL_VOC_PPB_HINT
+const char INTL_VOC_PPB_HINT[] PROGMEM = "0–10000 ppb к чистому воздуху за 5 дней, с компенсацией влажности. Относительно, не лабораторно.";
 const char INTL_RADIATION[] PROGMEM = "Радиация";
 const char INTL_CO2[] PROGMEM = "CO2";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";

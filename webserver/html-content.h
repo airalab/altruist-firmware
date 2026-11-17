@@ -28,27 +28,35 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 	"<link rel='icon' type='image/png' href='/favicon.ico' media='(prefers-color-scheme: light)'>" \
 	"<link rel='icon' type='image/png' href='/favicon-dark.ico' media='(prefers-color-scheme: dark)'>"
 
-#define STATIC_PREFIX "/" INTL_LANG "_s3.132"
+#define STATIC_PREFIX "/" INTL_LANG "_s3.144"
 // Bust browser cache after PNG→SVG / logo changes; `m` reflects build (insight vs urban).
 #define WEB_HEADER_LOGO_SRC STATIC_PREFIX "?r=logo&v=" SOFTWARE_VERSION_STR "&m=" DEVICE_MODEL
 #define WEB_NAV_ICON_LOCAL_SRC STATIC_PREFIX "?r=nav-local&v=" SOFTWARE_VERSION_STR
 #define WEB_NAV_ICON_MAP_SRC STATIC_PREFIX "?r=nav-map&v=" SOFTWARE_VERSION_STR
 #define WEB_NAV_ICON_CUSTOM_SRC STATIC_PREFIX "?r=nav-custom&v=" SOFTWARE_VERSION_STR
 #define WEB_NAV_ICON_SYSTEM_SRC STATIC_PREFIX "?r=nav-system&v=" SOFTWARE_VERSION_STR
+#define WEB_METRIC_ICON_TEMP_SRC STATIC_PREFIX "?r=m-temp&v=" SOFTWARE_VERSION_STR
+#define WEB_METRIC_ICON_HUM_SRC STATIC_PREFIX "?r=m-hum&v=" SOFTWARE_VERSION_STR
+#define WEB_METRIC_ICON_VOC_SRC STATIC_PREFIX "?r=m-voc&v=" SOFTWARE_VERSION_STR
+#define WEB_METRIC_ICON_CO2_SRC STATIC_PREFIX "?r=m-co2&v=" SOFTWARE_VERSION_STR
+#define WEB_METRIC_ICON_PM25_SRC STATIC_PREFIX "?r=m-pm25&v=" SOFTWARE_VERSION_STR
+#define WEB_METRIC_ICON_PM10_SRC STATIC_PREFIX "?r=m-pm10&v=" SOFTWARE_VERSION_STR
+#define WEB_METRIC_ICON_PRESSURE_SRC STATIC_PREFIX "?r=m-pressure&v=" SOFTWARE_VERSION_STR
+#define WEB_METRIC_ICON_NOISE_SRC STATIC_PREFIX "?r=m-noise&v=" SOFTWARE_VERSION_STR
 #define WEB_STATIC_CSS_HREF STATIC_PREFIX "?r=css&v=" SOFTWARE_VERSION_STR
 #define WEB_STATIC_JS_HREF STATIC_PREFIX "?r=js&v=" SOFTWARE_VERSION_STR
 #define WEB_STATIC_PROVISION_JS_HREF STATIC_PREFIX "?r=provision&v=" SOFTWARE_VERSION_STR "&c=6"
 #if defined(ALTRUIST_URBAN_C3_LITE)
-// C3 flash budget: text-only tabs (PNG nav icons are ~47 KB in PROGMEM).
+// C3 flash budget: text-only tabs.
 #define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><span class='app-tab__label'>" INTL_HUB_LOCAL_TITLE "</span></a>"
 #define WEB_APP_TAB_SOCIAL "<a class='app-tab' data-tab='social' href='/social'><span class='app-tab__label'>" INTL_DASH_CAT_MAP "</span></a>"
 #define WEB_APP_TAB_CUSTOM "<a class='app-tab' data-tab='custom' href='/custom'><span class='app-tab__label'>" INTL_DASH_GROUP_CUSTOM_TITLE "</span></a>"
 #define WEB_APP_TAB_ADVANCED "<a class='app-tab' data-tab='advanced' href='/advanced'><span class='app-tab__label'>" INTL_NAV_ADVANCED "</span></a>"
 #else
-#define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><img class='app-tab__icon' src='" WEB_NAV_ICON_LOCAL_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_HUB_LOCAL_TITLE "</span></a>"
-#define WEB_APP_TAB_SOCIAL "<a class='app-tab' data-tab='social' href='/social'><img class='app-tab__icon' src='" WEB_NAV_ICON_MAP_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_DASH_CAT_MAP "</span></a>"
-#define WEB_APP_TAB_CUSTOM "<a class='app-tab' data-tab='custom' href='/custom'><img class='app-tab__icon' src='" WEB_NAV_ICON_CUSTOM_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_DASH_GROUP_CUSTOM_TITLE "</span></a>"
-#define WEB_APP_TAB_ADVANCED "<a class='app-tab' data-tab='advanced' href='/advanced'><img class='app-tab__icon' src='" WEB_NAV_ICON_SYSTEM_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_NAV_ADVANCED "</span></a>"
+#define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><img class='app-tab__icon' src='" WEB_NAV_ICON_LOCAL_SRC "' alt='' width='28' height='28' decoding='async'/><span class='app-tab__label'>" INTL_HUB_LOCAL_TITLE "</span></a>"
+#define WEB_APP_TAB_SOCIAL "<a class='app-tab' data-tab='social' href='/social'><img class='app-tab__icon' src='" WEB_NAV_ICON_MAP_SRC "' alt='' width='28' height='28' decoding='async'/><span class='app-tab__label'>" INTL_DASH_CAT_MAP "</span></a>"
+#define WEB_APP_TAB_CUSTOM "<a class='app-tab' data-tab='custom' href='/custom'><img class='app-tab__icon' src='" WEB_NAV_ICON_CUSTOM_SRC "' alt='' width='28' height='28' decoding='async'/><span class='app-tab__label'>" INTL_DASH_GROUP_CUSTOM_TITLE "</span></a>"
+#define WEB_APP_TAB_ADVANCED "<a class='app-tab' data-tab='advanced' href='/advanced'><img class='app-tab__icon' src='" WEB_NAV_ICON_SYSTEM_SRC "' alt='' width='28' height='28' decoding='async'/><span class='app-tab__label'>" INTL_NAV_ADVANCED "</span></a>"
 #endif
 #define WEB_APP_BREADCRUMB "<nav class='app-breadcrumb' aria-label='" INTL_BREADCRUMB_ARIA "'><a class='app-breadcrumb__link' href='/'>{home}</a><span class='app-breadcrumb__sep' aria-hidden='true'>&rsaquo;</span><span class='app-breadcrumb__current' aria-current='page'>{t}</span></nav>"
 

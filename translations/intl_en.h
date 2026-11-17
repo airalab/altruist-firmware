@@ -297,11 +297,15 @@ const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configura
 #define INTL_DESK_TITLE_CLIMATE_URBAN "CLIMATE URBAN"
 #define INTL_DESK_TITLE_CLIMATE_INSIGHT "CLIMATE INSIGHT"
 #define INTL_DESK_TITLE_CO2 "CO2"
+#define INTL_DESK_TITLE_VOC "VOC"
 #define INTL_DESK_TITLE_NOISE "NOISE"
 #define INTL_DESK_TITLE_PRESSURE "PRESSURE"
 #define INTL_DESK_FOOTER_AIR "AIR"
 #define INTL_DESK_FOOTER_CLIMATE "CLIMATE"
 #define INTL_DESK_FOOTER_CO2 "CO2"
+#define INTL_DESK_FOOTER_VOC "VOC"
+#define INTL_DESK_VOC_UNIT "ppb"
+#define INTL_DESK_VOC_NOTE "Relative, not lab TVOC"
 #define INTL_DESK_FOOTER_NOISE "NOISE"
 #define INTL_DESK_FOOTER_PRESSURE "PRESSURE"
 #define INTL_DESK_BAND_GOOD "Good"
@@ -331,6 +335,8 @@ const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configura
 #define INTL_DESK_GRAPH_LOUD "Noisiest at %02u:00"
 #define INTL_DESK_GRAPH_HUM_LOW "Humidity low"
 #define INTL_DESK_GRAPH_HUM_HIGH "Humidity high"
+#define INTL_DESK_GRAPH_VOC_CALM "Mostly typical"
+#define INTL_DESK_GRAPH_VOC_HIGH "Stayed high this window"
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Robonomics Map Host (connectivity)";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Robonomics Map Hosts pool (one per line)";
@@ -553,6 +559,10 @@ const char INTL_VOC_INDEX[] PROGMEM = "VOC level";
 const char INTL_VOC_AU[] PROGMEM = "of 100";
 #define INTL_VOC_INDEX_HINT INTL_VOC_INDEX_HINT
 const char INTL_VOC_INDEX_HINT[] PROGMEM = "0 is typical for Altruist Insight, 100 means much more organic gases";
+#define INTL_VOC_PPB INTL_VOC_PPB
+const char INTL_VOC_PPB[] PROGMEM = "VOC";
+#define INTL_VOC_PPB_HINT INTL_VOC_PPB_HINT
+const char INTL_VOC_PPB_HINT[] PROGMEM = "0–10000 ppb vs a 5-day clean-air baseline, humidity-compensated. Relative, not lab TVOC.";
 const char INTL_RADIATION[] PROGMEM = "Radiation";
 const char INTL_CO2[] PROGMEM = "CO2";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";

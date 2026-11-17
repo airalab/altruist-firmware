@@ -22,6 +22,7 @@
 #include "favicon.h"
 #if !defined(ALTRUIST_URBAN_C3_LITE)
 #include "nav-icons.h"
+#include "metric-icons.h"
 #endif
 
 extern Robonomics robonomics;
@@ -253,22 +254,62 @@ void SensorWebServer::_webserver_static() {
 #if !defined(ALTRUIST_URBAN_C3_LITE)
 	if (resource == F("nav-local")) {
 		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
-		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_LOCAL_PNG, WEB_NAV_ICON_LOCAL_PNG_SIZE);
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_NAV_ICON_LOCAL_SVG, WEB_NAV_ICON_LOCAL_SVG_SIZE);
 		return;
 	}
 	if (resource == F("nav-map")) {
 		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
-		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_MAP_PNG, WEB_NAV_ICON_MAP_PNG_SIZE);
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_NAV_ICON_MAP_SVG, WEB_NAV_ICON_MAP_SVG_SIZE);
 		return;
 	}
 	if (resource == F("nav-custom")) {
 		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
-		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_CUSTOM_PNG, WEB_NAV_ICON_CUSTOM_PNG_SIZE);
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_NAV_ICON_CUSTOM_SVG, WEB_NAV_ICON_CUSTOM_SVG_SIZE);
 		return;
 	}
 	if (resource == F("nav-system")) {
 		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
-		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_SYSTEM_PNG, WEB_NAV_ICON_SYSTEM_PNG_SIZE);
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_NAV_ICON_SYSTEM_SVG, WEB_NAV_ICON_SYSTEM_SVG_SIZE);
+		return;
+	}
+	if (resource == F("m-temp")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_METRIC_ICON_TEMP_SVG, WEB_METRIC_ICON_TEMP_SVG_SIZE);
+		return;
+	}
+	if (resource == F("m-hum")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_METRIC_ICON_HUM_SVG, WEB_METRIC_ICON_HUM_SVG_SIZE);
+		return;
+	}
+	if (resource == F("m-voc")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_METRIC_ICON_VOC_SVG, WEB_METRIC_ICON_VOC_SVG_SIZE);
+		return;
+	}
+	if (resource == F("m-co2")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_METRIC_ICON_CO2_SVG, WEB_METRIC_ICON_CO2_SVG_SIZE);
+		return;
+	}
+	if (resource == F("m-pm25")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_METRIC_ICON_PM25_SVG, WEB_METRIC_ICON_PM25_SVG_SIZE);
+		return;
+	}
+	if (resource == F("m-pm10")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_METRIC_ICON_PM10_SVG, WEB_METRIC_ICON_PM10_SVG_SIZE);
+		return;
+	}
+	if (resource == F("m-pressure")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_METRIC_ICON_PRESSURE_SVG, WEB_METRIC_ICON_PRESSURE_SVG_SIZE);
+		return;
+	}
+	if (resource == F("m-noise")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_METRIC_ICON_NOISE_SVG, WEB_METRIC_ICON_NOISE_SVG_SIZE);
 		return;
 	}
 #endif
@@ -1269,6 +1310,8 @@ void SensorWebServer::_webserver_ota_progress_json() {
 
 	const bool queued = deviceStatus.ota_update_requested;
 	const int percent = deviceStatus.ota_progress_percent < 0 ? 0 : deviceStatus.ota_progress_percent;
+	const bool uptodate = !queued && !deviceStatus.ota_in_progress &&
+		deviceStatus.ota_check_ui == device_status_t::OtaCheckUi_UpToDate;
 
 	String json = F("{\"in_progress\":");
 	json += deviceStatus.ota_in_progress ? F("true") : F("false");
@@ -1278,6 +1321,8 @@ void SensorWebServer::_webserver_ota_progress_json() {
 	json += deviceStatus.ota_failed ? F("true") : F("false");
 	json += F(",\"success\":");
 	json += deviceStatus.ota_success ? F("true") : F("false");
+	json += F(",\"uptodate\":");
+	json += uptodate ? F("true") : F("false");
 	json += F(",\"percent\":");
 	json += String(percent);
 	json += '}';

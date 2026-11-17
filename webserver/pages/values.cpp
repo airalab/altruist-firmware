@@ -53,7 +53,7 @@ void render_sensor_section(
 	bool grid_open = false;
 	for (JsonPair measurement : sensorData) {
 		String type = measurement.key().c_str();
-		if (type == "voc_level") {
+		if (type == "voc_level" || type == "voc_index") {
 			continue;
 		}
 		JsonObject measurementData = measurement.value().as<JsonObject>();
@@ -69,7 +69,7 @@ void render_sensor_section(
 				floatValue = tempCToDisplay(floatValue);
 				value = String(floatValue, 1);
 			} else if (type == "gas_resistance" || type == "gas_baseline" || type == "voc_spikes_today" ||
-				   type == "voc_index") {
+				   type == "voc_index" || type == "voc_ppb") {
 				value = String((uint32_t)(floatValue + 0.5f));
 			} else {
 				value = String(floatValue, 2);
@@ -87,9 +87,9 @@ void render_sensor_section(
 			units = measurementData["units"].as<String>();
 		}
 
-		if (type == "voc_index") {
+		if (type == "voc_ppb") {
 			intl_param += F("<br><span class='reading-card__hint'>");
-			intl_param += INTL_VOC_INDEX_HINT;
+			intl_param += INTL_VOC_PPB_HINT;
 			intl_param += F("</span>");
 		}
 
@@ -97,7 +97,7 @@ void render_sensor_section(
 			add_reading_metrics_grid_start(page_content);
 			grid_open = true;
 		}
-		add_reading_metric_card(page_content, intl_param, value, units.c_str());
+		add_reading_metric_card(page_content, intl_param, value, units.c_str(), reading_metric_icon_key(type));
 	}
 	if (grid_open) {
 		add_reading_metrics_grid_end(page_content);

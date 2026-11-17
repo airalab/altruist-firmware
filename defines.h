@@ -17,13 +17,13 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIGHT)
-#define SOFTWARE_VERSION_BASE "R-INS_2026-11.01"
+#define SOFTWARE_VERSION_BASE "R-INS_2026-11.02"
 #define PM_SENSOR_NAME "Altruist Insight"
 #define DEVICE_MODEL DEVICE_MODEL_INSIGHT
 void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_BASE "R-URB_2026-11.01"
+#define SOFTWARE_VERSION_BASE "R-URB_2026-11.02"
 #define PM_SENSOR_NAME "Altruist Urban"
 #define DEVICE_MODEL DEVICE_MODEL_URBAN
 #endif
@@ -137,8 +137,10 @@ void firmwareBlockingYieldHook(void);
 #define DESK_PAGE_PRESSURE 4u
 #define DESK_PAGE_CLIMATE_INSIGHT 5u
 #define DESK_PAGE_HUMIDITY DESK_PAGE_CLIMATE_INSIGHT
-#define DESK_PAGE_COUNT 6u
-#define DESK_PAGES_ALL 0x3Fu
+#define DESK_PAGE_VOC 6u
+#define DESK_PAGE_COUNT 7u
+#define DESK_PAGES_ALL 0x7Fu
+#define DESK_PAGES_ALL_V2 0x3Fu
 #define DESK_PAGES_ALL_V1 0x1Fu
 #define DESK_INTERVAL_MIN_S 30u
 #define DESK_INTERVAL_MAX_S 300u
