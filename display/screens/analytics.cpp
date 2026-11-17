@@ -71,6 +71,7 @@ RollingHourHistory g_co2_hour_hist;
 RollingHourHistory g_noise_hour_hist;
 RollingHourHistory g_noise_avg_hour_hist;
 RollingHourHistory g_voc_hour_hist; // hourly VOC organic-event counts (sum_v)
+RollingHourHistory g_voc_index_hour_hist; // Wall 6h VOC ppb 0–10000 (desk SPIFFS)
 RollingHourHistory g_temp_urban_hour_hist;
 RollingHourHistory g_hum_urban_hour_hist;
 RollingHourHistory g_press_in_hour_hist;
@@ -84,7 +85,8 @@ constexpr float kNoisePeakThresholdDb = 40.0f;
 /** Packed 24h window: desk 6h plus last night (22:00 still there the next evening). */
 constexpr uint8_t kPersistHours = 24;
 constexpr uint8_t kNightSeries = 7;
-constexpr uint8_t kDeskSeries = 6;
+constexpr uint8_t kDeskSeries = 7;
+constexpr uint8_t kDeskSeriesPrev = 6;
 constexpr uint8_t kLegacyAllSeries = 13;
 constexpr size_t kPersistBytes = sizeof(RollingHourBucket) * kPersistHours;
 constexpr uint32_t kAnalyticsPersistIntervalMs = 5UL * 60UL * 1000UL;
@@ -268,6 +270,7 @@ static RollingHourHistory *histForDesk(uint8_t i) {
     case 3: return &g_press_urb_hour_hist;
     case 4: return &g_pm10_hour_hist;
     case 5: return &g_noise_avg_hour_hist;
+    case 6: return &g_voc_index_hour_hist;
     default: return nullptr;
     }
 }
@@ -286,10 +289,10 @@ static RollingHourHistory *histForNight(uint8_t i) {
 }
 
 static RollingHourHistory *histForLegacyAll(uint8_t i) {
-    if (i < kDeskSeries) {
+    if (i < kDeskSeriesPrev) {
         return histForDesk(i);
     }
-    return histForNight((uint8_t)(i - kDeskSeries));
+    return histForNight((uint8_t)(i - kDeskSeriesPrev));
 }
 
 static bool histHasSamples(const RollingHourHistory &hist) {
@@ -345,7 +348,10 @@ static bool unpackSeriesFromReader(File &f, RollingHourHistory *(*hist_at)(uint8
         if (f.read((uint8_t *)packed, nbytes) != nbytes) {
             return false;
         }
-        unpackDeskHours(*hist_at(s), packed, n_hours);
+        RollingHourHistory *hist = hist_at(s);
+        if (hist) {
+            unpackDeskHours(*hist, packed, n_hours);
+        }
     }
     return true;
 }
@@ -363,7 +369,8 @@ static bool loadHourHistoryFile() {
         f.close();
         return false;
     }
-    const bool desk_file = memcmp(hdr.magic, kDeskMagic, 4) == 0 && hdr.n_series == kDeskSeries;
+    const bool desk_file = memcmp(hdr.magic, kDeskMagic, 4) == 0 && hdr.n_series >= 1 &&
+                           hdr.n_series <= kDeskSeries;
     const bool legacy_all = memcmp(hdr.magic, kAllMagic, 4) == 0 && hdr.n_series == kLegacyAllSeries;
     if ((!desk_file && !legacy_all) || hdr.bucket_bytes != sizeof(RollingHourBucket) ||
         hdr.n_hours == 0 || hdr.n_hours > 48) {
@@ -1246,6 +1253,19 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
             const int v = bme["voc_spikes_today"]["value"].as<int>();
             values.voc_spikes_today = (int16_t)(v < 0 ? 0 : v);
         }
+        if (bme.containsKey("voc_ppb")) {
+            const int ppb = bme["voc_ppb"]["value"].as<int>();
+            if (ppb >= 0 && ppb <= 10000) {
+                values.voc_index.current = (float)ppb;
+                values.voc_index.has_current = true;
+            }
+        } else if (bme.containsKey("voc_index")) {
+            const int index = bme["voc_index"]["value"].as<int>();
+            if (index >= 0 && index <= 100) {
+                values.voc_index.current = (float)index;
+                values.voc_index.has_current = true;
+            }
+        }
         if (use_bme680_for_temp_hum) {
             if (bme.containsKey("temperature")) {
                 float t = bme["temperature"]["value"].as<float>();
@@ -1439,6 +1459,11 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
         }
         if (values.co2.has_current) {
             updateRollingHourMetric(g_co2_hour_hist, values.co2.current, hour_key, kCo2CurveBandPpm);
+            updated = true;
+            updated_metrics++;
+        }
+        if (values.voc_index.has_current) {
+            updateRollingHourMetric(g_voc_index_hour_hist, values.voc_index.current, hour_key, 250.0f);
             updated = true;
             updated_metrics++;
         }
@@ -1795,6 +1820,7 @@ void analyticsReadLastHours(analytics_hour_series_t series, analytics_last_hours
     case analytics_hour_series_t::NoiseAvg: hist = &g_noise_avg_hour_hist; break;
     case analytics_hour_series_t::PressIndoor: hist = &g_press_in_hour_hist; break;
     case analytics_hour_series_t::PressUrban: hist = &g_press_urb_hour_hist; break;
+    case analytics_hour_series_t::VocIndex: hist = &g_voc_index_hour_hist; break;
     default: break;
     }
     if (!hist) {

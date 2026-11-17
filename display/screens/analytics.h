@@ -41,6 +41,7 @@ struct analytics_screen_values_t {
     analytics_metric_t noise_max;
     // VOC organic events today (−1 = sensor absent)
     int16_t voc_spikes_today = -1;
+    analytics_metric_t voc_index; 
 };
 
 analytics_view_t analyticsGetView();
@@ -71,7 +72,8 @@ enum class analytics_hour_series_t : uint8_t {
     PressIndoor,
     PressUrban,
     Pm10,
-    NoiseAvg
+    NoiseAvg,
+    VocIndex
 };
 
 struct analytics_last_hours_t {

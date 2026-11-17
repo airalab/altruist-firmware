@@ -238,7 +238,7 @@ body[data-page=local] .app-page-title{display:none}
 .data-block__intro{margin:0;padding:8px 12px 2px;font-size:13px;color:#666;line-height:1.45}
 .reading-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 12px 12px}
 .reading-card{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:14px 16px;background:#fafafa;border:1px solid #eee;border-radius:10px;min-height:84px;min-width:0;overflow:hidden}
-.reading-card__label{font-size:15px;font-weight:500;color:#555;line-height:1.3}
+.reading-card__label{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:#555;line-height:1.3}.reading-card__icon{width:24px;height:24px;flex-shrink:0}.reading-card__label-text{min-width:0}
 .reading-card__hint{display:block;margin-top:4px;font-size:12px;font-weight:400;color:#888;line-height:1.35}
 .reading-card__reading{display:flex;flex-wrap:nowrap;align-items:baseline;gap:6px;min-width:0}
 .reading-card__value{font-size:34px;font-weight:700;color:#111;font-variant-numeric:tabular-nums;line-height:1.05;letter-spacing:-.02em;}

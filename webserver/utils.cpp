@@ -142,15 +142,83 @@ void add_reading_metrics_grid_end(String& page_content) {
 	page_content += F("</div>");
 }
 
-void add_reading_metric_card(String& page_content, const __FlashStringHelper* label, const String& value, const char* unit) {
+const char* reading_metric_icon_key(const String& type) {
+#if defined(ALTRUIST_URBAN_C3_LITE)
+	(void)type;
+	return nullptr;
+#else
+	if (type == "temperature" || type.endsWith("_temperature")) {
+		return "temp";
+	}
+	if (type == "humidity" || type.endsWith("_humidity")) {
+		return "hum";
+	}
+	if (type == "voc_index" || type == "voc_phrase" || type == "voc_ppb") {
+		return "voc";
+	}
+	if (type == "co2") {
+		return "co2";
+	}
+	if (type == "P2" || type == "SDS_P2" || type.endsWith("_P2")) {
+		return "pm25";
+	}
+	if (type == "P1" || type == "SDS_P1" || type.endsWith("_P1")) {
+		return "pm10";
+	}
+	if (type == "pressure" || type == "BME280_pressure" || type.endsWith("_pressure")) {
+		return "pressure";
+	}
+	if (type == "noiseMax" || type == "noiseAvg" || type == "PCBA_noiseMax" || type == "PCBA_noiseAvg" ||
+	    type.endsWith("_noiseMax") || type.endsWith("_noiseAvg")) {
+		return "noise";
+	}
+	return nullptr;
+#endif
+}
+
+namespace {
+
+void append_reading_metric_icon(String& page_content, const char* icon_key) {
+#if defined(ALTRUIST_URBAN_C3_LITE)
+	(void)page_content;
+	(void)icon_key;
+#else
+	if (!icon_key || icon_key[0] == '\0') {
+		return;
+	}
+	if (!strcmp(icon_key, "temp")) {
+		page_content += F("<img class='reading-card__icon' src='" WEB_METRIC_ICON_TEMP_SRC "' alt='' width='24' height='24' decoding='async'/>");
+	} else if (!strcmp(icon_key, "hum")) {
+		page_content += F("<img class='reading-card__icon' src='" WEB_METRIC_ICON_HUM_SRC "' alt='' width='24' height='24' decoding='async'/>");
+	} else if (!strcmp(icon_key, "voc")) {
+		page_content += F("<img class='reading-card__icon' src='" WEB_METRIC_ICON_VOC_SRC "' alt='' width='24' height='24' decoding='async'/>");
+	} else if (!strcmp(icon_key, "co2")) {
+		page_content += F("<img class='reading-card__icon' src='" WEB_METRIC_ICON_CO2_SRC "' alt='' width='24' height='24' decoding='async'/>");
+	} else if (!strcmp(icon_key, "pm25")) {
+		page_content += F("<img class='reading-card__icon' src='" WEB_METRIC_ICON_PM25_SRC "' alt='' width='24' height='24' decoding='async'/>");
+	} else if (!strcmp(icon_key, "pm10")) {
+		page_content += F("<img class='reading-card__icon' src='" WEB_METRIC_ICON_PM10_SRC "' alt='' width='24' height='24' decoding='async'/>");
+	} else if (!strcmp(icon_key, "pressure")) {
+		page_content += F("<img class='reading-card__icon' src='" WEB_METRIC_ICON_PRESSURE_SRC "' alt='' width='24' height='24' decoding='async'/>");
+	} else if (!strcmp(icon_key, "noise")) {
+		page_content += F("<img class='reading-card__icon' src='" WEB_METRIC_ICON_NOISE_SRC "' alt='' width='24' height='24' decoding='async'/>");
+	}
+#endif
+}
+
+} // namespace
+
+void add_reading_metric_card(String& page_content, const __FlashStringHelper* label, const String& value, const char* unit, const char* icon_key) {
 	const bool text_value = (unit == nullptr || unit[0] == '\0') && value.length() > 12;
 	page_content += F("<div class='reading-card");
 	if (text_value) {
 		page_content += F(" reading-card--text");
 	}
 	page_content += F("'><span class='reading-card__label'>");
+	append_reading_metric_icon(page_content, icon_key);
+	page_content += F("<span class='reading-card__label-text'>");
 	page_content += label;
-	page_content += F("</span><div class='reading-card__reading'><span class='reading-card__value'>");
+	page_content += F("</span></span><div class='reading-card__reading'><span class='reading-card__value'>");
 	page_content += value;
 	page_content += F("</span>");
 	if (unit != nullptr && unit[0] != '\0') {
@@ -161,15 +229,17 @@ void add_reading_metric_card(String& page_content, const __FlashStringHelper* la
 	page_content += F("</div></div>");
 }
 
-void add_reading_metric_card(String& page_content, const String& label, const String& value, const char* unit) {
+void add_reading_metric_card(String& page_content, const String& label, const String& value, const char* unit, const char* icon_key) {
 	const bool text_value = (unit == nullptr || unit[0] == '\0') && value.length() > 12;
 	page_content += F("<div class='reading-card");
 	if (text_value) {
 		page_content += F(" reading-card--text");
 	}
 	page_content += F("'><span class='reading-card__label'>");
+	append_reading_metric_icon(page_content, icon_key);
+	page_content += F("<span class='reading-card__label-text'>");
 	page_content += label;
-	page_content += F("</span><div class='reading-card__reading'><span class='reading-card__value'>");
+	page_content += F("</span></span><div class='reading-card__reading'><span class='reading-card__value'>");
 	page_content += value;
 	page_content += F("</span>");
 	if (unit != nullptr && unit[0] != '\0') {

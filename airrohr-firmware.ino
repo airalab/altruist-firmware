@@ -754,6 +754,19 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 			const int v = bme_voc["voc_spikes_today"]["value"].as<int>();
 			values.voc_spikes_today = (int16_t)(v < 0 ? 0 : v);
 		}
+		if (bme_voc.containsKey("voc_ppb")) {
+			const int ppb = bme_voc["voc_ppb"]["value"].as<int>();
+			if (ppb >= 0 && ppb <= 10000) {
+				values.voc_index.current = (float)ppb;
+				values.voc_index.has_current = true;
+			}
+		} else if (bme_voc.containsKey("voc_index")) {
+			const int index = bme_voc["voc_index"]["value"].as<int>();
+			if (index >= 0 && index <= 100) {
+				values.voc_index.current = (float)index;
+				values.voc_index.has_current = true;
+			}
+		}
 	}
 
 	if (data.containsKey("BME680")) {

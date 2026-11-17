@@ -203,6 +203,15 @@ namespace
 		return out->host.length() > 0;
 	}
 
+	/** HTTPClient::connect() reuses a live TCP socket even when the next begin() is a different host. */
+	void mapResetHttpClient(WiFiClient *client)
+	{
+		if (client)
+		{
+			client->stop();
+		}
+	}
+
 } // namespace
 
 void RobonomicsHTTPAPI::setup()
@@ -275,6 +284,11 @@ int RobonomicsHTTPAPI::chooseRobonomicsServerFromPool(const String &pool)
 	const int host_count = parseHostPool(pool, hosts, kMaxHosts);
 	if (host_count <= 0)
 		return 255;
+	if (host_count == 1)
+	{
+		connectivity_host_override = hosts[0];
+		return 0;
+	}
 
 	HTTPClient _http;
 	int best_idx = 255;
@@ -287,7 +301,10 @@ int RobonomicsHTTPAPI::chooseRobonomicsServerFromPool(const String &pool)
 		if (WiFi.status() != WL_CONNECTED)
 			break;
 		const String &s_Host = hosts[i];
+		mapResetHttpClient(_client);
+		_http.setTimeout(20 * 1000);
 		_http.setReuse(false);
+		_http.useHTTP10(true);
 		if (_http.begin(*_client, s_Host, PORT_ROBONOMICS, s_url))
 		{
 			const char *headerKeys[] = {"sensors-count", "on-server"};
@@ -322,7 +339,8 @@ int RobonomicsHTTPAPI::chooseRobonomicsServerFromPool(const String &pool)
 		connectivity_host_override = hosts[best_idx];
 		return best_idx;
 	}
-	return 255;
+	connectivity_host_override = hosts[0];
+	return 0;
 }
 
 void RobonomicsHTTPAPI::_send(JsonDocument &data)
@@ -568,6 +586,7 @@ void RobonomicsHTTPAPI::POSTRequest(const String &data, const String &host)
 	logConnectivityAttempt(map_send_seq_active, current_reg, s_Host);
 	String s_url(FPSTR(URL_ROBONOMICS));
 	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] POST to ") + s_Host + ":" + String(PORT_ROBONOMICS) + s_url);
+	mapResetHttpClient(_client);
 	_http.setTimeout(20 * 1000);
 	_http.setUserAgent(SOFTWARE_VERSION + '/' + esp_chipid);
 	_http.setReuse(false);
@@ -640,6 +659,7 @@ void RobonomicsHTTPAPI::POSTRequest(const uint8_t *data, size_t len, const Strin
 	logConnectivityAttempt(map_send_seq_active, current_reg, target_log);
 	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] PROTO POST ") + target_log +
 			    F(" bytes=") + String(len));
+	mapResetHttpClient(_client);
 	_http.setTimeout(20 * 1000);
 	_http.setUserAgent(SOFTWARE_VERSION + '/' + esp_chipid);
 	_http.setReuse(false);
@@ -684,16 +704,11 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal)
 	int min_sensors = 255;
 	int result = 0;
 	String s_url = FPSTR(URL_ROBONOMICS);
-	int numRobonomicsHosts = sizeof(HOST_ROBONOMICS) / sizeof(HOST_ROBONOMICS[0]);
-	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] selecting server: ") + String(numRobonomicsHosts) + " hosts, region=" + current_reg.c_str() + (onlyGlobal ? " (global only)" : ""));
-
-	for (int i = 0; i < numRobonomicsHosts; i++)
+	const int numRobonomicsHosts = sizeof(HOST_ROBONOMICS) / sizeof(HOST_ROBONOMICS[0]);
+	int candidates[8];
+	int candidate_count = 0;
+	for (int i = 0; i < numRobonomicsHosts && candidate_count < 8; i++)
 	{
-		if (WiFi.status() != WL_CONNECTED)
-		{
-			debug_outln_verbose(F("[Map] Stop server selection: WiFi disconnected"));
-			break;
-		}
 		if (onlyGlobal)
 		{
 			if (!hostRegionMatches(REGION_GLOBAL, HOST_ROBONOMICS[i][1]))
@@ -705,12 +720,40 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal)
 		{
 			continue;
 		}
+		candidates[candidate_count++] = i;
+	}
+
+	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] selecting server: ") + String(candidate_count) + " hosts, region=" + current_reg.c_str() + (onlyGlobal ? " (global only)" : ""));
+
+	if (candidate_count == 0)
+	{
+		return 255;
+	}
+	// RU (and any 1-host region): health GET only load-balances. A stalled GET
+	// would skip POST entirely. Pinned mode already POSTs without this check.
+	if (candidate_count == 1)
+	{
+		debug_outln_info(F("[Map] single regional host, skip health GET: "),
+			String(FPSTR(HOST_ROBONOMICS[candidates[0]][0])));
+		return candidates[0];
+	}
+
+	for (int c = 0; c < candidate_count; c++)
+	{
+		const int i = candidates[c];
+		if (WiFi.status() != WL_CONNECTED)
+		{
+			debug_outln_verbose(F("[Map] Stop server selection: WiFi disconnected"));
+			break;
+		}
 		String s_Host = FPSTR(HOST_ROBONOMICS[i][0]);
 		debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] trying GET ") + s_Host + ":" + String(PORT_ROBONOMICS));
 
-		// Must not reuse TCP across different hosts — end() can keep the socket open
-		// ("tcp keep open for reuse") and the next begin() then talks to the wrong server.
+		mapResetHttpClient(_client);
+		_http.setTimeout(20 * 1000);
 		_http.setReuse(false);
+		_http.useHTTP10(true);
+		_http.setUserAgent(String(SOFTWARE_VERSION_STR) + '/' + esp_chipid);
 		if (_http.begin(*_client, s_Host, PORT_ROBONOMICS, s_url))
 		{
 			const char *headerKeys[] = {"sensors-count", "on-server"};
@@ -738,32 +781,35 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal)
 					num_of_robonomics_host = i;
 				}
 			}
-			else if (result >= HTTP_CODE_BAD_REQUEST)
-			{
-				debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] server error from ") + s_Host + " HTTP " + String(result));
-				debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] response: ") + _http.getString());
-			}
 			else
 			{
-				debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] connection error to ") + s_Host + " code=" + String(result) + " " + HTTPClient::errorToString(result));
+				logConnectivityFailure(map_send_seq_active, F("health_get_failed"), s_Host, result);
+				if (result >= HTTP_CODE_BAD_REQUEST)
+				{
+					debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] server error from ") + s_Host + " HTTP " + String(result));
+					debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] response: ") + _http.getString());
+				}
+				else
+				{
+					debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] connection error to ") + s_Host + " code=" + String(result) + " " + HTTPClient::errorToString(result));
+				}
 			}
 			_http.end();
 		}
 		else
 		{
+			logConnectivityFailure(map_send_seq_active, F("health_begin_failed"), s_Host, 0);
 			debug_outln_verbose(F("[Map] Cannot connect to host"));
 			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] host: ") + s_Host);
 		}
 	}
-	if (num_of_robonomics_host < numRobonomicsHosts)
+	if (num_of_robonomics_host >= numRobonomicsHosts)
 	{
-		debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] selected server: ") + String(FPSTR(HOST_ROBONOMICS[num_of_robonomics_host][0])));
+		num_of_robonomics_host = candidates[0];
+		debug_outln_info(F("[Map] health GET failed; posting anyway to "),
+			String(FPSTR(HOST_ROBONOMICS[num_of_robonomics_host][0])));
 	}
-	else
-	{
-		// Not a hard failure by itself: caller may retry with global-only mode or proceed with other logic.
-		debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] no suitable server found in this selection pass"));
-	}
+	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] selected server: ") + String(FPSTR(HOST_ROBONOMICS[num_of_robonomics_host][0])));
 
 	return num_of_robonomics_host;
 }

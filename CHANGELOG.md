@@ -4,6 +4,18 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ## [Unreleased]
 
+### Features
+
+- **Hub nav icons** — Local / Map / Custom / System tabs are SVG in ink `#111` (28px). Raster PNG copies in `display/icons/interface/` and the old PROGMEM PNG dump are gone.
+- **Reading card icons** — Local cards use 24px icons: temperature 044, humidity 045, VOC 048, CO₂ 047, noise 032. PM2.5 / PM10 (including Urban `SDS_P1` / `SDS_P2`) use compact filled dots. Air pressure is generated.
+- **Wall VOC slide** — After CO2: large TVOC in **ppb** (0–10000) then a 6h line of the hourly mean. No PM2.5 icon; title **VOC - Relative, not lab TVOC** (note in a smaller font). ABC on humidity-compensated BME680 resistance (Magnus AH × 0.03, same 320 °C / 150 ms heater): 90th percentile of the last 5 days of hourly clean-air maxima, `ppb = 3248 · ln(R_clean / R_comp)` so ~8% drop → 250 and ~50% drop → 2000. Bands Good <250 / Elevated 250–2000 / High ≥2000. Night analytics unchanged.
+
+### Bug Fixes
+
+- **OTA Check update** — If Latest available is the same version already on the device, the hub no longer offers Update or leaves a stuck 0% progress bar. The UI now shows that firmware is up to date (same as the serial log).
+- **Map health check timeout** — Default pool could log `no_server_available` while the connectivity host was up: the health GET used HTTPClient’s 5 s default, and POST (20 s) never ran. Health checks now use the same 20 s timeout, and a failed GET is logged with host and code.
+- **Map RU health GET** — Region RU has a single host, so Default pool no longer waits on a health GET before POST (same path as Preset). A stalled GET (`HTTPC_ERROR_READ_TIMEOUT` / `-11`) was blocking Map while datalog on 443 still worked.
+
 ## [R_2026-11.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-11.01) — 2026-11-13
 
 ### Features
@@ -62,7 +74,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Pressure display unit** — Settings → GPS & Sensors: **mmHg** (default) or **hPa**, independent of firmware language. Values, e-ink, and graphs follow the choice. Map / `/data.json` stay in Pa/hPa. Pressure correction remains in hPa.
 - **Date format** — Local → System, next to timezone: **MM/DD/YYYY** (default), **DD.MM.YYYY**, or **YYYY-MM-DD**. E-ink headers and Status last-send times follow it. SD file names and map URLs stay ISO.
 - **Temperature display unit** — **°C** (default) or **°F** next to the temperature correction. Values, e-ink (including dew point), sleep analytics card, and graphs follow it. Map / `/data.json`, LED bands, and the correction field stay °C.
-- **BME680 VOC spikes** — Insight turns the MOX heater on (320 °C / 150 ms, every **5 min**) and logs raw `gas_resistance` (Ohm) on Values / `/data.json` / serial. A sudden drop of ≥8% vs both the last sample and a rolling baseline counts as one spike for the **local calendar day** (until 00:00, RAM + `/voc_day.json`). Not ppm and not a BSEC IAQ index. Drops while BME temperature is falling (>0.6 °C) are ignored. Extra Urban pages unchanged.
+- **BME680 VOC spikes** — Insight turns the MOX heater on (320 °C / 150 ms, every **5 min**) and logs raw `gas_resistance` (Ohm) on Values / `/data.json` / serial. A sudden drop of ≥8% vs both the last sample and a rolling baseline counts as one spike for the **local calendar day** (until 00:00, RAM + `/voc_day.json`). Not ppm and not an IAQ index. Drops while BME temperature is falling (>0.6 °C) are ignored. Extra Urban pages unchanged.
 - **BME680 VOC phrases** — Same resistance vs this device's baseline, mapped to a **0–100** level (30% drop = 100) and a live band: none (under ~27/100), low (to 49), medium (50–74), high (75+). Values / `/data.json` show the phrase, “VOC level / of 100”, and daily spikes. Main e-ink footer **carousel (3 min)**: warnings / dew-point memo, then two VOC lines (`VOC: <spikes today>` and `detected (low|medium|high)` / `not detected`). Extra Urban pages stay warnings-only.
 - **Insight buttons** — Long-press is **1 s** on every screen (was 3 s). Graph enter/leave no longer remounts the SD card on the button press; navigation uses the last draw cache.
 - **Insight several Urbans** — On the main screen, same as graphs: short **SET** next Urban, short **UP** previous (header `1/N`). First page is **main Urban + Insight**. Extra Urbans are their own pages (Urban data only). At the last/first page, short SET/UP leave MAIN. Long SET/UP change screens. Long DOWN still sleeps. Returning to MAIN always shows the main Urban page.

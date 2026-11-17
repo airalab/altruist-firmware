@@ -632,6 +632,9 @@
 #ifndef INTL_DESK_TITLE_CO2
 #define INTL_DESK_TITLE_CO2 "CO2 CONCENTRATION"
 #endif
+#ifndef INTL_DESK_TITLE_VOC
+#define INTL_DESK_TITLE_VOC "VOC"
+#endif
 #ifndef INTL_DESK_TITLE_NOISE
 #define INTL_DESK_TITLE_NOISE "NOISE"
 #endif
@@ -646,6 +649,15 @@
 #endif
 #ifndef INTL_DESK_FOOTER_CO2
 #define INTL_DESK_FOOTER_CO2 "CO2"
+#endif
+#ifndef INTL_DESK_FOOTER_VOC
+#define INTL_DESK_FOOTER_VOC "VOC"
+#endif
+#ifndef INTL_DESK_VOC_UNIT
+#define INTL_DESK_VOC_UNIT "ppb"
+#endif
+#ifndef INTL_DESK_VOC_NOTE
+#define INTL_DESK_VOC_NOTE "Relative, not lab TVOC"
 #endif
 #ifndef INTL_DESK_FOOTER_NOISE
 #define INTL_DESK_FOOTER_NOISE "NOISE"
@@ -733,6 +745,12 @@
 #endif
 #ifndef INTL_DESK_GRAPH_HUM_HIGH
 #define INTL_DESK_GRAPH_HUM_HIGH "Humidity high"
+#endif
+#ifndef INTL_DESK_GRAPH_VOC_CALM
+#define INTL_DESK_GRAPH_VOC_CALM "Mostly typical"
+#endif
+#ifndef INTL_DESK_GRAPH_VOC_HIGH
+#define INTL_DESK_GRAPH_VOC_HIGH "Stayed high this window"
 #endif
 
 #ifndef INTL_NAV_MONITOR
@@ -1261,6 +1279,12 @@
 #endif
 #ifndef INTL_VOC_INDEX_HINT
 #define INTL_VOC_INDEX_HINT "0 is typical for Altruist Insight, 100 means much more organic gases"
+#endif
+#ifndef INTL_VOC_PPB
+#define INTL_VOC_PPB "VOC"
+#endif
+#ifndef INTL_VOC_PPB_HINT
+#define INTL_VOC_PPB_HINT "0–10000 ppb vs a 5-day clean-air baseline, humidity-compensated. Relative, not lab TVOC."
 #endif
 #ifndef INTL_DISP_VOC_LEVEL
 #define INTL_DISP_VOC_LEVEL "level"
