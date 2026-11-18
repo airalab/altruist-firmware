@@ -956,6 +956,12 @@ bool fetchSensors() {
 				}
 #endif
 			}
+#if defined(ALTRUIST_BUILD_DEBUG)
+            if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+                activeSensors[i]->debugSnapshotIfDue(sensors_data);
+                xSemaphoreGive(mutex);
+            }
+#endif
 		}
 	return any_sensor_json_updated;
 }

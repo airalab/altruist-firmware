@@ -36,6 +36,7 @@ bool BME680Sensor::begin() {
     debug_outln_info(F("Begin BME680Sensor"));
     I2cBusLock bus;
     if (!bus.ok()) {
+        debugReadingError("bme680_bus_lock_failed");
         logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_bus_lock_failed"));
         debug_outln_error(F("BME680 I2C bus lock failed"));
         return false;
@@ -64,6 +65,8 @@ bool BME680Sensor::begin() {
         return true;
     }
 
+    debugReadingError("bme680_not_found");
+
     logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_not_found"));
     return false;
 }
@@ -91,12 +94,14 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     {
         I2cBusLock bus;
         if (!bus.ok()) {
+            debugReadingError("bme680_bus_lock_failed");
             logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_bus_lock_failed"));
             debug_outln_error(F("BME680 I2C bus lock failed in fetch"));
             return;
         }
 
         if (!bme680->performReading()) {
+            debugReadingError("bme680_read_failed");
             logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_read_failed"));
             debug_outln_error(F("BME680 reading failed"));
             return;
@@ -204,10 +209,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     addValueToJSON(data, F("gas_resistance"), last_gas_resistance_value, INTL_GAS_RESISTANCE, F("Ohm"));
     addValueToJSON(data, F("gas_baseline"), (uint32_t)(gas_baseline_ohm + 0.5f), INTL_GAS_BASELINE, F("Ohm"));
 
-#if defined(ALTRUIST_BUILD_DEBUG)
-    serializeJson(data, Serial);
-    Serial.println();
-#endif
+
 }
 
 void BME680Sensor::updateVocSpikeDetector() {

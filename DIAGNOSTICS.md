@@ -116,7 +116,8 @@ unit `ppb`, not laboratory TVOC. Constant zero or nonzero values are valid;
 `voc_level=-1` still signals an invalid gas reading. Older firmware may omit
 `voc_ppb`; current static debug checks require all six VOC/gas fields.
 Successful protobuf skips legacy PAYLOAD but does not eliminate local JSON.
-Freshness, deduplication and late attachment remain L3. Route attribution remains
+The L3 schema below adds freshness/deduplication metadata and context for late
+attachment; the tester applies the acceptance policy. Route attribution remains
 L4, build repetition/inventory/positive SD contract remains L7. The ordinary USB
 sensor tester may still fail on release because operational logs are not its
 measurement/HEALTH contract. Debug PASS does not validate release.
@@ -163,3 +164,32 @@ are diagnostics, not POST delivery outcomes. Operational LOG uses the distinct
 `connectivity/health_failed` event at Info, without host/payload/response data.
 POST and local send failures keep their existing delivery events. Testers reading
 older firmware must also recognize the two exact legacy health reasons.
+
+
+## L3 versioned sensor UART snapshots
+
+Debug now emits a separate per-physical-sensor UART JSON snapshot with root
+`_observations` version 1 and per-numeric-metric `observation`. Supported sensors:
+BME280/BMP280, BME680, SCD4x, SDS, ICS43434. Existing values/units are copied;
+API/uplink/SD documents receive no metadata. Release does not allocate or emit
+this telemetry, regardless of Testing or runtime verbosity.
+
+Every record carries MAC identity, model, per-boot random token, monotonic
+64-bit milliseconds, per-sensor snapshot sequence, state, cumulative errors and
+reason. Numeric metrics carry successful-update sequence/time/state. Clocks and
+sequences are decimal strings for exact serialization with existing ArduinoJson
+configuration. Equal successful values advance identity; failed reads do not.
+Normal sleep/collection intervals are not errors. SDS records completed windows;
+noise records the running sending-window aggregate, possibly before completion.
+Text VOC phrases are diagnostic; numeric VOC fields retain M2 semantics.
+
+The sensor worker checks nominal 30-second heartbeats plus first/error snapshots.
+Existing blocking work can delay publication. Up to 16 metric fields and 8192
+serialized bytes per line are supported; overflow emits an invalid L3 marker.
+The temporary JSON document is 8192 bytes, followed by a serialization buffer;
+one Serial.write emits a complete line. Successful update counters may skip in
+UART because snapshots do not stream every physical reading. The tester owns
+freshness thresholds, duplicate handling and final verdicts. Detailed wire schema
+and compatibility are in the tester `docs/sensor-log-patterns.md`, section
+"Versioned debug UART observations (L3)". Hardware results must be recorded
+separately; code/build success is not device acceptance.

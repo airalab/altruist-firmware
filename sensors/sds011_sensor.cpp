@@ -37,6 +37,7 @@ bool SDS011Sensor::begin() {
     last_measure_time = millis() - (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS));
     debug_outln_info(F("SDS011 started with fetch interval (sec): "), String(sending_timeout/1000));
     if (last_value_SDS_version.length() == 0) {
+        debugReadingError("sds011_not_found");
         logSupportEvent(DEBUG_ERROR, F("sensor"), F("sds011_not_found"));
     }
     return last_value_SDS_version.length() > 0;
@@ -44,6 +45,7 @@ bool SDS011Sensor::begin() {
 
 void SDS011Sensor::sdsUartRecover() {
 	sds_recovery_count++;
+	debugReadingError("sds011_recovery");
 	logSupportEvent(DEBUG_ERROR, F("sensor"), F("sds011_recovery"));
 	debug_outln_info(F("[SDS011] recover: drain UART, re-init, idle cycle"));
 	debug_outln_info(F("[SDS011] recovery count: "), String(sds_recovery_count));
@@ -128,16 +130,13 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
             sds_bad_window_streak = 0;
             debug_outln_verbose(F("PM10: "), String(last_value_SDS_P1));
             debug_outln_verbose(F("PM2.5: "), String(last_value_SDS_P2));
-            #if defined(ALTRUIST_BUILD_DEBUG)
-            serializeJson(data, Serial);
-            Serial.println();
-            Serial.println();
-            #endif
+
             debug_outln_verbose(F("\r\nJSON memory usage: "), String(data.memoryUsage()));
             if (sds_val_count < 3) {
                 SDS_error_count++;
             }
         } else {
+            debugReadingError("sds011_empty_window");
             SDS_error_count++;
             sds_bad_window_streak++;
             if (sds_bad_window_streak >= kSdsRecoverAfterBadWindows) {
@@ -216,6 +215,7 @@ bool SDS011Sensor::rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, cons
 	buf[18] = 0xAB;
 	const size_t written = serialSDS.write(buf, cmd_len);
 	if (written != cmd_len) {
+		debugReadingError("sds011_command_failed");
 		logSupportEvent(DEBUG_ERROR, F("sensor"), F("sds011_command_failed"));
 		debug_outln_error(F("[SDS011] command write failed"));
 		return false;
