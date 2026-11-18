@@ -146,7 +146,7 @@ persistent archive or an independent log for every viewer. USB is also muted
 while Improv provisioning owns the port. Core/library dumps and SD boot/runtime
 diagnostic files remain debug-only. Working UI/API, SD sensor CSV and network
 payloads remain available in both profiles.
-See [policy, inventory and verification](DIAGNOSTICS.md).
+See [diagnostic profiles and logging behavior](DIAGNOSTICS.md).
 
 CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
 `ALTRUIST_BUILD_COMMIT` explicitly, so published builds do not depend on local

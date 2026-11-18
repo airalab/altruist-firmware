@@ -1,21 +1,20 @@
-Log UI update 2026-11-10: use the named Off / Errors only / Events controls.
-Debug adds Detailed / Most detailed, hiding modes below its forced minimum.
-The active mode is highlighted; there is no duplicate numeric input. Status
-snapshot preserves the mode. Save and restart persists the live mode through a
-hidden compatibility field and deliberately reboots. Loss of web access reported
-after a save is not explained by the existing pre-save capture; post-reboot
-evidence is still needed.
+# Firmware logging and debugging
 
-# Operational logs in release
+The log pages offer named Off / Errors only / Events controls. Debug adds
+Detailed / Most detailed, hiding modes below its forced minimum. The active
+mode is highlighted; there is no duplicate numeric input. Status snapshot
+preserves the mode. Save and restart persists the live mode and reboots.
 
-Policy revised 2026-11-09: release supports local web and USB operational logs.
+## Operational logs in release
+
+Release supports local web and USB operational logs.
 Use levels 0 (off), 1 (errors), 3 (events); release caps higher levels at 3.
 The log pages change the level until reboot, while Save and restart persists the current named selection. Status snapshot emits BUILD and short LOG state even with automatic logs off.
 Detailed project helpers, sensor JSON/values, transport bodies, library dumps and
 SD diagnostic files remain debug-only. See [DIAGNOSTICS.md](DIAGNOSTICS.md) for
-routing, bounded buffering, repeat suppression and the required hardware checks.
+routing, bounded buffering, repeat suppression and system limitations.
 
-Политика пересмотрена 2026-11-09: release сохраняет краткие логи для поддержки
+Release сохраняет краткие логи для поддержки
 через web и USB. Уровни: 0 — выключено, 1 — ошибки, 3 — события; максимум 3.
 Страница журнала меняет уровень до перезагрузки, форма настроек — постоянно.
 «Снимок состояния» выдаёт BUILD и краткий LOG даже при выключенных автологах.
@@ -137,8 +136,7 @@ pio run -e esp32c3_urban_ru_debug -t upload
 
 Detailed diagnostics have three layers gated by `ALTRUIST_BUILD_DEBUG`.
 Release has curated operational USB/web logs and no detailed diagnostic SD output. See [DIAGNOSTICS.md](DIAGNOSTICS.md)
-for the inventory, system-output boundary, static checks and pending hardware checks.
-
+for the profile inventory and system-output limitations.
 
 1. **Project logs** use `debug_outln_error`, `debug_outln_info`, and
    `debug_outln_verbose` from `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` initializes
@@ -688,8 +686,7 @@ pio run -e esp32c3_urban_ru_debug -t upload
 
 Подробные диагностические уровни доступны при `ALTRUIST_BUILD_DEBUG`.
 В release доступен краткий эксплуатационный журнал USB/web; подробная диагностика и SD-логи отключены. Инвентаризация,
-системные исключения и оставшиеся проверки — в [DIAGNOSTICS.md](DIAGNOSTICS.md).
-
+системные ограничения — в [DIAGNOSTICS.md](DIAGNOSTICS.md).
 
 1. **Логи проекта** используют `debug_outln_error`, `debug_outln_info` и
    `debug_outln_verbose` из `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` задает

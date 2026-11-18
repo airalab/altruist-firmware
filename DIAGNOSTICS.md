@@ -1,18 +1,8 @@
 # Diagnostic profiles and operational support logs
 
-Current source baseline: `7e4189a` on `17ab154`; policy revised by the user
-2026-11-09; log-mode UI revised 2026-11-10 on `962cfd5`. The original L2а changes on `344f123` disabled all project release
-logs. The user subsequently approved a bounded operational release log for
-local web support and the webflasher USB console. Detailed sensor acceptance
-remains debug-only. Stable/Testing are publication channels, release/debug are
-build profiles; no third profile is introduced.
-
-These source changes have not been compiled, flashed or checked on hardware.
-The earlier 15-minute captures of `48ab87d` validate silent release only.
-The 2026-11-10 batch on `962cfd5` confirms operational release output on 0F38
-and debug measurements on 12FC. The UI changes below are not hardware-verified.
-The reported loss of web access after a configuration save happened after the
-capture and remains unresolved pending post-reboot logs/network observations.
+Release provides bounded operational logs for local web support and the
+webflasher USB console. Detailed sensor and protocol diagnostics require debug.
+Stable/Testing are publication channels; release/debug are build profiles.
 
 ## Profiles and inventory
 
@@ -95,7 +85,7 @@ release. Ordinary /serial polling does not generate status records.
 Release queue: fixed 2048 bytes in RAM; full old records are evicted before
 inserting support lines. Queue writes never wait for queue space; a slow/absent browser
 cannot accumulate unbounded memory. Debug uses its existing 511-byte capacity;
-its queue writes also no longer wait for a reader. A mutex coordinates writers
+its queue writes do not wait for a reader. A mutex coordinates writers
 and draining/eviction. USB output uses the real USB Serial, without forwarding
 support lines to UART0. Snapshot and curated events share the same writer.
 
@@ -105,70 +95,34 @@ when more than 16 distinct combinations occur. This is diagnostic throttling,
 not counters of failures or attempts. Explicit snapshots are not throttled.
 Web polling destructively drains the shared queue: multiple browsers and the
 debug SD consumer do not each receive an independent copy. Persistent storage
-and multi-viewer replay are outside this change.
+and multi-viewer replay are not supported.
 
-## Acceptance boundary and system limitations
+## Sensor telemetry and system limitations
 
-Local debug JSON still carries standard Urban/Insight readings, including
+Local debug JSON carries standard Urban/Insight readings, including
 BME680 `voc_ppb`, VOC index/level/count and gas resistance/baseline, before uplink
 selection. `voc_ppb` is an integer relative MOS/ABC scale, 0–10000 with JSON
 unit `ppb`, not laboratory TVOC. Constant zero or nonzero values are valid;
-`voc_level=-1` still signals an invalid gas reading. Older firmware may omit
-`voc_ppb`; current static debug checks require all six VOC/gas fields.
-Successful protobuf skips legacy PAYLOAD but does not eliminate local JSON.
-The L3 schema below adds freshness/deduplication metadata and context for late
-attachment; the tester applies the acceptance policy. Route attribution remains
-L4, build repetition/inventory/positive SD contract remains L7. The ordinary USB
-sensor tester may still fail on release because operational logs are not its
-measurement/HEALTH contract. Debug PASS does not validate release.
+`voc_level=-1` signals an invalid gas reading. Successful protobuf skips legacy
+PAYLOAD but does not eliminate local JSON.
+Versioned UART snapshots add measurement identity, timing and device context for
+late attachment. Release emits no periodic HEALTH or sensor measurements.
 
-The agreed system exceptions remain ROM/bootloader output, early startup before
-application hooks and panic output from the precompiled ESP-IDF. Suppressing all
+System output outside application logging controls includes ROM/bootloader
+output, early startup before application hooks and panic output from the precompiled ESP-IDF. Suppressing all
 of those requires separate SDK/bootloader work. Functional Improv/LoRa/UI/API
-and working SD data remain available. Experimental radiation firmware is outside
-the tested standard target scope.
-
-## Verification and operator protocol
-
-`python3 tests/diagnostics/check_profiles.py -q` runs 12 static checks using host
-cpp with platform includes omitted. They cover the 12 metadata targets × two
-channels × health 0/1; maximum release verbosity flags; debug-only JSON/tags,
-operational sink routing/snapshot fields, event redaction, named controls/auth,
-snapshot mode preservation, hidden persistence/no numeric duplicate,
-queue/throttle guards and lifecycle hooks. This does not test C++ types, link
-SDK libraries, instantiate the actual FreeRTOS queue or exercise web requests.
-No PlatformIO invocation or firmware build is performed by these tests.
-
-Still required from the operator:
-
-1. Compile the full target/channel matrix, checking C3 size and RAM use plus
-   actual library middleware/link wrappers. No new dependency was introduced.
-2. Capture release startup in the webflasher console: BUILD and short LOG events
-   at level 3, only errors at level 1, no automatic logs at 0. Custom forced/core
-   flags=5 and either publication channel must not expose detailed diagnostics.
-3. Verify /debug and /advanced named modes, persistence via Save and restart versus live changes, queue updates and Status snapshot even with logging off. When web
-   auth is configured, /serial must request the same credentials.
-4. Exercise HTTP/RPC failure codes, Wi-Fi disconnect/reconnect, sensor and SD
-   errors; check repeat suppression and both distinct fallback result codes.
-   Confirm no bodies, signatures, credentials or measured values in release logs.
-5. Check Improv provisioning with USB logging active, LoRa frames, normal UI/API,
-   SD CSV/analytics, and no new release SD diagnostic files. Check responsiveness
-   with no browser polling and with web polling plus USB monitoring.
-6. Repeat debug sensor/HEALTH capture and a >1h Insight VOC run. Keep raw logs,
-   precise revision/flags and observations. The prior captures do not close this.
-
+and working SD data remain available.
 
 Map server selection failures use debug `[CONNECTIVITY] failed ... stage=health
 reason=health_get_failed|health_begin_failed host=... code=...`. These GET probes
 are diagnostics, not POST delivery outcomes. Operational LOG uses the distinct
 `connectivity/health_failed` event at Info, without host/payload/response data.
-POST and local send failures keep their existing delivery events. Testers reading
-older firmware must also recognize the two exact legacy health reasons.
+POST and local send failures use delivery events. Older firmware uses the same
+two health failure reasons without `stage=health`.
 
+## Versioned sensor UART snapshots
 
-## L3 versioned sensor UART snapshots
-
-Debug now emits a separate per-physical-sensor UART JSON snapshot with root
+Debug emits a separate per-physical-sensor UART JSON snapshot with root
 `_observations` version 1 and per-numeric-metric `observation`. Supported sensors:
 BME280/BMP280, BME680, SCD4x, SDS, ICS43434. Existing values/units are copied;
 API/uplink/SD documents receive no metadata. Release does not allocate or emit
@@ -181,15 +135,16 @@ sequences are decimal strings for exact serialization with existing ArduinoJson
 configuration. Equal successful values advance identity; failed reads do not.
 Normal sleep/collection intervals are not errors. SDS records completed windows;
 noise records the running sending-window aggregate, possibly before completion.
-Text VOC phrases are diagnostic; numeric VOC fields retain M2 semantics.
+Text VOC phrases are diagnostic; numeric VOC fields retain their VOC scale,
+validity and counter semantics.
 
 The sensor worker checks nominal 30-second heartbeats plus first/error snapshots.
 Existing blocking work can delay publication. Up to 16 metric fields and 8192
-serialized bytes per line are supported; overflow emits an invalid L3 marker.
+serialized bytes per line are supported; overflow emits an invalid observation
+marker.
 The temporary JSON document is 8192 bytes, followed by a serialization buffer;
 one Serial.write emits a complete line. Successful update counters may skip in
 UART because snapshots do not stream every physical reading. The tester owns
 freshness thresholds, duplicate handling and final verdicts. Detailed wire schema
 and compatibility are in the tester `docs/sensor-log-patterns.md`, section
-"Versioned debug UART observations (L3)". Hardware results must be recorded
-separately; code/build success is not device acceptance.
+"Versioned debug UART observations".
