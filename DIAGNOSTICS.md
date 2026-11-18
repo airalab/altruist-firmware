@@ -118,6 +118,10 @@ are diagnostics, not POST delivery outcomes. Operational LOG uses the distinct
 `connectivity/health_failed` event at Info, without host/payload/response data.
 POST and local send failures use delivery events.
 
+PAYLOAD diagnostics contain only channel, encoding, encrypted flag and payload
+length. Sensor samples are not included. Local sensor measurements are emitted
+separately as versioned UART snapshots.
+
 ## Versioned sensor UART snapshots
 
 Debug emits a separate per-physical-sensor UART JSON snapshot with root

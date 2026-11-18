@@ -193,20 +193,19 @@ saved configuration has been loaded:
 Here `configured` is the persisted `cfg::debug`, `forced` is the compile-time
 minimum, and `runtime` is the effective project log level.
 
-Sensor upload payloads emit a shared machine-readable snapshot before they are
+Sensor upload payloads emit shared machine-readable metadata before they are
 signed and sent:
 
 ```text
-[PAYLOAD] channel=datalog encoding=plain encrypted=0 payload_len=49 sample_available=1 sample=h:65.15,t:25.84,p:99860.91
-[PAYLOAD] channel=datalog encoding=cps encrypted=1 payload_len=324 sample_available=0
-[PAYLOAD] channel=sensors-connectivity encoding=mixed encrypted=1 payload_len=280 sample_available=0
+[PAYLOAD] channel=datalog encoding=plain encrypted=0 payload_len=49
+[PAYLOAD] channel=datalog encoding=cps encrypted=1 payload_len=324
+[PAYLOAD] channel=sensors-connectivity encoding=mixed encrypted=1 payload_len=280
 ```
 
-`payload_len` describes the transport payload. `sample`, when present, is the
-local plaintext measurement snapshot and is not necessarily identical to the
-transport bytes. These lines are debug-only. Debug builds may expose `sample`
-for encrypted payloads too. The payload line does not
-mean that a network or on-chain upload has succeeded.
+`payload_len` describes the transport payload. These debug-only lines contain
+metadata, without sensor values. Measurements are emitted separately through
+versioned sensor UART snapshots. A payload line does not confirm successful
+network or on-chain delivery.
 
 On-chain Robonomics datalog sends emit stable machine-readable UART events:
 
@@ -754,15 +753,15 @@ payload, Wi-Fi recovery, display и OTA; для их получения треб
 Payload выводится в структурированном формате:
 
 ```text
-[PAYLOAD] channel=datalog encoding=plain encrypted=0 payload_len=49 sample_available=1 sample=h:65.15,t:25.84,p:99860.91
-[PAYLOAD] channel=datalog encoding=cps encrypted=1 payload_len=324 sample_available=0
-[PAYLOAD] channel=sensors-connectivity encoding=mixed encrypted=1 payload_len=280 sample_available=0
+[PAYLOAD] channel=datalog encoding=plain encrypted=0 payload_len=49
+[PAYLOAD] channel=datalog encoding=cps encrypted=1 payload_len=324
+[PAYLOAD] channel=sensors-connectivity encoding=mixed encrypted=1 payload_len=280
 ```
 
-`payload_len` относится к отправляемому payload. Поле `sample` содержит локальный
-plaintext-снимок измерений. PAYLOAD доступен только в debug; `sample` может
-содержать открытые значения и для encrypted payload. Наличие
-`[PAYLOAD]` не подтверждает успешную сетевую или on-chain отправку.
+`payload_len` относится к отправляемому payload. Эти debug-only строки содержат
+только метаданные, без показаний. Измерения передаются отдельными versioned
+UART-снимками датчиков. Наличие `[PAYLOAD]` не подтверждает успешную сетевую
+или on-chain отправку.
 
 Для просмотра логов в реальном времени:
 

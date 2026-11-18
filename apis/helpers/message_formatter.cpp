@@ -176,23 +176,11 @@ static bool appendRobonomicsFields(JsonDocument &data, String &out, bool per_fie
 	return true;
 }
 
-static const String *plainSampleForLog(const String &plain, bool encrypted) {
-	if (plain.isEmpty()) {
-		return nullptr;
-	}
-#if defined(ALTRUIST_BUILD_DEBUG)
-	(void)encrypted;
-	return &plain;
-#else
-	return encrypted ? nullptr : &plain;
-#endif
-}
-
 static void logPayload(const __FlashStringHelper *channel, const char *encoding, bool encrypted,
-			       size_t payload_len, const String *sample) {
+			       size_t payload_len) {
 #if defined(ALTRUIST_BUILD_DEBUG)
 	String line;
-	line.reserve(112 + (sample ? sample->length() : 0));
+	line.reserve(112);
 	line = F("[PAYLOAD] channel=");
 	line += channel;
 	line += F(" encoding=");
@@ -201,12 +189,6 @@ static void logPayload(const __FlashStringHelper *channel, const char *encoding,
 	line += encrypted ? '1' : '0';
 	line += F(" payload_len=");
 	line += String(payload_len);
-	line += F(" sample_available=");
-	line += sample ? '1' : '0';
-	if (sample) {
-		line += F(" sample=");
-		line += *sample;
-	}
 	Serial.println(line);
 #endif
 }
@@ -218,22 +200,7 @@ bool formatRobonomicsString(JsonDocument &data, String &datalog_data, const __Fl
 		return false;
 	}
 
-	const String *sample = datalog_data.isEmpty() ? nullptr : &datalog_data;
-#if defined(ALTRUIST_BUILD_DEBUG)
-	String plain_sample;
-	if (encrypted_any) {
-		if (!appendRobonomicsFields(data, plain_sample, false)) {
-			return false;
-		}
-		sample = plain_sample.isEmpty() ? nullptr : &plain_sample;
-	}
-#else
-	if (encrypted_any) {
-		sample = nullptr;
-	}
-#endif
-
-	logPayload(channel, encrypted_any ? "mixed" : "plain", encrypted_any, datalog_data.length(), sample);
+	logPayload(channel, encrypted_any ? "mixed" : "plain", encrypted_any, datalog_data.length());
 	debug_outln_verbose(F("[Payload] Wire data: "), datalog_data);
 	return true;
 }
@@ -246,14 +213,14 @@ DatalogFormatStatus formatRobonomicsDatalogString(JsonDocument &data, String &da
 	}
 	if (plain.isEmpty()) {
 		datalog_data = plain;
-		logPayload(F("datalog"), "plain", false, 0, nullptr);
+		logPayload(F("datalog"), "plain", false, 0);
 		debug_outln_verbose(F("[Datalog] Plain record (empty): "), datalog_data);
 		return DATALOG_FORMAT_PAYLOAD_EMPTY;
 	}
 
 	if (!anyMetricEncryptionEnabled()) {
 		if (plain.length() > DATALOG_CHAIN_SAFE_BYTES) {
-			logPayload(F("datalog"), "plain", false, plain.length(), plainSampleForLog(plain, false));
+			logPayload(F("datalog"), "plain", false, plain.length());
 			debug_outln_error(F("[Datalog] Plain record too large for chain limit"));
 			debug_outln_verbose(String(F("[Datalog] Record size: ")) + String(plain.length()) + F(" bytes (max ") +
 					    String(DATALOG_CHAIN_MAX_BYTES) + F(")"));
@@ -261,7 +228,7 @@ DatalogFormatStatus formatRobonomicsDatalogString(JsonDocument &data, String &da
 			return DATALOG_FORMAT_PAYLOAD_TOO_LARGE;
 		}
 		datalog_data = plain;
-		logPayload(F("datalog"), "plain", false, datalog_data.length(), plainSampleForLog(plain, false));
+		logPayload(F("datalog"), "plain", false, datalog_data.length());
 		debug_outln_verbose(F("[Datalog] Plain record: "), datalog_data);
 		return DATALOG_FORMAT_PLAIN;
 	}
@@ -270,21 +237,21 @@ DatalogFormatStatus formatRobonomicsDatalogString(JsonDocument &data, String &da
 	if (encrypted.startsWith(VALUE_CRYPTO_CPS_PREFIX) &&
 	    encrypted.length() <= DATALOG_CHAIN_SAFE_BYTES) {
 		datalog_data = encrypted;
-		logPayload(F("datalog"), "cps", true, datalog_data.length(), plainSampleForLog(plain, true));
+		logPayload(F("datalog"), "cps", true, datalog_data.length());
 		debug_outln_verbose(String(F("[Datalog] Bulk encrypted record (")) + String(datalog_data.length()) +
 					    F(" bytes): ") + datalog_data);
 		return DATALOG_FORMAT_CPS;
 	}
 
 	if (encrypted.startsWith(VALUE_CRYPTO_CPS_PREFIX) && encrypted.length() > DATALOG_CHAIN_SAFE_BYTES) {
-		logPayload(F("datalog"), "cps", true, encrypted.length(), plainSampleForLog(plain, true));
+		logPayload(F("datalog"), "cps", true, encrypted.length());
 		debug_outln_error(F("[Datalog] Bulk encrypted record too large for chain limit"));
 		debug_outln_verbose(String(F("[Datalog] Record size: ")) + String(encrypted.length()) + F(" bytes (max ") +
 				    String(DATALOG_CHAIN_MAX_BYTES) + F(")"));
 		datalog_data = "";
 		return DATALOG_FORMAT_PAYLOAD_TOO_LARGE;
 	} else {
-		logPayload(F("datalog"), "cps", true, 0, plainSampleForLog(plain, true));
+		logPayload(F("datalog"), "cps", true, 0);
 		debug_outln_error(F("[Datalog] Bulk encrypt failed; not sending plaintext fallback"));
 	}
 	datalog_data = "";
