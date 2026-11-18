@@ -129,7 +129,7 @@ the tested standard target scope.
 
 ## Verification and operator protocol
 
-`python3 tests/diagnostics/check_profiles.py -q` runs 11 static checks using host
+`python3 tests/diagnostics/check_profiles.py -q` runs 12 static checks using host
 cpp with platform includes omitted. They cover the 12 metadata targets × two
 channels × health 0/1; maximum release verbosity flags; debug-only JSON/tags,
 operational sink routing/snapshot fields, event redaction, named controls/auth,
@@ -155,3 +155,11 @@ Still required from the operator:
    with no browser polling and with web polling plus USB monitoring.
 6. Repeat debug sensor/HEALTH capture and a >1h Insight VOC run. Keep raw logs,
    precise revision/flags and observations. The prior captures do not close this.
+
+
+Map server selection failures use debug `[CONNECTIVITY] failed ... stage=health
+reason=health_get_failed|health_begin_failed host=... code=...`. These GET probes
+are diagnostics, not POST delivery outcomes. Operational LOG uses the distinct
+`connectivity/health_failed` event at Info, without host/payload/response data.
+POST and local send failures keep their existing delivery events. Testers reading
+older firmware must also recognize the two exact legacy health reasons.

@@ -80,6 +80,22 @@ namespace
 #endif
 	}
 
+	// Health GET only selects a server; its failure is not a data-send outcome.
+	void logConnectivityHealthFailure(uint32_t seq, const String &reason, const String &host, int code)
+	{
+        logSupportEvent(DEBUG_MIN_INFO, F("connectivity"), F("health_failed"), code);
+#if defined(ALTRUIST_BUILD_DEBUG)
+		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
+		Serial.print(seq);
+		Serial.print(F(" stage=health reason="));
+		Serial.print(reason);
+		Serial.print(F(" host="));
+		Serial.print(host);
+		Serial.print(F(" code="));
+		Serial.println(code);
+#endif
+	}
+
 	void logConnectivityNoServer(uint32_t seq, const String &region, const String &hosts)
 	{
         logSupportEvent(DEBUG_ERROR, F("connectivity"), F("no_server_available"));
@@ -806,7 +822,7 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal)
 			}
 			else
 			{
-				logConnectivityFailure(map_send_seq_active, F("health_get_failed"), s_Host, result);
+				logConnectivityHealthFailure(map_send_seq_active, F("health_get_failed"), s_Host, result);
 				if (result >= HTTP_CODE_BAD_REQUEST)
 				{
 					debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] server error from ") + s_Host + " HTTP " + String(result));
@@ -821,7 +837,7 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal)
 		}
 		else
 		{
-			logConnectivityFailure(map_send_seq_active, F("health_begin_failed"), s_Host, 0);
+			logConnectivityHealthFailure(map_send_seq_active, F("health_begin_failed"), s_Host, 0);
 			debug_outln_verbose(F("[Map] Cannot connect to host"));
 			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] host: ") + s_Host);
 		}

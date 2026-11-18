@@ -114,6 +114,23 @@ class DiagnosticsProfiles(unittest.TestCase):
 
         self.assertIn('addValueToJSON(data, F("voc_ppb"), voc_ppb, INTL_VOC_PPB, F("ppb"));', output)
 
+    def test_map_health_is_separate_from_send_outcomes(self):
+        path = ROOT / "apis/robonomics_http_api.cpp"
+        output = preprocess(path, ["ESP32", "ALTRUIST_BUILD_DEBUG"])
+        health = output[output.index("void logConnectivityHealthFailure("):
+                        output.index("void logConnectivityNoServer(")]
+        self.assertIn('" stage=health reason="', health)
+        self.assertIn('F("health_failed")', health)
+        self.assertNotIn('F("send_failed")', health)
+        for reason in ("health_get_failed", "health_begin_failed"):
+            self.assertIn('logConnectivityHealthFailure(map_send_seq_active, F("' + reason + '")', output)
+            self.assertNotIn('logConnectivityFailure(map_send_seq_active, F("' + reason + '")', output)
+        release = preprocess(path, ["ESP32"])
+        health = release[release.index("void logConnectivityHealthFailure("):
+                         release.index("void logConnectivityNoServer(")]
+        self.assertIn('F("health_failed")', health)
+        self.assertNotIn("Serial.print", health)
+
     def test_debug_structured_events(self):
         paths = ["airrohr-firmware.ino", "utils.cpp", "apis/helpers/message_formatter.cpp",
                  "apis/robonomics_http_api.cpp", "apis/robonomics_datalog_api.cpp"]
