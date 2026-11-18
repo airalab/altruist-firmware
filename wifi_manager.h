@@ -38,6 +38,10 @@ bool wifiGuestPortalStaReady(void);
 /** Abort any in-flight STA join before captive-portal WiFi.begin() (avoids ESP_ERR_WIFI_STATE on retry). */
 void wifiGuestPortalPrepareStaJoin(void);
 
+/** Guest POST: join home Wi-Fi from the portal loop after the connecting page has been sent. */
+void wifiGuestPortalRequestStaJoin(void);
+void wifiGuestPortalProcessPendingStaJoin(void);
+
 /**
  * Set DHCP/router STA hostname from cfg::local_hostname (sanitized).
  * Call before WiFi.begin() / reconnect so routers show altruist-urban / altruist-insight

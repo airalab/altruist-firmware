@@ -94,7 +94,8 @@ void webserver_config_send_body_post(WebServer &server) {
 			c.cfg_val.as_str[c.cfg_len] = '\0';
 			break;
 		case Config_Type_Password:
-			if (server_arg.length()) {
+			if (server_arg.length() && server_arg != F(CFG_PASSWORD_KEEP_MASK) &&
+			    server_arg != F("********")) {
 				server_arg.toCharArray(c.cfg_val.as_str, LEN_CFG_PASSWORD);
 			}
 			break;
@@ -628,6 +629,13 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_checkbox(Config_www_basicauth_enabled, FPSTR(INTL_BASICAUTH), true);
 	add_form_input(page_content, Config_www_username, FPSTR(INTL_USER), LEN_WWW_USERNAME-1);
 	add_form_input(page_content, Config_www_password, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
+	page_content += F("<p class='form-hint'>");
+	if (cfg::www_password[0] != '\0') {
+		page_content += FPSTR(INTL_WWW_PASSWORD_SET_HINT);
+	} else {
+		page_content += FPSTR(INTL_WWW_PASSWORD_HINT);
+	}
+	page_content += F("</p>");
 
 	page_content += F("</div></section>");
 
@@ -816,6 +824,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		"<div class='config-section__body'>");
 	add_form_input(page_content, Config_fs_ssid, FPSTR(INTL_FS_WIFI_NAME), LEN_FS_SSID-1);
 	add_form_input(page_content, Config_fs_pwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
+	page_content += F("<p class='form-hint'>");
+	page_content += FPSTR(INTL_FS_PWD_HINT);
+	page_content += F("</p>");
 	page_content += F("</div></section>");
 
 	maybe_flush();

@@ -13,6 +13,8 @@
 String getConfigStringValue(const char* key);
 void saveRobonomicsPrivateKey(const char* private_key);
 bool writeConfig();
+/** True when AP password is not the factory default and the Web UI password is set (min 8 chars). */
+bool cfgSetupSecretsReady();
 void readConfig(bool oldconfig = false);
 void init_config();
 unsigned int getConfigUintValue(const char* key);

@@ -685,6 +685,11 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 		if (c.cfg_type == Config_Type_Password) {
 			s.replace("{t}", F("password"));
 			info = FPSTR(INTL_PASSWORD);
+			attrs += F(" autocomplete='new-password'");
+			if (c.cfg_val.as_str && c.cfg_val.as_str[0] != '\0') {
+				t_value = F(CFG_PASSWORD_KEEP_MASK);
+				attrs += F(" data-keep-mask='1' onfocus=\"if(this.getAttribute('data-keep-mask')==='1'){this.value='';this.removeAttribute('data-keep-mask');}\"");
+			}
 		} else {
 			t_value = c.cfg_val.as_str;
 			t_value.replace("'", "&#39;");
@@ -1126,6 +1131,52 @@ void append_guest_device_access(String& page_content, const String& ip, const St
 		"})();</script>");
 }
 
+void append_guest_setup_passwords_card(String& page_content, const String& ip, const String& sensor_ss58,
+                                       bool show_error) {
+	page_content += F("<div class='guest-page'><div class='guest-card guest__setup-finish'>");
+#ifdef ALTRUIST_INSIGHT
+	page_content += F("<div class='guest__setup-header'>"
+		"<span class='guest__step-label'>" INTL_GUEST_SETUP_STEP_2_LABEL "</span>"
+		"<h2 class='guest__step-title'>" INTL_GUEST_SETUP_PASSWORDS_TITLE "</h2>"
+		"</div>");
+#else
+	page_content += F("<div class='guest__connected'><h2 class='guest__connect-title'>"
+		INTL_GUEST_SETUP_PASSWORDS_TITLE "</h2></div>");
+#endif
+	append_guest_device_access(page_content, ip, sensor_ss58);
+	page_content += F("<p class='form-hint guest-hint'>" INTL_GUEST_SETUP_PASSWORDS_INTRO "</p>");
+	if (show_error) {
+		page_content += F("<div class='ui-notice ui-notice--err'><strong>"
+			INTL_GUEST_SETUP_PASSWORD_ERROR "</strong></div>");
+	}
+	page_content += F("<form class='guest-wizard-form' method='POST' action='/setup_passwords'>"
+		"<div class='form-group form-group--password'>"
+		"<label for='fs_pwd'>" INTL_GUEST_FS_PWD_LABEL "</label>"
+		"<div class='password-wrap'><input type='password' name='fs_pwd' id='fs_pwd' required minlength='");
+	page_content += String(SETUP_PASSWORD_MIN_LEN);
+	page_content += F("' maxlength='");
+	page_content += String(SETUP_AP_PASSWORD_MAX_LEN);
+	page_content += F("' autocomplete='new-password' spellcheck='false'/>");
+	page_content += FPSTR(WEB_PASSWORD_TOGGLE_BTN);
+	page_content += F("</div></div>"
+		"<p class='form-hint'>" INTL_GUEST_FS_PWD_HINT "</p>"
+		"<div class='form-group form-group--password'>"
+		"<label for='www_password'>" INTL_GUEST_WWW_PWD_LABEL "</label>"
+		"<div class='password-wrap'><input type='password' name='www_password' id='www_password' required minlength='");
+	page_content += String(SETUP_PASSWORD_MIN_LEN);
+	page_content += F("' maxlength='");
+	page_content += String(LEN_CFG_PASSWORD - 1);
+	page_content += F("' autocomplete='new-password' spellcheck='false'/>");
+	page_content += FPSTR(WEB_PASSWORD_TOGGLE_BTN);
+	page_content += F("</div></div>"
+		"<p class='form-hint'>" INTL_GUEST_WWW_PWD_HINT "</p>"
+		"<div class='guest-form-footer'>"
+		"<button type='submit' class='submit-btn guest__setup-finish-btn'>" INTL_SETUP_CONTINUE "</button>"
+		"</div></form></div></div>");
+	page_content += FPSTR(WEB_GUEST_WIZARD_SUBMIT_JS);
+	page_content += FPSTR(WEB_PASSWORD_TOGGLE_JS);
+}
+
 void append_guest_success_restart_ui(String& page_content) {
 	const unsigned pause_sec = (unsigned)(GUEST_SUCCESS_PAGE_DELAY_MS / 1000UL);
 	page_content += F("<p class='form-hint' id='guest-restart-hint'>");
@@ -1144,11 +1195,20 @@ void append_guest_success_restart_ui(String& page_content) {
 		"tick();var iv=setInterval(tick,1000);})();</script>");
 }
 
+void append_device_backup_need_password_notice(String& page_content) {
+	page_content += F("<div class='ui-notice ui-notice--warn device-backup-need-pwd'><p>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_NEED_PASSWORD);
+	page_content += F("</p><p><a href='/#cfg-auth'>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_NEED_PASSWORD_LINK);
+	page_content += F("</a></p></div>");
+}
+
 void append_device_backup_restore_form(String& page_content, const __FlashStringHelper* hint, bool guest_mode) {
 	String action = F("/restore-backup");
 	if (guest_mode) {
 		action = F("/guest-restore");
 	}
+	const bool need_www = !guest_mode && cfg::www_password[0] == '\0';
 
 	page_content += F("<section class='hub-backup__panel hub-backup__panel--restore'>"
 		"<h3 class='hub-backup__title'>");
@@ -1159,7 +1219,11 @@ void append_device_backup_restore_form(String& page_content, const __FlashString
 	page_content += F("</p>"
 		"<form method='POST' action='");
 	page_content += action;
-	page_content += F("' enctype='multipart/form-data' class='hub-backup__form' data-backup-restore-form='1'>");
+	page_content += F("' enctype='multipart/form-data' class='hub-backup__form");
+	if (need_www) {
+		page_content += F(" hub-backup__form--locked");
+	}
+	page_content += F("' data-backup-restore-form='1'>");
 	page_content += F("<div class='hub-backup__file-field'>"
 		"<label class='hub-backup__file-label' for='device-backup-file'>");
 	page_content += FPSTR(INTL_DEVICE_BACKUP_FILE_LABEL);
@@ -1178,7 +1242,11 @@ void append_device_backup_restore_form(String& page_content, const __FlashString
 		page_content += F("<div class='hub-backup__file-picker'>"
 			"<input type='file' class='hub-backup__file-input' id='");
 		page_content += file_input_id;
-		page_content += F("' name='backup' accept='.json,application/json'>"
+		page_content += F("' name='backup' accept='.json,application/json'");
+		if (need_www) {
+			page_content += F(" disabled");
+		}
+		page_content += F(">"
 			"<label for='");
 		page_content += file_input_id;
 		page_content += F("' class='hub-backup__file-btn'>");
@@ -1214,9 +1282,16 @@ void append_device_backup_restore_form(String& page_content, const __FlashString
 			"</script>");
 	}
 
-	page_content += F("</div>"
-		"<div class='confirm-action__buttons'>"
-		"<button type='submit' class='confirm-btn confirm-btn--danger' data-backup-restore='1'>");
+	page_content += F("</div>");
+	if (need_www) {
+		append_device_backup_need_password_notice(page_content);
+	}
+	page_content += F("<div class='confirm-action__buttons'>"
+		"<button type='submit' class='confirm-btn confirm-btn--danger' data-backup-restore='1'");
+	if (need_www) {
+		page_content += F(" disabled");
+	}
+	page_content += F(">");
 	page_content += FPSTR(INTL_DEVICE_BACKUP_RESTORE);
 	page_content += F("</button></div></form></section>");
 

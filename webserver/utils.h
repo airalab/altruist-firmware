@@ -69,10 +69,15 @@ void fill_app_topbar_placeholders(String& topbar, const device_status_t& deviceS
  * that saves JSON without navigating away from the page.
  */
 void append_guest_device_access(String& page_content, const String& ip, const String& sensor_ss58);
+/** After Wi-Fi IP: required AP + Web UI passwords (#191 / #192). */
+void append_guest_setup_passwords_card(String& page_content, const String& ip, const String& sensor_ss58,
+                                       bool show_error);
 /** Countdown hint + Finish setup button (POST /finish_setup) for guest success pages. */
 void append_guest_success_restart_ui(String& page_content);
 /** Restore-from-backup form (Advanced + guest Wi‑Fi setup). guest_mode uses a visible file input (iOS-safe). */
 void append_device_backup_restore_form(String& page_content, const __FlashStringHelper* hint = nullptr, bool guest_mode = false);
+/** Yellow notice + link to Local → Authentication when the Web UI password is still empty. */
+void append_device_backup_need_password_notice(String& page_content);
 void append_app_sidebar(String& page_content);
 void append_app_page_body_start(String& page_content, const __FlashStringHelper* lead = nullptr);
 void append_app_page_body_end(String& page_content);

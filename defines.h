@@ -486,6 +486,11 @@ const char WWW_PASSWORD[] PROGMEM = "";
 // Sensor Wifi config (config mode)
 #define FS_SSID ""
 #define FS_PWD "123456789"
+/** Guest setup / WPA2 hotspot: 8–63. Web UI password uses the same minimum. */
+#define SETUP_PASSWORD_MIN_LEN 8
+#define SETUP_AP_PASSWORD_MAX_LEN 63
+/** Shown in password inputs when a value is already stored; ignored on save. */
+#define CFG_PASSWORD_KEEP_MASK "••••••••"
 
 // Where to send the data?
 #define SEND2ROBONOMICS 1

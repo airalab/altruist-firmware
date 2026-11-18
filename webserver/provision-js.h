@@ -502,7 +502,7 @@ extern const char WEB_PAGE_PROVISION_JS[] PROGMEM = R"rawliteral(
       status.textContent = text || '';
       status.className = 'ui-notice' + (kind === 'ok' ? ' ui-notice--ok' : kind === 'err' ? ' ui-notice--err' : '');
     }
-    fetch('/api/sensor-key').then(function (r) { return r.json(); }).then(function (j) {
+    fetch('/api/sensor-key', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
       var el = document.getElementById('provision-current');
       if (el) el.textContent = j.address || '—';
     }).catch(function () {
@@ -545,6 +545,7 @@ extern const char WEB_PAGE_PROVISION_JS[] PROGMEM = R"rawliteral(
       if (!window.confirm(form.getAttribute('data-confirm-install') || '')) return;
       fetch('/api/sensor-key', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ private_key: derived.hex })
       }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })

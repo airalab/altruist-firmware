@@ -186,19 +186,21 @@ void removeWiFiCredentials() {
 		ConfigShapeEntry c;
 		memcpy_P(&c, &configShape[e], sizeof(ConfigShapeEntry));
 		const String s_param(c.cfg_key());
-		if (s_param != "wlanssid" && s_param != "wlanpwd") {
+		if (s_param != "wlanssid" && s_param != "wlanpwd" && s_param != "fs_pwd") {
 			continue;
 		}
 		if (s_param == "wlanssid") {
 			strncpy(c.cfg_val.as_str, "Not Set", c.cfg_len);
 			c.cfg_val.as_str[c.cfg_len] = '\0';
-		} else if (s_param == "wlanpwd")
-		{
+		} else if (s_param == "wlanpwd") {
 			strncpy(c.cfg_val.as_str, "", c.cfg_len);
 			c.cfg_val.as_str[c.cfg_len] = '\0';
+		} else if (s_param == "fs_pwd") {
+			strncpy(c.cfg_val.as_str, FS_PWD, c.cfg_len);
+			c.cfg_val.as_str[c.cfg_len] = '\0';
 		}
-		writeConfig();
 	}
+	writeConfig();
 }
 
 void removeWebUiCredentials() {
@@ -253,6 +255,21 @@ bool config_set_string_by_key(const char* key, const char* value) {
         }
     }
     return false;  // Ключ не найден
+}
+
+bool cfgSetupSecretsReady() {
+	const size_t ap_len = strlen(cfg::fs_pwd);
+	if (ap_len < SETUP_PASSWORD_MIN_LEN || ap_len > SETUP_AP_PASSWORD_MAX_LEN) {
+		return false;
+	}
+	if (strcmp(cfg::fs_pwd, FS_PWD) == 0) {
+		return false;
+	}
+	const size_t www_len = strlen(cfg::www_password);
+	if (www_len < SETUP_PASSWORD_MIN_LEN || www_len >= LEN_CFG_PASSWORD) {
+		return false;
+	}
+	return true;
 }
 
 /*****************************************************************

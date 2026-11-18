@@ -6,12 +6,17 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Features
 
+- **Setup passwords (#191, #192)** — After Wi-Fi shows the IP, setup asks for two passwords before reboot: the device hotspot (not home Wi-Fi, not the factory password) and the Web UI password. An eye icon on each field reveals the password instead of asking to type it twice. Ordinary hub pages stay open. Restore on the guest page still works before this step (factory reset). Key export, backup download, key install, and Advanced restore require the Web UI password in STA and AP — even when page login is off. If the Web UI password is still empty, Backup shows a warning and disables the buttons. Once it is set, Backup has its own password field (not the browser login dialog). Saved passwords in settings show dots; leave the field blank to keep them.
+
 - **Hub nav icons** — Local / Map / Custom / System tabs are SVG in ink `#111` (28px). Raster PNG copies in `display/icons/interface/` and the old PROGMEM PNG dump are gone.
 - **Reading card icons** — Local cards use 24px icons: temperature 044, humidity 045, VOC 048, CO₂ 047, noise 032. PM2.5 / PM10 (including Urban `SDS_P1` / `SDS_P2`) use compact filled dots. Air pressure is generated.
 - **Wall VOC slide** — After CO2: large TVOC in **ppb** (0–10000) then a 6h line of the hourly mean. No PM2.5 icon; title **VOC - Relative, not lab TVOC** (note in a smaller font). ABC on humidity-compensated BME680 resistance (Magnus AH × 0.03, same 320 °C / 150 ms heater): 90th percentile of the last 5 days of hourly clean-air maxima, `ppb = 3248 · ln(R_clean / R_comp)` so ~8% drop → 250 and ~50% drop → 2000. Bands Good <250 / Elevated 250–2000 / High ≥2000. Night analytics unchanged.
 
 ### Bug Fixes
 
+- **Guest Wi-Fi connecting** — Setup no longer keeps the “Connecting to Wi-Fi” page open as a chunked HTTP response while the radio joins the home network. That hung Safari with `ERR_INCOMPLETE_CHUNKED_ENCODING` / `ERR_OUT_OF_MEMORY`. Connecting is now a tiny self-contained page (no CSS/logo) and only then joins Wi-Fi; it polls until ready (or you reopen setup on the device hotspot).
+- **Urban setup AP after failed Wi-Fi** — If setup passwords are not finished and boot cannot join the saved SSID, Urban opens the configuration hotspot again (same idea as Insight). A fully set-up device still retries in the background instead of opening the AP.
+- **System “Wi-Fi only” delete** — Same as a runtime GPIO7 Wi-Fi reset: clears home Wi-Fi, the Web UI password, and the device hotspot password (back to factory password). Robonomics identity stays. The next setup asks for passwords again.
 - **OTA Check update** — If Latest available is the same version already on the device, the hub no longer offers Update or leaves a stuck 0% progress bar. The UI now shows that firmware is up to date (same as the serial log).
 - **Map health check timeout** — Default pool could log `no_server_available` while the connectivity host was up: the health GET used HTTPClient’s 5 s default, and POST (20 s) never ran. Health checks now use the same 20 s timeout, and a failed GET is logged with host and code.
 - **Map RU health GET** — Region RU has a single host, so Default pool no longer waits on a health GET before POST (same path as Preset). A stalled GET (`HTTPC_ERROR_READ_TIMEOUT` / `-11`) was blocking Map while datalog on 443 still worked.

@@ -63,15 +63,80 @@ void append_hub_remove_config_section(String& page_content) {
 }
 
 void append_hub_backup_section(String& page_content) {
-	page_content += F("<div class='hub-backup'>"
-		"<section class='hub-backup__panel'>"
+	const bool need_www = cfg::www_password[0] == '\0';
+	String www_user = cfg::www_username[0] ? String(cfg::www_username) : String(F("admin"));
+	www_user.replace("&", "&amp;");
+	www_user.replace("\"", "&quot;");
+	www_user.replace("'", "&#39;");
+
+	page_content += F("<div class='hub-backup' id='hub-backup' data-www-user=\"");
+	page_content += www_user;
+	page_content += F("\" data-bad-pass=\"");
+	{
+		String bad = FPSTR(INTL_DEVICE_BACKUP_BAD_PASSWORD);
+		bad.replace("&", "&amp;");
+		bad.replace("\"", "&quot;");
+		page_content += bad;
+	}
+	page_content += F("\" data-need-unlock=\"");
+	{
+		String need = FPSTR(INTL_DEVICE_BACKUP_NEED_UNLOCK);
+		need.replace("&", "&amp;");
+		need.replace("\"", "&quot;");
+		page_content += need;
+	}
+	page_content += F("\" data-restore-ok=\"");
+	{
+		String ok = FPSTR(INTL_DEVICE_BACKUP_RESTORE_OK);
+		ok.replace("&", "&amp;");
+		ok.replace("\"", "&quot;");
+		page_content += ok;
+	}
+	page_content += F("\" data-restore-fail=\"");
+	{
+		String fail = FPSTR(INTL_DEVICE_BACKUP_RESTORE_FAILED);
+		fail.replace("&", "&amp;");
+		fail.replace("\"", "&quot;");
+		page_content += fail;
+	}
+	page_content += F("\" data-restore-confirm=\"");
+	{
+		String conf = FPSTR(INTL_DEVICE_BACKUP_RESTORE_CONFIRM);
+		conf.replace("&", "&amp;");
+		conf.replace("\"", "&quot;");
+		page_content += conf;
+	}
+	page_content += F("\" data-file-required=\"");
+	{
+		String req = FPSTR(INTL_DEVICE_BACKUP_FILE_REQUIRED);
+		req.replace("&", "&amp;");
+		req.replace("\"", "&quot;");
+		page_content += req;
+	}
+	page_content += F("\">");
+
+	page_content += F("<section class='hub-backup__panel'>"
 		"<h3 class='hub-backup__title'>");
 	page_content += FPSTR(INTL_DEVICE_BACKUP_DOWNLOAD);
 	page_content += F("</h3>"
 		"<p class='form-hint'>");
 	page_content += FPSTR(INTL_DEVICE_BACKUP_HINT);
-	page_content += F("</p>"
-		"<button type='button' class='encrypt-key-btn encrypt-key-btn--ghost' id='device-backup-download'>");
+	page_content += F("</p>");
+	if (need_www) {
+		append_device_backup_need_password_notice(page_content);
+	} else {
+		page_content += F("<div class='form-group'>"
+			"<label for='backup-ui-password'>" INTL_GUEST_WWW_PWD_LABEL "</label>"
+			"<input type='password' id='backup-ui-password' name='ui_password' "
+			"autocomplete='current-password' spellcheck='false' required>"
+			"<p class='form-hint'>" INTL_DEVICE_BACKUP_AUTH_HINT "</p></div>");
+	}
+	page_content += F("<div class='ui-notice ui-notice--err' id='device-backup-status' hidden></div>");
+	page_content += F("<button type='button' class='encrypt-key-btn encrypt-key-btn--ghost' id='device-backup-download'");
+	if (need_www) {
+		page_content += F(" disabled data-need-password='1'");
+	}
+	page_content += F(">");
 	page_content += FPSTR(INTL_DEVICE_BACKUP_DOWNLOAD);
 	page_content += F("</button>"
 		"</section>");
@@ -79,12 +144,81 @@ void append_hub_backup_section(String& page_content) {
 	page_content += F("</div>"
 		"<script>"
 		"(function(){"
+		"var box=document.getElementById('hub-backup');"
+		"if(!box)return;"
+		"var user=box.getAttribute('data-www-user')||'admin';"
+		"var status=document.getElementById('device-backup-status');"
+		"function showStatus(text, kind){"
+		"if(!status)return;"
+		"if(!text){status.hidden=true;status.textContent='';return;}"
+		"status.hidden=false;"
+		"status.className='ui-notice ui-notice--'+(kind||'err');"
+		"status.textContent=text;"
+		"}"
+		"function basicHeader(pass){"
+		"var s=user+':'+pass;"
+		"try{s=unescape(encodeURIComponent(s));}catch(e){}"
+		"return 'Basic '+btoa(s);"
+		"}"
+		"function currentPass(){"
+		"var el=document.getElementById('backup-ui-password');"
+		"return el?String(el.value||''):'';"
+		"}"
 		"var btn=document.getElementById('device-backup-download');"
 		"if(btn){btn.addEventListener('click',function(){"
+		"if(btn.disabled||btn.getAttribute('data-need-password')==='1'){"
+		"var n=box.querySelector('.device-backup-need-pwd');"
+		"if(n&&n.scrollIntoView){n.scrollIntoView({behavior:'smooth',block:'center'});}"
+		"return;"
+		"}"
+		"var pass=currentPass();"
+		"if(!pass){showStatus(box.getAttribute('data-need-unlock')||'','err');"
+		"var pe=document.getElementById('backup-ui-password');if(pe)pe.focus();return;}"
+		"showStatus('','');btn.disabled=true;"
+		"fetch('/backup.json',{credentials:'omit',headers:{'Authorization':basicHeader(pass)}})"
+		".then(function(r){"
+		"if(r.status===401||r.status===403){throw new Error('auth');}"
+		"if(!r.ok){throw new Error('fail');}"
+		"return r.blob();"
+		"}).then(function(blob){"
 		"var a=document.createElement('a');"
-		"a.href='/backup.json';"
+		"a.href=URL.createObjectURL(blob);"
 		"a.setAttribute('download','altruist-backup.json');"
 		"document.body.appendChild(a);a.click();document.body.removeChild(a);"
+		"showStatus('','');"
+		"}).catch(function(err){"
+		"showStatus(box.getAttribute(err&&err.message==='auth'?'data-bad-pass':'data-restore-fail')||'','err');"
+		"}).then(function(){btn.disabled=false;});"
+		"});}"
+		"var form=box.querySelector('[data-backup-restore-form]');"
+		"if(form){form.addEventListener('submit',function(ev){"
+		"if(btn&&btn.getAttribute('data-need-password')==='1'){ev.preventDefault();return;}"
+		"ev.preventDefault();"
+		"var fi=form.querySelector('input[type=file]');"
+		"if(!fi||!fi.files||!fi.files.length){showStatus(box.getAttribute('data-file-required')||'','err');return;}"
+		"var pass=currentPass();"
+		"if(!pass){showStatus(box.getAttribute('data-need-unlock')||'','err');"
+		"var pe=document.getElementById('backup-ui-password');if(pe)pe.focus();return;}"
+		"if(!window.confirm(box.getAttribute('data-restore-confirm')||''))return;"
+		"var fd=new FormData();"
+		"fd.append('backup',fi.files[0]);"
+		"fd.append('ui_password',pass);"
+		"var rbtn=form.querySelector('[data-backup-restore]');"
+		"if(rbtn){rbtn.disabled=true;rbtn.classList.add('is-loading');}"
+		"showStatus('','');"
+		"fetch('/restore-backup',{method:'POST',credentials:'omit',headers:{'Authorization':basicHeader(pass)},body:fd})"
+		".then(function(r){"
+		"if(r.status===401||r.status===403){throw new Error('auth');}"
+		"if(!r.ok){throw new Error('fail');}"
+		"showStatus(box.getAttribute('data-restore-ok')||'','ok');"
+		"}).catch(function(err){"
+		"if(err&&err.message==='auth'){"
+		"showStatus(box.getAttribute('data-bad-pass')||'','err');"
+		"if(rbtn){rbtn.disabled=false;rbtn.classList.remove('is-loading');}"
+		"return;"
+		"}"
+		"showStatus(box.getAttribute('data-restore-ok')||'','ok');"
+		"});"
 		"});}"
 		"})();"
 		"</script>");
