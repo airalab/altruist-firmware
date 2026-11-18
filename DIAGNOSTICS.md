@@ -110,7 +110,11 @@ and multi-viewer replay are outside this change.
 ## Acceptance boundary and system limitations
 
 Local debug JSON still carries standard Urban/Insight readings, including
-BME680 VOC index/level/count and gas resistance/baseline, before uplink selection.
+BME680 `voc_ppb`, VOC index/level/count and gas resistance/baseline, before uplink
+selection. `voc_ppb` is an integer relative MOS/ABC scale, 0–10000 with JSON
+unit `ppb`, not laboratory TVOC. Constant zero or nonzero values are valid;
+`voc_level=-1` still signals an invalid gas reading. Older firmware may omit
+`voc_ppb`; current static debug checks require all six VOC/gas fields.
 Successful protobuf skips legacy PAYLOAD but does not eliminate local JSON.
 Freshness, deduplication and late attachment remain L3. Route attribution remains
 L4, build repetition/inventory/positive SD contract remains L7. The ordinary USB

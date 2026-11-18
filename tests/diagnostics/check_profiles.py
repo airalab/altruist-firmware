@@ -109,8 +109,10 @@ class DiagnosticsProfiles(unittest.TestCase):
                 output = preprocess(ROOT / f"sensors/{name}_sensor.cpp", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
                 self.assertIn("serializeJson(data, Serial);", output)
         output = preprocess(ROOT / "sensors/bmx680i2c_sensor.cpp", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
-        for field in ("voc_index", "voc_level", "voc_spikes_today", "gas_resistance", "gas_baseline"):
+        for field in ("voc_ppb", "voc_index", "voc_level", "voc_spikes_today", "gas_resistance", "gas_baseline"):
             self.assertIn('"' + field + '"', output)
+
+        self.assertIn('addValueToJSON(data, F("voc_ppb"), voc_ppb, INTL_VOC_PPB, F("ppb"));', output)
 
     def test_debug_structured_events(self):
         paths = ["airrohr-firmware.ino", "utils.cpp", "apis/helpers/message_formatter.cpp",
