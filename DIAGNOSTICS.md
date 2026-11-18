@@ -125,28 +125,46 @@ separately as versioned UART snapshots.
 ## Versioned sensor UART snapshots
 
 Debug emits a separate per-physical-sensor UART JSON snapshot with root
-`_observations` version 1 and per-numeric-metric `observation`. Supported sensors:
-BME280/BMP280, BME680, SCD4x, SDS, ICS43434. Existing values/units are copied;
-API/uplink/SD documents receive no metadata. Release does not allocate or emit
-this telemetry, regardless of Testing or runtime verbosity.
+`_observations` version 2 and per-numeric-metric `observation`. Supported sensors:
+BME280/BMP280, BME680, SCD4x, SDS, ICS43434. API/uplink/SD documents receive no
+metadata. Release does not allocate or emit this telemetry, regardless of
+Testing or runtime verbosity.
 
-Every record carries MAC identity, model, per-boot random token, monotonic
-64-bit milliseconds, per-sensor snapshot sequence, state, cumulative errors and
-reason. Numeric metrics carry successful-update sequence/time/state. Clocks and
-sequences are decimal strings for exact serialization with existing ArduinoJson
-configuration. Equal successful values advance identity; failed reads do not.
-Normal sleep/collection intervals are not errors. SDS records completed windows;
-noise records the running sending-window aggregate, possibly before completion.
-Text VOC phrases are diagnostic; numeric VOC fields retain their VOC scale,
-validity and counter semantics.
+Each record carries MAC/model/boot identity, monotonic esp_timer milliseconds,
+per-sensor snapshot/cycle sequences, effective settings, per-channel completed
+cycle/ok/failed counters, event times and a ring of 16 failed cycles. Clock and
+counter values are decimal strings. An init error does not invent measurement
+cycles; an uninitialized sensor remains visible diagnostically without entering
+acquisition/API/SD. Equal new readings advance measurement identity, while
+failed cycles preserve prior successful values/times. Environment and gas are
+separate BME680 channels. The failed-cycle journal and cumulative counters
+survive publication and aggregate resets.
 
-The sensor worker checks nominal 30-second heartbeats plus first/error snapshots.
-Existing blocking work can delay publication. Up to 16 metric fields and 8192
-serialized bytes per line are supported; overflow emits an invalid observation
-marker.
-The temporary JSON document is 8192 bytes, followed by a serialization buffer;
-one Serial.write emits a complete line. Successful update counters may skip in
-UART because snapshots do not stream every physical reading. The tester owns
-freshness thresholds, duplicate handling and final verdicts. Detailed wire schema
-is documented in the tester `docs/sensor-log-patterns.md`, section
-"Versioned debug UART observations".
+BME/SCD snapshots follow completed readings; SDS snapshots follow completed PM
+windows. Initial/state publications are limited to one per second. Unchanged
+cache is not repeated periodically. Microphone publications are coalesced to
+30 seconds, with separately limited state transitions. Noise time statistics
+use two completed 300-second active windows and a current window; only the
+bounded 20-second allowance per actual SDS cycle can be excluded. Blocking
+worker operations may delay publication; intervals are rate limits, not deadlines.
+
+BME680 gas and ICS43434 currently declare acquisition-only `probes` in the same
+snapshot. They report raw gas transfer/status/resistance, or I²S result/byte
+count/raw signal extrema. Their measurement counters and identities remain zero
+and values null with `waiting/driver_unverified`. A complete varying I²S block
+and new nonzero gas data demonstrate activity without certifying calibrated noise
+or valid gas/VOC measurements. Probe collection does not alter driver acceptance,
+FFT/calibration, aggregate reset behavior or API/uplink/SD values.
+
+The tester requires an explicitly selected activity profile to accept these
+channels with WARN; ordinary full acceptance rejects acquisition-only evidence.
+New activity after capture baseline is required. Full measurement checks remain
+in force for all other channels. Detailed probe schema and limitations belong to
+the tester `docs/sensor-log-patterns.md`, section "Acquisition probes and limited
+activity profiles".
+
+Up to 16 metrics and 8192 serialized UTF-8 bytes per line are supported. A
+16384-byte temporary JSON pool is checked independently from serialized length;
+overflow emits the v2 snapshot_overflow marker. One Serial.write emits the
+complete LF-terminated record. A formed but lost record still consumes
+snapshot_seq and the noise interval, allowing the tester to detect coverage loss.

@@ -57,6 +57,66 @@ def main():
             check=True,
         )
         output = subprocess.check_output([binary], text=True)
+        tests = ROOT / "tests/observations"
+        adapter = str(Path(directory) / "sensor-adapter")
+        subprocess.run(
+            [
+                "g++",
+                "-std=c++11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-pedantic",
+                "-DALTRUIST_BUILD_DEBUG",
+                "-Dutils_h",
+                "-DARDUINOJSON_ENABLE_ARDUINO_STRING=1",
+                "-I" + str(tests / "stubs"),
+                "-I" + str(ROOT),
+                "-I" + str(headers),
+                str(tests / "test_sensor_adapter.cpp"),
+                "-o",
+                adapter,
+            ],
+            check=True,
+        )
+        output += subprocess.check_output([adapter], text=True)
+        i2s = str(Path(directory) / "i2s-probe")
+        drivers = ROOT / "sensors/drivers/i2s_noise"
+        subprocess.run(
+            [
+                "g++",
+                "-std=gnu++20",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-Wno-unused-variable",
+                "-include",
+                "Arduino.h",
+                "-DALTRUIST_BUILD_DEBUG",
+                "-DESP32",
+                "-D__DEFINES_H__",
+                "-DI2S_PIN_BCLK=7",
+                "-DI2S_PIN_WS=6",
+                "-DI2S_PIN_DOUT=-1",
+                "-DI2S_PIN_DIN=8",
+                "-I" + str(tests / "stubs"),
+                "-I" + str(ROOT),
+                str(tests / "test_i2s_probe.cpp"),
+                *[
+                    str(drivers / name)
+                    for name in (
+                        "i2s_noise.cpp",
+                        "soundsensor.cpp",
+                        "arduinoFFT.cpp",
+                        "measurement.cpp",
+                    )
+                ],
+                "-o",
+                i2s,
+            ],
+            check=True,
+        )
+        subprocess.run([i2s], check=True)
         # No telemetry implementation is compiled into a release translation unit.
         released = subprocess.check_output(
             ["g++", "-std=c++11", "-E", "-P", "-x", "c++", "-I" + str(ROOT), "-"],
@@ -88,12 +148,33 @@ def main():
     origin = datetime(2026, 11, 18, tzinfo=UTC)
     trackers = {}
     for scenario, lines in streams.items():
-        tracker = SensorObservationTracker(capture_started_at=origin)
+        tracker = SensorObservationTracker(
+            capture_started_at=origin,
+            activity_only=("ICS43434.main",)
+            if scenario == "probe_noise"
+            else ("BME680.gas",)
+            if scenario == "probe_gas"
+            else (),
+        )
         for raw in lines:
             time = int(json.loads(raw)["_observations"]["time_ms"])
             tracker.feed(raw, origin + timedelta(milliseconds=time))
             assert not tracker.issues, (scenario, tracker.issues)
             assert tracker.profile_error is None, (scenario, tracker.profile_error)
+            if (
+                scenario.startswith("probe_")
+                and next(iter(json.loads(raw)["_observations"]["probes"].values()))[
+                    "result"
+                ]
+                == "activity"
+            ):
+                findings = observation_findings(tracker.as_dict(), reference_time=None)
+                assert not any(f["severity"] == "fail" for f in findings), (
+                    scenario,
+                    findings,
+                )
+                assert any(f["code"] == "SENSOR_ACTIVITY_OBSERVED" for f in findings)
+
         trackers[scenario] = tracker
 
     for count, severity in ((600, None), (599, "warn"), (300, "warn"), (299, "fail")):

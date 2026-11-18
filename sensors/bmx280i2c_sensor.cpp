@@ -79,6 +79,7 @@ enum {
 
 BMX280Sensor::BMX280Sensor(unsigned long sending_timeout)
     : Sensor(sending_timeout) {
+    sensor_name = BME_SENSOR_NAME;
     if (sending_timeout > BMX_SENSOR_MIN_TIMEOUT) {
     timeout = sending_timeout;
     } else {

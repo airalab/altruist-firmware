@@ -588,6 +588,10 @@ Robonomics robonomics;
 const int maxSensors = 10;
 Sensor* activeSensors[maxSensors];
 int activeSensorsCount = 0;
+#if defined(ALTRUIST_BUILD_DEBUG)
+Sensor* diagnosticSensors[maxSensors];
+int diagnosticSensorsCount = 0;
+#endif
 
 static void powerOnTestSensors() {
 
@@ -601,7 +605,13 @@ static void powerOnTestSensors() {
 		}
 #endif
 		Sensor* new_sensor = createSensor(supported_sensor_names[i], cfg::sending_intervall_ms);
-		if (new_sensor->begin()) {
+        new_sensor->debugPrepare();
+        const bool initialized = new_sensor->begin();
+        new_sensor->debugPrepare();  // BMx280 may resolve to BMP280 during begin.
+#if defined(ALTRUIST_BUILD_DEBUG)
+        if (!initialized && new_sensor->debugSupported()) diagnosticSensors[diagnosticSensorsCount++] = new_sensor;
+#endif
+        if (initialized) {
 			activeSensors[activeSensorsCount] = new_sensor;
 			activeSensorsCount++;
 			deviceStatus.sensor_names.push_back(new_sensor->sensor_name);
@@ -613,6 +623,13 @@ static void powerOnTestSensors() {
 		}
 	}
 
+#if defined(ALTRUIST_BUILD_DEBUG)
+    bool activeSds = false;
+    for (int i = 0; i < activeSensorsCount; ++i)
+        if (strcmp(activeSensors[i]->sensor_name, SDS_SENSOR_NAME) == 0) activeSds = true;
+    for (int i = 0; i < activeSensorsCount; ++i) activeSensors[i]->debugSetSdsAvailable(activeSds);
+    for (int i = 0; i < diagnosticSensorsCount; ++i) diagnosticSensors[i]->debugSetSdsAvailable(activeSds);
+#endif
 }
 
 const int APIsCount = 3;
@@ -963,7 +980,10 @@ bool fetchSensors() {
             }
 #endif
 		}
-	return any_sensor_json_updated;
+#if defined(ALTRUIST_BUILD_DEBUG)
+    for (int i = 0; i < diagnosticSensorsCount; ++i) diagnosticSensors[i]->debugSnapshotIfDue(sensors_data);
+#endif
+    return any_sensor_json_updated;
 }
 
 void sensorAndAPIWorker(void *pvParameters) {

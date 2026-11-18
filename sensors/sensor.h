@@ -5,6 +5,7 @@
 #include <ArduinoJson.h>
 #include "../utils.h"
 #if defined(ALTRUIST_BUILD_DEBUG)
+#include "uart_v2_json.h"
 #include <esp_timer.h>
 #include <esp_system.h>
 #endif
@@ -19,128 +20,66 @@ protected:
   virtual void _fetch(JsonDocument &data) = 0;
 
 #if defined(ALTRUIST_BUILD_DEBUG)
-  struct DebugMetric {
-    String name;
-    uint64_t sequence = 0;
-    uint64_t measuredMs = 0;
-    const char *state = "never";
-  };
-  DebugMetric debugMetrics[16];
+  uart_v2::Telemetry debugTelemetry;
+  uart_v2::Metric debugMetrics[16];
   size_t debugMetricCount = 0;
-  uint64_t debugSnapshotSequence = 0;
-  uint64_t debugLastPrintMs = 0;
-  uint32_t debugErrors = 0;
-  const char *debugState = "never";
-  const char *debugReason = "none";
-  bool debugChanged = false;
-
-  static void debugUnsigned(JsonObject object, const char *key, uint64_t number) {
-    // Keep 64-bit clocks exact without changing global ArduinoJson configuration.
-    char text[24];
-    snprintf(text, sizeof(text), "%llu", static_cast<unsigned long long>(number));
-    object[key] = text;
-  }
+  uint16_t debugWritten = 0;
+  double debugValues[16] = {};
+  uart_v2::Kind debugKind = uart_v2::Kind::Bme280;
+  uart_v2::Noise debugNoise;
+  uart_v2::Probe debugProbe;
+  uint64_t debugPublishedAttempts = 0;
+  const char *debugFetchError = nullptr;
+  bool debugPrepared = false, debugFetching = false, debugActiveSds = false;
 
   static uint64_t debugNowMs() {
     return static_cast<uint64_t>(esp_timer_get_time()) / 1000;
   }
-
+  static Sensor *&debugNoiseObserver() {
+    static Sensor *observer = nullptr;
+    return observer;
+  }
+  static uint64_t &debugSdsCycle() { static uint64_t cycle = 0; return cycle; }
+  static bool &debugSdsRunning() { static bool running = false; return running; }
   static const String &debugBootId() {
-    // One token per boot, shared by all sensor instances, including late attach.
     static const String id = String(esp_random(), HEX) + "-" + String(esp_random(), HEX);
     return id;
   }
-
-  void debugMetricUpdated(const String &name) {
-    size_t i = 0;
-    for (; i < debugMetricCount; ++i) {
-      if (debugMetrics[i].name == name) break;
+  void debugAddMetric(const char *name, const char *units, uint8_t channel = 0) {
+    debugMetrics[debugMetricCount++] = uart_v2::Metric(name, units, channel);
+  }
+  void debugCompleteCycle(bool ok, const char *reason = "read_failed") {
+    if (!debugPrepared) return;
+    for (size_t i = 0; i < debugMetricCount; ++i) {
+      if (debugMetrics[i].channel != 0) continue;
+      if (!(debugWritten & (1u << i)) || !isfinite(debugValues[i])) ok = false;
     }
-    if (i == debugMetricCount) {
-      if (i == 16) {
-        debugReadingError("metric_capacity");
-        return;
-      }
-      debugMetrics[i].name = name;
-      ++debugMetricCount;
+    const uint64_t now = debugNowMs();
+    debugTelemetry.complete(now, 1, ok ? 0 : 1, reason);
+    if (ok) {
+      for (size_t i = 0; i < debugMetricCount; ++i)
+        if (debugMetrics[i].channel == 0) debugMetrics[i].update(debugValues[i], now);
     }
-    ++debugMetrics[i].sequence;
-    debugMetrics[i].measuredMs = debugNowMs();
-    debugMetrics[i].state = "ok";
-    debugState = "ok";
-    debugReason = "none";
+  }
+  void debugSetProbe(const uart_v2::Probe &probe) {
+    if (strcmp(debugProbe.result, probe.result) != 0) debugTelemetry.statePending = true;
+    debugProbe = probe;
   }
 #endif
 
   void debugReadingError(const char *reason) {
 #if defined(ALTRUIST_BUILD_DEBUG)
-    ++debugErrors;
-    debugChanged = true;
-    debugState = "error";
-    debugReason = reason;
-    for (size_t i = 0; i < debugMetricCount; ++i) debugMetrics[i].state = "error";
+    if (!debugPrepared) return;
+    if (debugFetching) debugFetchError = reason;
+    else if (debugKind != uart_v2::Kind::Noise) debugTelemetry.initError(reason);
 #else
     (void)reason;
 #endif
   }
 
   void debugMetricError(const String &name, const char *reason) {
-#if defined(ALTRUIST_BUILD_DEBUG)
-    for (size_t i = 0; i < debugMetricCount; ++i) {
-      if (debugMetrics[i].name == name) debugMetrics[i].state = "error";
-    }
-    ++debugErrors;
-    debugChanged = true;
-    debugReason = reason;
-#else
     (void)name;
-    (void)reason;
-#endif
-  }
-
-  void printDebugSnapshot(JsonDocument &data) {
-#if defined(ALTRUIST_BUILD_DEBUG)
-    // This document is UART-only: metadata must never enter API, SD or uplink.
-    DynamicJsonDocument snapshot(8192);
-    snapshot.createNestedObject(sensor_name);
-    if (data[sensor_name].is<JsonObject>()) snapshot[sensor_name].set(data[sensor_name]);
-    JsonObject meta = snapshot.createNestedObject("_observations");
-    meta["version"] = 1;
-    meta["device_id"] = get_chipid();
-    meta["boot_id"] = debugBootId();
-#if defined(ALTRUIST_INSIGHT)
-    meta["model"] = "insight";
-#else
-    meta["model"] = "urban";
-#endif
-    meta["sensor"] = sensor_name;
-    debugUnsigned(meta, "snapshot_seq", ++debugSnapshotSequence);
-    debugUnsigned(meta, "time_ms", debugNowMs());
-    meta["state"] = debugState;
-    meta["errors"] = debugErrors;
-    meta["reason"] = debugReason;
-    for (size_t i = 0; i < debugMetricCount; ++i) {
-      JsonObject metric = snapshot[sensor_name][debugMetrics[i].name];
-      if (metric.isNull()) continue;
-      JsonObject observation = metric.createNestedObject("observation");
-      debugUnsigned(observation, "seq", debugMetrics[i].sequence);
-      debugUnsigned(observation, "measured_ms", debugMetrics[i].measuredMs);
-      observation["state"] = debugMetrics[i].state;
-    }
-    if (snapshot.overflowed() || measureJson(snapshot) > 8192) {
-      Serial.println(F("{\"_observations\":{\"version\":1,\"error\":\"snapshot_overflow\"}}"));
-    } else {
-      String line;
-      serializeJson(snapshot, line);
-      line += '\n';
-      // One write prevents other logging tasks from splitting a JSON record.
-      Serial.write(reinterpret_cast<const uint8_t *>(line.c_str()), line.length());
-    }
-    debugLastPrintMs = debugNowMs();
-    debugChanged = false;
-#else
-    (void)data;
-#endif
+    debugReadingError(reason);
   }
 
 
@@ -172,9 +111,13 @@ protected:
     measObj[F("value")] = value;
     _jsonUpdated = true;
 #if defined(ALTRUIST_BUILD_DEBUG)
-    if (measObj[F("value")].is<double>()) {
-      if (isfinite(measObj[F("value")].as<double>())) debugMetricUpdated(meas_id);
-      else debugMetricError(meas_id, "invalid_numeric");
+    if (debugPrepared && debugKind != uart_v2::Kind::Noise) {
+      for (size_t i = 0; i < debugMetricCount; ++i) {
+        if (meas_id == debugMetrics[i].name && debugMetrics[i].channel == 0) {
+          debugValues[i] = measObj[F("value")].as<double>();
+          debugWritten |= 1u << i;
+        }
+      }
     }
 #endif
   }
@@ -183,26 +126,127 @@ public:
   // Constructor with a default timeout value (e.g., 1000 milliseconds)
   Sensor(unsigned long sending_timeout = 1000UL) : sending_timeout(sending_timeout) {}
 
-  virtual ~Sensor() {}
+  virtual ~Sensor() {
+#if defined(ALTRUIST_BUILD_DEBUG)
+    if (debugNoiseObserver() == this) debugNoiseObserver() = nullptr;
+#endif
+  }
 
-  const char* sensor_name;
+  const char* sensor_name = "";
 
   // Pure virtual function to attempt sensor initialization.
   virtual bool begin() = 0;
 
   void fetch(JsonDocument &data) {
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugWritten = 0;
+    debugFetchError = nullptr;
+    debugFetching = true;
+#endif
     _fetch(data);
+#if defined(ALTRUIST_BUILD_DEBUG)
+    if (debugPrepared && debugKind != uart_v2::Kind::Sds && debugKind != uart_v2::Kind::Noise)
+      debugCompleteCycle(debugFetchError == nullptr, debugFetchError ? debugFetchError : "invalid_numeric");
+    debugFetching = false;
+#endif
     updateFetchTime();
   };
 
+  bool debugSupported() const {
+    return strcmp(sensor_name, "BME280") == 0 || strcmp(sensor_name, "BMP280") == 0 ||
+      strcmp(sensor_name, "BME680") == 0 || strcmp(sensor_name, "SCD4x") == 0 ||
+      strcmp(sensor_name, "SDS") == 0 || strcmp(sensor_name, "ICS43434") == 0;
+  }
+
+  void debugPrepare() {
+#if defined(ALTRUIST_BUILD_DEBUG)
+    if (!debugSupported()) return;
+    if (debugPrepared && strcmp(sensor_name, uart_v2::sensorName(debugKind)) == 0) return;
+    using uart_v2::Kind;
+    const String name(sensor_name);
+    debugKind = name == "BMP280" ? Kind::Bmp280 : name == "BME680" ? Kind::Bme680 :
+      name == "SCD4x" ? Kind::Scd4x : name == "SDS" ? Kind::Sds :
+      name == "ICS43434" ? Kind::Noise : Kind::Bme280;
+    debugMetricCount = 0;
+    if (debugKind == Kind::Noise) {
+      debugAddMetric("noiseAvg", "dBA"); debugAddMetric("noiseMax", "dBA");
+      debugNoise = uart_v2::Noise(debugNowMs());
+      debugNoiseObserver() = this;
+      debugTelemetry.setState(0, uart_v2::State::Waiting, "driver_unverified");
+    } else if (debugKind == Kind::Sds) {
+      debugAddMetric("P1", "µg/m³"); debugAddMetric("P2", "µg/m³");
+    } else {
+      debugAddMetric("temperature", "°C");
+      debugAddMetric("humidity", "%");
+      if (debugKind == Kind::Scd4x) debugAddMetric("co2", "ppm");
+      else {
+        if (debugKind == Kind::Bmp280) --debugMetricCount;
+        debugAddMetric("pressure", debugKind == Kind::Bme680 ? "Pa" : "hPa");
+      }
+      if (debugKind == Kind::Bme680) {
+        debugTelemetry.channelCount = 2;
+        debugTelemetry.setState(1, uart_v2::State::Waiting, "driver_unverified");
+        debugAddMetric("gas_resistance", "Ohm", 1); debugAddMetric("gas_baseline", "Ohm", 1);
+        debugAddMetric("voc_ppb", "ppb", 1); debugAddMetric("voc_index", "a.u.", 1);
+        debugAddMetric("voc_level", "", 1); debugAddMetric("voc_spikes_today", "", 1);
+      }
+    }
+    debugPrepared = true;
+#endif
+  }
+
+  void debugSetSdsAvailable(bool available) {
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugActiveSds = available;
+    if (debugKind == uart_v2::Kind::Noise) debugNoise.pauseBudget = available ? 20000 : 0;
+#else
+    (void)available;
+#endif
+  }
+
+  static void debugSdsTransition(bool running) {
+#if defined(ALTRUIST_BUILD_DEBUG)
+    if (running == debugSdsRunning()) return;
+    debugSdsRunning() = running;
+    if (running) ++debugSdsCycle();
+    auto *observer = debugNoiseObserver();
+    if (observer && observer->debugNoise.pauseBudget &&
+        observer->debugNoise.setPause(debugNowMs(), debugSdsCycle(), running))
+      observer->debugTelemetry.statePending = true;
+#else
+    (void)running;
+#endif
+  }
+
   void debugSnapshotIfDue(JsonDocument &data) {
 #if defined(ALTRUIST_BUILD_DEBUG)
-    const String name(sensor_name);
-    if (name != "BME280" && name != "BMP280" && name != "BME680" &&
-        name != "SCD4x" && name != "SDS" && name != "ICS43434") return;
-    if (debugSnapshotSequence == 0 || debugChanged || debugNowMs() - debugLastPrintMs >= 30000) {
-      printDebugSnapshot(data);
-    }
+    (void)data;
+    if (!debugPrepared) return;
+    const uint64_t now = debugNowMs();
+    const bool noise = debugKind == uart_v2::Kind::Noise;
+    const bool limited = noise || debugKind == uart_v2::Kind::Bme680;
+    if (noise) debugNoise.advance(now);
+    const bool probeDue = limited && debugProbe.attempts != debugPublishedAttempts &&
+      now - debugTelemetry.lastPrint >= 30000;
+    if (!debugTelemetry.due(now, noise) && !probeDue) return;
+    uart_v2::Settings settings(debugKind, timeout, noise ? 0 :
+      debugKind == uart_v2::Kind::Sds ? sending_timeout : timeout,
+      debugKind == uart_v2::Kind::Bme680, debugActiveSds);
+    DynamicJsonDocument snapshot(16384);
+    const String device = get_chipid();
+#if defined(ALTRUIST_INSIGHT)
+    const char *model = "insight";
+#else
+    const char *model = "urban";
+#endif
+    uart_v2::formSnapshot(snapshot, debugTelemetry, settings, debugMetrics,
+      debugMetricCount, device.c_str(), debugBootId().c_str(), model, now,
+      noise ? &debugNoise : nullptr, limited ? &debugProbe : nullptr);
+    debugPublishedAttempts = debugProbe.attempts;
+    String line;
+    serializeJson(snapshot, line);
+    line += '\n';
+    Serial.write(reinterpret_cast<const uint8_t *>(line.c_str()), line.length());
 #else
     (void)data;
 #endif

@@ -100,7 +100,20 @@ void BME680Sensor::_fetch(JsonDocument &data) {
             return;
         }
 
-        if (!bme680->performReading()) {
+        const bool readOk = bme680->performReading();
+#if defined(ALTRUIST_BUILD_DEBUG)
+        uart_v2::Probe probe = debugProbe;
+        probe.hasGas = readOk && bme680->debugNewData;
+        probe.gasStatus = bme680->debugStatus;
+        probe.gasResistance = bme680->debugGasResistance;
+        probe.error = bme680->debugReadCode;
+        const bool activity = probe.hasGas && probe.gasResistance > 0;
+        probe.record(debugNowMs(), probe.hasGas, activity,
+          !readOk ? "read_failed" : !probe.hasGas ? "no_new_data" : activity ? "activity" : "no_activity");
+        debugSetProbe(probe);
+        if (readOk && !bme680->debugNewData) debugReadingError("bme680_no_new_data");
+#endif
+        if (!readOk) {
             debugReadingError("bme680_read_failed");
             logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_read_failed"));
             debug_outln_error(F("BME680 reading failed"));

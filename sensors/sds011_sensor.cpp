@@ -33,7 +33,7 @@ bool SDS011Sensor::begin() {
     cmd(PmSensorCmd::ContinuousMode);
     delay(100);
     debug_outln_info(F("Stopping SDS011..."));
-    is_SDS_running = cmd(PmSensorCmd::Stop);
+    setRunning(cmd(PmSensorCmd::Stop));
     last_measure_time = millis() - (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS));
     debug_outln_info(F("SDS011 started with fetch interval (sec): "), String(sending_timeout/1000));
     if (last_value_SDS_version.length() == 0) {
@@ -62,7 +62,7 @@ void SDS011Sensor::sdsUartRecover() {
 	delay(150);
 	cmd(PmSensorCmd::ContinuousMode);
 	delay(100);
-	is_SDS_running = cmd(PmSensorCmd::Stop);
+	setRunning(cmd(PmSensorCmd::Stop));
 	SDS_waiting_for = SDS_REPLY_HDR;
 	last_measure_time = millis() - (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS));
 }
@@ -70,13 +70,13 @@ void SDS011Sensor::sdsUartRecover() {
 void SDS011Sensor::_fetch(JsonDocument &data) {
 	if (msSince(last_measure_time) < (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
 		if (is_SDS_running) {
-			is_SDS_running = cmd(PmSensorCmd::Stop);
+			setRunning(cmd(PmSensorCmd::Stop));
             debug_outln_verbose(F("SDS011 stopped"));
 		}
         return;
 	} else {
 		if (! is_SDS_running) {
-			is_SDS_running = cmd(PmSensorCmd::Start);
+			setRunning(cmd(PmSensorCmd::Start));
 			SDS_waiting_for = SDS_REPLY_HDR;
             debug_outln_verbose(F("SDS011 started"));
 		}
@@ -127,6 +127,9 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
             last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
             addValueToJSON(data, F("P1"), last_value_SDS_P1, "PM10", F("µg/m³"));
             addValueToJSON(data, F("P2"), last_value_SDS_P2, "PM2.5", F("µg/m³"));
+#if defined(ALTRUIST_BUILD_DEBUG)
+            debugCompleteCycle(true);
+#endif
             sds_bad_window_streak = 0;
             debug_outln_verbose(F("PM10: "), String(last_value_SDS_P1));
             debug_outln_verbose(F("PM2.5: "), String(last_value_SDS_P2));
@@ -137,6 +140,9 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
             }
         } else {
             debugReadingError("sds011_empty_window");
+#if defined(ALTRUIST_BUILD_DEBUG)
+            debugCompleteCycle(false, "sds011_empty_window");
+#endif
             SDS_error_count++;
             sds_bad_window_streak++;
             if (sds_bad_window_streak >= kSdsRecoverAfterBadWindows) {
@@ -154,7 +160,7 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
         sds_pm25_min = 20000;
 
         if (is_SDS_running) {
-            is_SDS_running = cmd(PmSensorCmd::Stop);
+            setRunning(cmd(PmSensorCmd::Stop));
         }
     }
 }
@@ -162,7 +168,7 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
 String SDS011Sensor::version_date() {
 	if (!last_value_SDS_version.length()) {
 		debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(DBG_TXT_SDS011_VERSION_DATE));
-		is_SDS_running = cmd(PmSensorCmd::Start);
+		setRunning(cmd(PmSensorCmd::Start));
 		delay(250);
 #if defined(ESP8266)
 		serialSDS.perform_work();

@@ -15,6 +15,9 @@ I2SNoiseSensor::I2SNoiseSensor(unsigned long sending_timeout)
 bool I2SNoiseSensor::begin() {
     float db_mean = 0;
     fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugSetProbe(i2sDebugProbe());
+#endif
     last_send_time = millis();
     debug_outln_info(F("I2S Noise Sensor started with fetch interval (sec): "), String(sending_timeout/1000));
     if (db_mean <= 0) {
@@ -32,6 +35,9 @@ void I2SNoiseSensor::_fetch(JsonDocument &data) {
         return;
 	} else {
 		fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugSetProbe(i2sDebugProbe());
+#endif
 		if (last_value_DBMETER > last_value_DBMETER_max) {
 			last_value_DBMETER_max = last_value_DBMETER;
 		}

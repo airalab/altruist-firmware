@@ -195,6 +195,9 @@ uint32_t Adafruit_BME680::beginReading(void) {
   }
 
   int8_t rslt = bme68x_set_op_mode(BME68X_FORCED_MODE, &gas_sensor);
+#if defined(ALTRUIST_BUILD_DEBUG)
+  debugReadCode = rslt;
+#endif
 #if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("Opmode Result: "));
   Serial.println(rslt);
@@ -224,6 +227,12 @@ uint32_t Adafruit_BME680::beginReading(void) {
  *  @return Whether success.
  */
 bool Adafruit_BME680::endReading(void) {
+#if defined(ALTRUIST_BUILD_DEBUG)
+  debugNewData = false;
+  debugStatus = 0;
+  debugGasResistance = 0;
+  debugReadCode = 0;
+#endif
   uint32_t meas_end = beginReading();
 
   if (meas_end == 0) {
@@ -260,6 +269,12 @@ bool Adafruit_BME680::endReading(void) {
 #if defined(BME680_DEBUG) && defined(ALTRUIST_BUILD_DEBUG)
   Serial.print(F("GetData Result: "));
   Serial.println(rslt);
+#endif
+#if defined(ALTRUIST_BUILD_DEBUG)
+  debugReadCode = rslt;
+  debugNewData = rslt == BME68X_OK && n_fields > 0;
+  debugStatus = debugNewData ? data.status : 0;
+  debugGasResistance = debugNewData ? data.gas_resistance : 0;
 #endif
   if (rslt != BME68X_OK)
     return false;

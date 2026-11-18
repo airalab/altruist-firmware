@@ -20,6 +20,10 @@
 #ifdef ESP32
 
 #include "soundsensor.h"
+#if defined(ALTRUIST_BUILD_DEBUG)
+#include "i2s_noise.h"
+#include <esp_timer.h>
+#endif
 #include "arduinoFFT.h"
 #include "../../../defines.h"
 
@@ -64,6 +68,9 @@ bool SoundSensor::begin(){
   _err = i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
  // printf("_err=%d\n", _err);
 //  printf("%d, %d, %d, %d\n", pin_config.bck_io_num, pin_config.ws_io_num, pin_config.data_out_num, pin_config.data_in_num);
+#if defined(ALTRUIST_BUILD_DEBUG)
+  i2sDebugProbe().error = _err;
+#endif
   if (_err != ESP_OK) {
 #if defined(ALTRUIST_BUILD_DEBUG)
     Serial.printf("Failed installing I2S driver: %d\r\n", _err);
@@ -72,6 +79,9 @@ bool SoundSensor::begin(){
   }
   
   _err = i2s_set_pin(I2S_PORT, &pin_config);
+#if defined(ALTRUIST_BUILD_DEBUG)
+  i2sDebugProbe().error = _err;
+#endif
   if (_err != ESP_OK) {
 #if defined(ALTRUIST_BUILD_DEBUG)
     Serial.printf("Failed setting pin: %d\r\n", _err);
@@ -85,7 +95,11 @@ bool SoundSensor::begin(){
 
 void SoundSensor::start() {
   // Serial.printf("i2s_start\r\n");
+#if defined(ALTRUIST_BUILD_DEBUG)
+  _debugStartError = i2s_start(I2S_PORT);
+#else
   i2s_start( I2S_PORT);
+#endif
   _i2s = true;
   // Serial.printf("i2s_started\r\n");
 }
@@ -103,7 +117,7 @@ void SoundSensor::disable() {
 float* SoundSensor::readSamples(){
   // Read multiple samples at once and calculate the sound pressure
    
-  size_t num_bytes_read;
+  size_t num_bytes_read = 0;
   _err = i2s_read(
     I2S_PORT,
     (char *) _samples,
@@ -118,6 +132,28 @@ float* SoundSensor::readSamples(){
 #endif
   }
  
+#if defined(ALTRUIST_BUILD_DEBUG)
+  auto &probe = i2sDebugProbe();
+  probe.error = _debugStartError != ESP_OK ? _debugStartError : _err;
+  probe.bytes = num_bytes_read;
+  probe.expectedBytes = BLOCK_SIZE * sizeof(_samples[0]);
+  const bool full = probe.error == ESP_OK && num_bytes_read == probe.expectedBytes;
+  probe.hasSignal = full;
+  bool varied = false, unsaturated = false;
+  if (full) {
+    probe.signalMin = probe.signalMax = _samples[0] >> 8;
+    for (size_t i = 0; i < BLOCK_SIZE; ++i) {
+      const int32_t value = _samples[i] >> 8;
+      if (value < probe.signalMin) probe.signalMin = value;
+      if (value > probe.signalMax) probe.signalMax = value;
+      if (value != (_samples[0] >> 8)) varied = true;
+      if (value > -8388608 && value < 8388607) unsaturated = true;
+    }
+  }
+  const bool activity = full && varied && unsaturated;
+  probe.record(static_cast<uint64_t>(esp_timer_get_time()) / 1000, full, activity,
+    probe.error != ESP_OK ? "read_failed" : !full ? "short_read" : activity ? "activity" : "no_activity");
+#endif
   integerToFloat(_samples, _real, _imag, SAMPLES);
 
   // apply HANN window, optimal for energy calculations

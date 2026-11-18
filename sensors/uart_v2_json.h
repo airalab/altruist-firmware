@@ -47,7 +47,7 @@ struct Metric {
   double value = 0;
   uint64_t seq = 0, measured = 0;
 
-  Metric(const char *name, const char *units, uint8_t channel = 0)
+  Metric(const char *name = nullptr, const char *units = nullptr, uint8_t channel = 0)
       : name(name), units(units), channel(channel) {}
 
   // Invoke only for a new valid result in a successful completed channel.
@@ -115,13 +115,34 @@ inline void writeNoise(JsonObject out, const Noise &n) {
   writeWindow(out.createNestedObject("window_current"), n.current, false);
 }
 
+inline void writeProbe(JsonObject out, const Probe &p) {
+  integer(out, "attempts_total", p.attempts);
+  integer(out, "transfers_total", p.transfers);
+  integer(out, "activity_total", p.activity);
+  optionalTime(out, "last_attempt_ms", p.lastAttempt, p.attempts > 0);
+  optionalTime(out, "last_transfer_ms", p.lastTransfer, p.transfers > 0);
+  optionalTime(out, "last_activity_ms", p.lastActivity, p.activity > 0);
+  out["result"] = p.result;
+  out["error_code"] = p.error;
+  integer(out, "bytes_read", p.bytes);
+  integer(out, "expected_bytes", p.expectedBytes);
+  if (p.hasSignal) {
+    out["signal_min"] = p.signalMin;
+    out["signal_max"] = p.signalMax;
+  } else { out["signal_min"] = nullptr; out["signal_max"] = nullptr; }
+  if (p.hasGas) {
+    out["gas_status"] = p.gasStatus;
+    integer(out, "gas_resistance", p.gasResistance);
+  } else { out["gas_status"] = nullptr; out["gas_resistance"] = nullptr; }
+}
+
 // The caller owns the UART-only document. Form it once, serialize once and
 // append LF in a single Serial.write; never add this metadata to sensors_data.
 // A lost write still consumes snapshot_seq and the interval, exposing the loss.
 inline bool formSnapshot(JsonDocument &doc, Telemetry &t, const Settings &s,
                          Metric *metrics, size_t metricCount,
                          const char *device, const char *boot, const char *model,
-                         uint64_t now, Noise *noise = nullptr) {
+                         uint64_t now, Noise *noise = nullptr, const Probe *probe = nullptr) {
   doc.clear();
   t.formedSnapshot(now);
   JsonObject values = doc.createNestedObject(sensorName(s.kind));
@@ -142,11 +163,16 @@ inline bool formSnapshot(JsonDocument &doc, Telemetry &t, const Settings &s,
   }
   meta["state"] = stateName(status->state);
   meta["reason"] = status->reason;
+  if (s.kind == Kind::Noise && probe && noise && noise->paused) meta["reason"] = "sds_active";
   if (status->state == State::Never && t.cycle > 0) {
     meta["state"] = "waiting";
     meta["reason"] = "channel_pending";
   }
   writeSettings(meta.createNestedObject("settings"), s);
+  if (probe) {
+    JsonObject probes = meta.createNestedObject("probes");
+    writeProbe(probes.createNestedObject(s.kind == Kind::Bme680 ? "gas" : "main"), *probe);
+  }
   JsonObject channels = meta.createNestedObject("channels");
   for (uint8_t i = 0; i < t.channelCount; ++i) {
     const Channel &c = t.channels[i];

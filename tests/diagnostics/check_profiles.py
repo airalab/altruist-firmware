@@ -111,14 +111,15 @@ class DiagnosticsProfiles(unittest.TestCase):
                 self.assertNotIn("serializeJson(data, Serial);", output)
         common = preprocess(ROOT / "sensors/sensor.h", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
         self.assertIn("serializeJson(snapshot, line);", common)
+        common += preprocess(ROOT / "sensors/uart_v2_json.h", ["ALTRUIST_BUILD_DEBUG"])
         for field in ("_observations", "version", "device_id", "boot_id", "model", "sensor",
-                      "snapshot_seq", "time_ms", "seq", "measured_ms", "state", "errors", "reason"):
+                      "snapshot_seq", "time_ms", "seq", "measured_ms", "state", "cycles_total", "failed_total", "reason"):
             self.assertIn('"' + field + '"', common)
         worker = preprocess(ROOT / "airrohr-firmware.ino", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
         self.assertIn("activeSensors[i]->debugSnapshotIfDue(sensors_data)", worker)
         release = preprocess(ROOT / "sensors/sensor.h", ["ESP32", "ALTRUIST_CHANNEL_TESTING", "ALTRUIST_FORCE_LOG_LEVEL=5"])
         self.assertNotIn("serializeJson(snapshot, line);", release)
-        self.assertNotIn("DebugMetric debugMetrics", release)
+        self.assertNotIn("uart_v2::Telemetry", release)
         self.assertNotIn('"_observations"', release)
         output = preprocess(ROOT / "sensors/bmx680i2c_sensor.cpp", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
         for field in ("voc_ppb", "voc_index", "voc_level", "voc_spikes_today", "gas_resistance", "gas_baseline"):

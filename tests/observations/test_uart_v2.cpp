@@ -34,10 +34,10 @@ static void success(Telemetry &t, std::vector<Metric> &m, uint64_t now,
 }
 
 static size_t emit(const char *scenario, Telemetry &t, const Settings &s,
-                  std::vector<Metric> &m, uint64_t time, Noise *noise = nullptr) {
+                  std::vector<Metric> &m, uint64_t time, Noise *noise = nullptr, const Probe *probe = nullptr) {
   DynamicJsonDocument doc(24576);
   CHECK(formSnapshot(doc, t, s, m.data(), m.size(), "1051DB010C70", "a-b",
-                     s.kind == Kind::Bme680 ? "insight" : "urban", time, noise));
+                     s.kind == Kind::Bme680 ? "insight" : "urban", time, noise, probe));
   CHECK(!doc.overflowed());
   std::string line;
   serializeJson(doc, line);
@@ -282,10 +282,43 @@ static void ratesAndTraffic() {
   }
 }
 
+
+static void activityEvidence() {
+  for (Kind kind : {Kind::Bme680, Kind::Noise}) {
+    Telemetry t(kind == Kind::Bme680 ? 2 : 1);
+    const bool noise = kind == Kind::Noise;
+    Settings s(kind, noise ? 100 : 300000, noise ? 0 : 300000, !noise, false);
+    auto m = metrics(kind);
+    Probe p;
+    Noise n;
+    t.setState(noise ? 0 : 1, State::Waiting, "driver_unverified");
+    const char *scenario = noise ? "probe_noise" : "probe_gas";
+    emit(scenario, t, s, m, 0, noise ? &n : nullptr, &p);
+    const uint64_t now = noise ? 30000 : 300000;
+    if (noise) {
+      p.expectedBytes = p.bytes = 8192;
+      p.hasSignal = true;
+      p.signalMin = -10; p.signalMax = 10;
+    } else {
+      success(t, m, now, 1);
+      p.hasGas = true; p.gasStatus = 0; p.gasResistance = 50000;
+    }
+    p.record(now, true, true, "activity");
+    emit(scenario, t, s, m, now, noise ? &n : nullptr, &p);
+    CHECK(t.channels[noise ? 0 : 1].ok == 0);
+    for (auto &metric : m) if (noise || metric.channel == 1) CHECK(metric.seq == 0);
+    p.error = -1; p.bytes = 0; p.hasSignal = p.hasGas = false;
+    p.record(now + 1000, false, false, "read_failed");
+    emit(scenario, t, s, m, now + 1000, noise ? &n : nullptr, &p);
+    CHECK(p.attempts == 2 && p.transfers == 1 && p.activity == 1);
+  }
+}
+
 int main() {
   slowSensors();
   partialGasAndHistory();
   noiseStatistics();
   boundsAndPublication();
   ratesAndTraffic();
+  activityEvidence();
 }

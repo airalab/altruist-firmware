@@ -12,6 +12,25 @@
 
 namespace uart_v2 {
 
+// Acquisition evidence only. These counters never advance measurement identities.
+struct Probe {
+  uint64_t attempts = 0, transfers = 0, activity = 0;
+  uint64_t lastAttempt = 0, lastTransfer = 0, lastActivity = 0;
+  const char *result = "never";
+  int32_t error = 0, signalMin = 0, signalMax = 0;
+  uint32_t bytes = 0, expectedBytes = 0, gasResistance = 0;
+  uint8_t gasStatus = 0;
+  bool hasSignal = false, hasGas = false;
+
+  void record(uint64_t time, bool transferred, bool active, const char *code) {
+    ++attempts;
+    lastAttempt = time;
+    result = code;
+    if (transferred) { ++transfers; lastTransfer = time; }
+    if (transferred && active) { ++activity; lastActivity = time; }
+  }
+};
+
 enum class State { Never, Warming, Waiting, Ok, Error };
 inline const char *stateName(State state) {
   switch (state) {
