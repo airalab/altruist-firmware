@@ -283,6 +283,46 @@ static void ratesAndTraffic() {
 }
 
 
+// Compare schedules using identical v2 serialization and acquisition inputs.
+// The reference adds the former 30s cache heartbeat to current state triggers;
+// it is a schedule-only baseline, not a replay of a historical firmware binary.
+static void publicationComparison() {
+  for (Kind kind : {Kind::Bme280, Kind::Bmp280, Kind::Bme680, Kind::Scd4x, Kind::Sds, Kind::Noise}) {
+    const bool noise = kind == Kind::Noise;
+    for (bool interrupted : {false, true}) {
+      if (interrupted && !noise) continue;
+      for (bool heartbeat : {true, false}) {
+        Telemetry t(kind == Kind::Bme680 ? 2 : 1);
+        Settings s(kind, noise ? 100 : kind == Kind::Sds ? 1000 : 300000,
+                   noise ? 0 : 300000, kind == Kind::Bme680, false);
+        auto m = metrics(kind);
+        Noise n;
+        Probe probe;
+        if (kind == Kind::Bme680) t.setState(1, State::Waiting, "driver_unverified");
+        const std::string scenario = std::string("compare_") +
+          (heartbeat ? "cache_" : "update_") + sensorName(kind) +
+          (interrupted ? "_interrupted" : "");
+        for (uint64_t time = 0; time <= 630000; time += 100) {
+          if (noise) CHECK(n.advance(time));
+          if (noise && interrupted && (time == 180100 || time == 180200)) {
+            CHECK(t.complete(time, 1, 1));
+          } else if (time > 0 && (noise ? time <= 600000 &&
+                     (!interrupted || time <= 180000 || time >= 550000) :
+                     time <= 600000 && time % 300000 == 0)) {
+            success(t, m, time, 1, 0, noise ? &n : nullptr);
+          }
+          // A shared final transition exposes the same cumulative evidence even
+          // when intermediate noise aggregates were intentionally coalesced.
+          if (time == 630000) t.setState(0, State::Waiting, "idle");
+          if (t.due(time, noise) || (heartbeat && time - t.lastPrint >= 30000))
+            emit(scenario.c_str(), t, s, m, time, noise ? &n : nullptr,
+                 kind == Kind::Bme680 ? &probe : nullptr);
+        }
+      }
+    }
+  }
+}
+
 static void activityEvidence() {
   for (Kind kind : {Kind::Bme680, Kind::Noise}) {
     Telemetry t(kind == Kind::Bme680 ? 2 : 1);
@@ -320,5 +360,6 @@ int main() {
   noiseStatistics();
   boundsAndPublication();
   ratesAndTraffic();
+  publicationComparison();
   activityEvidence();
 }

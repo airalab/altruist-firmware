@@ -133,6 +133,64 @@ def main():
         f"PASS firmware host assertions; {sum(map(len, streams.values()))} snapshots, "
         f"{len(streams)} streams; release preprocessing"
     )
+    # UTF-8 sensor JSON bytes including the LF sent on UART. Both streams use
+    # current v2 serialization; only the cache-heartbeat schedule differs.
+    for scenario, lines in streams.items():
+        if not scenario.startswith("compare_cache_"):
+            continue
+        sensor = scenario.removeprefix("compare_cache_")
+        updates = streams["compare_update_" + sensor]
+        before = [json.loads(line)["_observations"] for line in lines]
+        after = [json.loads(line)["_observations"] for line in updates]
+        for field in ("channels", "cycle_seq", "failures"):
+            assert before[-1][field] == after[-1][field], (sensor, field)
+        before_metrics = json.loads(lines[-1])[before[-1]["sensor"]]
+        after_metrics = json.loads(updates[-1])[after[-1]["sensor"]]
+        assert before_metrics == after_metrics, sensor
+        if sensor.startswith("ICS43434"):
+            for field in (
+                "successful_blocks_total",
+                "active_ms_total",
+                "last_ok_ms",
+                "windows",
+                "window_current",
+                "sds_pause",
+            ):
+                assert before[-1]["noise"][field] == after[-1]["noise"][field], (
+                    sensor,
+                    field,
+                )
+            maxima = [
+                max(
+                    int(item["noise"]["interval"]["max_gap_active_ms"])
+                    for item in frames
+                )
+                for frames in (before, after)
+            ]
+            assert maxima[0] == maxima[1], (sensor, maxima)
+        else:
+            # All slow acquisitions, including equal values, remain visible.
+            identities = [
+                {
+                    item["channels"]["environment" if sensor == "BME680" else "main"][
+                        "ok_total"
+                    ]
+                    for item in frames
+                }
+                for frames in (before, after)
+            ]
+            assert identities == [{"0", "1", "2"}] * 2, (sensor, identities)
+        old_bytes = sum(len(line.encode("utf-8")) + 1 for line in lines)
+        new_bytes = sum(len(line.encode("utf-8")) + 1 for line in updates)
+        assert len(updates) <= len(lines) and new_bytes <= old_bytes, sensor
+        if not sensor.startswith("ICS43434"):
+            assert len(lines) == 22 and len(updates) == 4, sensor
+        print(
+            f"UART schedule comparison {sensor} (630s): "
+            f"{len(lines)} records / {old_bytes} bytes -> "
+            f"{len(updates)} records / {new_bytes} bytes "
+            f"({100 * (1 - new_bytes / old_bytes):.1f}% fewer bytes); evidence PASS"
+        )
     if args.tester_root is None:
         print("Tester integration not requested (use --tester-root)")
         return
@@ -177,6 +235,31 @@ def main():
 
         trackers[scenario] = tracker
 
+    for sensor in (
+        "BME280",
+        "BMP280",
+        "BME680",
+        "SCD4x",
+        "SDS",
+        "ICS43434",
+        "ICS43434_interrupted",
+    ):
+        # Acceptance must retain the same diagnostic outcome despite fewer
+        # received cache records; aggregate sampling times may differ.
+        findings = [
+            {
+                (finding["code"], finding["severity"])
+                for finding in observation_findings(
+                    trackers[f"compare_{policy}_{sensor}"].as_dict(),
+                    reference_time=None,
+                )
+            }
+            for policy in ("cache", "update")
+        ]
+        assert findings[0] == findings[1], (sensor, findings)
+        if sensor == "ICS43434_interrupted":
+            assert ("SENSOR_NOISE_GAP", "fail") in findings[1], findings
+
     for count, severity in ((600, None), (599, "warn"), (300, "warn"), (299, "fail")):
         findings = observation_findings(
             trackers[f"rate_{count}"].as_dict(), reference_time=None
@@ -194,6 +277,24 @@ def main():
     traffic = trackers["traffic"]
     assert traffic.snapshots == 3 and traffic.duplicates == 0
     assert all(item["seq"] == 2 for item in traffic.latest.values())
+
+    burst = json.loads(streams["adapter_burst"][-1])["_observations"]
+    channel = burst["channels"]["main"]
+    assert (channel["cycles_total"], channel["ok_total"], channel["failed_total"]) == (
+        "3",
+        "1",
+        "2",
+    )
+    assert channel["last_recovered_ms"] == "2000300"
+    assert [item["at_ms"] for item in burst["failures"]["recent"]] == [
+        "2000100",
+        "2000200",
+    ]
+    assert len(streams["adapter_probe"]) == 7
+    probe = json.loads(streams["adapter_probe"][-1])["_observations"]
+    assert probe["channels"]["main"]["ok_total"] == "0"
+    assert probe["probes"]["main"]["attempts_total"] == "1212"
+    assert probe["probes"]["main"]["activity_total"] == "1211"
 
     # Use the actual supplied profiles, including their normalized null fields.
     from altruist_tester.config import load_tester_config

@@ -23,6 +23,15 @@ public:
   }
   uint64_t cycles() const { return debugTelemetry.cycle; }
   void initFail() { debugReadingError("injected_init_failure"); }
+  void probe(bool active) {
+    uart_v2::Probe p = debugProbe;
+    p.expectedBytes = 8192;
+    p.bytes = active ? 8192 : 0;
+    p.hasSignal = active;
+    p.signalMin = -10; p.signalMax = 10;
+    p.record(fakeNow, active, active, active ? "activity" : "read_failed");
+    debugSetProbe(p);
+  }
 };
 
 class PMWindow : public Sensor {
@@ -113,4 +122,47 @@ int main() {
   pm.fetch(data);
   CHECK(pm.cycles() == 1);
 
+  // Several error/recovery outcomes inside the state throttle must survive
+  // one publication, including failures before any successful result.
+  fakeNow = 2000000;
+  Reading burst("BME280");
+  burst.debugPrepare();
+  emit("adapter_burst", burst, data);
+  for (unsigned i = 1; i <= 3; ++i) {
+    fakeNow = 2000000 + i * 100;
+    burst.failed = i != 3;
+    burst.fetch(data);
+    const size_t writes = Serial.writes;
+    burst.debugSnapshotIfDue(data);
+    CHECK(Serial.writes == writes);
+  }
+  fakeNow = 2001000;
+  emit("adapter_burst", burst, data);
+
+  // Exercise the actual adapter's acquisition-only trigger, not just due().
+  fakeNow = 3000000;
+  Reading probeMic("ICS43434");
+  probeMic.debugPrepare();
+  emit("adapter_probe", probeMic, data);
+  for (unsigned tick = 1; tick <= 1210; ++tick) {
+    fakeNow = 3000000 + tick * 100;
+    probeMic.probe(true);
+    if (tick == 10 || (tick > 10 && (tick - 10) % 300 == 0))
+      emit("adapter_probe", probeMic, data);
+    else {
+      const size_t writes = Serial.writes;
+      probeMic.debugSnapshotIfDue(data);
+      CHECK(Serial.writes == writes);
+    }
+  }
+  // No new attempts: even a long pause must not repeat cached probes.
+  fakeNow += 300000;
+  const size_t writes = Serial.writes;
+  probeMic.debugSnapshotIfDue(data);
+  CHECK(Serial.writes == writes);
+  // Error then recovery inside 1s survives as counters/latest result.
+  probeMic.probe(false);
+  fakeNow += 100;
+  probeMic.probe(true);
+  emit("adapter_probe", probeMic, data);
 }
