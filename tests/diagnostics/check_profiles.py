@@ -223,8 +223,8 @@ class DiagnosticsProfiles(unittest.TestCase):
             if debug:
                 self.assertIn("INTL_SUPPORT_FORCED", output)
                 self.assertIn("level < static_cast<unsigned int>(4)", output)
-            self.assertIn("if (level == DEBUG_WARNING)", output)
-            self.assertIn("level = DEBUG_ERROR", output)
+            self.assertIn("value[0] != '2'", output)
+            self.assertNotIn("if (level == DEBUG_WARNING)", output)
             self.assertIn('F("mode_changed")', output)
 
     def test_snapshot_does_not_select_or_save_a_mode(self):

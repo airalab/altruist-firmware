@@ -37,10 +37,9 @@ therefore receives operational USB logs without needing debug firmware.
 Automatic release logging follows the saved cfg::debug, capped at 3. Forced
 project levels do not override that cap. Default is 3. The UI presents only named
 modes: Off, Errors only, Events; it highlights the active mode and shows no numeric
-input or numeric current-level indicator. Internal compatibility values are 0/1/3.
-Legacy 2 means warning threshold; operational events have no separate warning
-class, so a request for 2 is normalized to Errors only (1), and a stored 2 is
-shown as Errors only. Release still caps legacy 4/5 to Events.
+input or numeric current-level indicator. The named modes use values 0/1/3.
+Requests for value 2 are ignored. Release caps levels
+4/5 to Events; runtime verbosity cannot enable detailed diagnostics.
 
 Debug adds Detailed (4) and Most detailed (5). Its configured force remains a
 minimum: the standard force=4 build offers only Detailed and Most detailed,
@@ -117,8 +116,7 @@ Map server selection failures use debug `[CONNECTIVITY] failed ... stage=health
 reason=health_get_failed|health_begin_failed host=... code=...`. These GET probes
 are diagnostics, not POST delivery outcomes. Operational LOG uses the distinct
 `connectivity/health_failed` event at Info, without host/payload/response data.
-POST and local send failures use delivery events. Older firmware uses the same
-two health failure reasons without `stage=health`.
+POST and local send failures use delivery events.
 
 ## Versioned sensor UART snapshots
 
@@ -146,5 +144,5 @@ The temporary JSON document is 8192 bytes, followed by a serialization buffer;
 one Serial.write emits a complete line. Successful update counters may skip in
 UART because snapshots do not stream every physical reading. The tester owns
 freshness thresholds, duplicate handling and final verdicts. Detailed wire schema
-and compatibility are in the tester `docs/sensor-log-patterns.md`, section
+is documented in the tester `docs/sensor-log-patterns.md`, section
 "Versioned debug UART observations".

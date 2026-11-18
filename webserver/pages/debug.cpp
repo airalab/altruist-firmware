@@ -36,16 +36,11 @@ void apply_log_request(WebServer& server) {
 	}
 	if (server.hasArg("lvl")) {
 		const String value = server.arg("lvl");
-		if (value.length() == 1 && value[0] >= '0' && value[0] <= '5') {
+		if (value.length() == 1 && value[0] >= '0' && value[0] <= '5' && value[0] != '2') {
 			unsigned int level = value[0] - '0';
 #if !defined(ALTRUIST_BUILD_DEBUG)
 			level = min(level, static_cast<unsigned int>(DEBUG_MIN_INFO));
 #endif
-			// Legacy warning-only (2) has no separate operational event class.
-			// Normalize it to errors; keep the stored config key compatible.
-			if (level == DEBUG_WARNING) {
-				level = DEBUG_ERROR;
-			}
 #if defined(ALTRUIST_BUILD_DEBUG)
 			if (level < static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL)) {
 				return;
@@ -76,9 +71,6 @@ void append_log_controls(String& page_content, const char* path) {
 #endif
 	};
 	unsigned int active = effectiveRuntimeLogLevel();
-	if (active == DEBUG_WARNING) {
-		active = DEBUG_ERROR;
-	}
 	for (unsigned int level : levels) {
 #if defined(ALTRUIST_BUILD_DEBUG)
 		if (level < static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL)) {

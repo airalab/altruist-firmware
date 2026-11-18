@@ -134,8 +134,7 @@ logs sensor readings, payloads, remote response bodies, credentials or signature
 The local `/debug` and `/advanced` pages offer named modes Off, Errors only and
 Events; release cannot enable detailed debug output. Debug also offers Detailed
 and Most detailed, showing only modes at or above its build-time forced minimum.
-The active mode is highlighted; legacy numeric configuration remains compatible
-but has no separate visible input. Live changes do not reboot. The existing
+The active mode is highlighted; there is no separate numeric input. Live changes do not reboot. The existing
 Save and restart form persists the current mode and deliberately reboots. **Status snapshot** shows identity and runtime counters on
 request, including when automatic logging is off; `/serial?status=1` also returns
 it. `/serial` uses the same configured authentication as the debug page.
