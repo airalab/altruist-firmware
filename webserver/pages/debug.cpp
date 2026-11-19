@@ -48,7 +48,7 @@ void apply_log_request(WebServer& server) {
 #endif
 			cfg::debug = level;
 			if (effectiveRuntimeLogLevel() == 0) {
-				while (Debug.popLines().length() > 0) {}
+				Debug.clearLog();
 			}
 			logSupportEvent(0, F("logging"), F("mode_changed"), effectiveRuntimeLogLevel());
 		}

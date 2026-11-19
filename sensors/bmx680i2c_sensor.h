@@ -22,6 +22,9 @@ protected:
     void _fetch(JsonDocument &data) override;
 
 private:
+#if defined(ALTRUIST_BUILD_DEBUG)
+    uart_v2::Probe debugGasProbe;
+#endif
     Adafruit_BME680 *bme680 = nullptr;
     uint8_t sensor_address = 0;
 

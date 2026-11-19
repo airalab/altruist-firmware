@@ -26,6 +26,9 @@ BME680Sensor::BME680Sensor(unsigned long sending_timeout)
         timeout = BME680_SENSOR_MIN_TIMEOUT;
     }
     sensor_name = BME680_SENSOR_NAME;
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugSetProbe(debugGasProbe);
+#endif
 }
 
 BME680Sensor::~BME680Sensor() {
@@ -102,7 +105,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
 
         const bool readOk = bme680->performReading();
 #if defined(ALTRUIST_BUILD_DEBUG)
-        uart_v2::Probe probe = debugProbe;
+        auto &probe = debugGasProbe;
         probe.hasGas = readOk && bme680->debugNewData;
         probe.gasStatus = bme680->debugStatus;
         probe.gasResistance = bme680->debugGasResistance;

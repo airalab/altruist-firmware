@@ -44,7 +44,7 @@ inline const char *stateName(State state) {
 }
 
 struct Channel {
-  uint64_t cycles = 0, ok = 0, failed = 0;
+  uint64_t ok = 0, failed = 0;
   uint64_t lastOk = 0, lastFailed = 0, lastRecovered = 0;
   bool recovered = false;
   State state = State::Never;
@@ -52,7 +52,7 @@ struct Channel {
 };
 
 struct Failure {
-  uint64_t seq = 0, cycle = 0, at = 0;
+  uint64_t cycle = 0, at = 0;
   uint8_t channels = 0;
   const char *reason = "none";
 };
@@ -207,7 +207,6 @@ struct Telemetry {
     for (uint8_t i = 0; i < channelCount; ++i) {
       if (!(mask & (1u << i))) continue;
       Channel &c = channels[i];
-      ++c.cycles;
       if (failedMask & (1u << i)) {
         ++c.failed;
         c.lastFailed = time;
@@ -226,7 +225,7 @@ struct Telemetry {
     }
     if (failedMask) {
       Failure &f = failures[failureHead];
-      f.seq = nextFailure++;
+      ++nextFailure;
       f.cycle = cycle;
       f.at = time;
       f.channels = failedMask;

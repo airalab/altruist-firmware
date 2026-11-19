@@ -9,6 +9,9 @@
 
 namespace uart_v2 {
 
+// The largest sensor record fits in 256 slots; reserve decimal-string storage separately.
+constexpr size_t SnapshotCapacity = JSON_OBJECT_SIZE(256) + 4096;
+
 enum class Kind { Bme280, Bmp280, Bme680, Scd4x, Sds, Noise };
 
 inline const char *sensorName(Kind kind) {
@@ -178,7 +181,7 @@ inline size_t formSnapshot(JsonDocument &doc, Telemetry &t, const Settings &s,
     const Channel &c = t.channels[i];
     const char *name = s.kind == Kind::Bme680 ? (i == 0 ? "environment" : "gas") : "main";
     JsonObject channel = channels.createNestedObject(name);
-    integer(channel, "cycles_total", c.cycles);
+    integer(channel, "cycles_total", c.ok + c.failed);
     integer(channel, "ok_total", c.ok);
     integer(channel, "failed_total", c.failed);
     optionalTime(channel, "last_ok_ms", c.lastOk, c.ok > 0);
@@ -193,7 +196,7 @@ inline size_t formSnapshot(JsonDocument &doc, Telemetry &t, const Settings &s,
   for (size_t i = 0; i < t.failureCount; ++i) {
     const Failure &f = t.failure(i);
     JsonObject entry = recent.createNestedObject();
-    integer(entry, "seq", f.seq);
+    integer(entry, "seq", t.nextFailure - t.failureCount + i);
     integer(entry, "cycle_seq", f.cycle);
     integer(entry, "at_ms", f.at);
     entry["reason"] = f.reason;

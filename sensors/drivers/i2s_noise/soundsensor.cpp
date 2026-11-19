@@ -139,22 +139,13 @@ float* SoundSensor::readSamples(){
   probe.expectedBytes = BLOCK_SIZE * sizeof(_samples[0]);
   const bool full = probe.error == ESP_OK && num_bytes_read == probe.expectedBytes;
   probe.hasSignal = full;
-  bool varied = false, unsaturated = false;
-  if (full) {
-    probe.signalMin = probe.signalMax = _samples[0] >> 8;
-    for (size_t i = 0; i < BLOCK_SIZE; ++i) {
-      const int32_t value = _samples[i] >> 8;
-      if (value < probe.signalMin) probe.signalMin = value;
-      if (value > probe.signalMax) probe.signalMax = value;
-      if (value != (_samples[0] >> 8)) varied = true;
-      if (value > -8388608 && value < 8388607) unsaturated = true;
-    }
-  }
-  const bool activity = full && varied && unsaturated;
-  probe.record(static_cast<uint64_t>(esp_timer_get_time()) / 1000, full, activity,
+  const uint64_t readAt = static_cast<uint64_t>(esp_timer_get_time()) / 1000;
+#endif
+  [[maybe_unused]] const bool activity = integerToFloat(_samples, _real, _imag, SAMPLES);
+#if defined(ALTRUIST_BUILD_DEBUG)
+  probe.record(readAt, full, activity,
     probe.error != ESP_OK ? "read_failed" : !full ? "short_read" : activity ? "activity" : "no_activity");
 #endif
-  integerToFloat(_samples, _real, _imag, SAMPLES);
 
   // apply HANN window, optimal for energy calculations
   _fft->Windowing(FFT_WIN_TYP_HANN, FFT_FORWARD);     // changed was FFT_WIN_TYP_FLT_TOP
@@ -185,11 +176,23 @@ float* SoundSensor::readSamples(){
 
 // Convert 24-bit I2S samples to float normalized to Full Scale ±1.0 (ICS-43434).
 // DC removal kept for MEMS offset; absolute SPL uses FS = 2^23.
-void SoundSensor::integerToFloat(int32_t * samples, float *vReal, float *vImag, uint16_t size) {
+bool SoundSensor::integerToFloat(int32_t * samples, float *vReal, float *vImag, uint16_t size) {
+#if defined(ALTRUIST_BUILD_DEBUG)
+  auto &probe = i2sDebugProbe();
+  bool unsaturated = false;
+  if (probe.hasSignal) probe.signalMin = probe.signalMax = samples[0] >> 8;
+#endif
   float sum = 0.0;
   // calculate offset
    for (uint16_t i = 0; i < size; i++) {
     int32_t val = (samples[i] >> 8);            // move 24 value bits on the correct place in a long
+#if defined(ALTRUIST_BUILD_DEBUG)
+    if (probe.hasSignal) {
+      if (val < probe.signalMin) probe.signalMin = val;
+      if (val > probe.signalMax) probe.signalMax = val;
+      unsaturated = unsaturated || (val > -8388608 && val < 8388607);
+    }
+#endif
     vReal[i] = (float)val;
     sum += vReal[i];
   }
@@ -204,6 +207,11 @@ void SoundSensor::integerToFloat(int32_t * samples, float *vReal, float *vImag, 
     vReal[i] = (vReal[i] - newDC) / FS;
     vImag[i] = 0.0f;
   }
+#if defined(ALTRUIST_BUILD_DEBUG)
+  return probe.hasSignal && probe.signalMin < probe.signalMax && unsaturated;
+#else
+  return false;
+#endif
 }
 
 // calculates energy from Re and Im parts and places it back in the Re part (Im part is zeroed)

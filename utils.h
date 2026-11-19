@@ -32,7 +32,8 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HardwareSerial.h>
-#include <freertos/queue.h>
+#include <freertos/semphr.h>
+#include "support_log_tail.h"
 
 const char DBG_TXT_TEMPERATURE[] PROGMEM = "Temperature (°C): ";
 const char DBG_TXT_DECIBEL[] PROGMEM = "Noise Level (DB): ";
@@ -167,9 +168,14 @@ public:
 	int readStructured();
 	bool structuredOutputEnabled() const { return m_structured_output; }
 	String popLines();
+	void clearLog();
 
 private:
-	QueueHandle_t m_buffer;
+#if defined(ALTRUIST_BUILD_DEBUG)
+	SupportLogTail<LARGE_STR, false> m_tail;
+#else
+	SupportLogTail<2048, true> m_tail;
+#endif
 	SemaphoreHandle_t m_write_mutex;
 	bool m_structured_output = false;
 };

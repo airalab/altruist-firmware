@@ -67,7 +67,7 @@ class SoundSensor {
 #endif
 
     /// \brief Convert integer to float
-    void integerToFloat(int32_t *samples, float *vReal, float *vImag, uint16_t size);
+    bool integerToFloat(int32_t *samples, float *vReal, float *vImag, uint16_t size);
     
     // calculates energy from Re and Im parts and places it back in the Re part (Im part is zeroed)
     void calculateEnergy(float *vReal, float *vImag, uint16_t samples);

@@ -10,6 +10,10 @@ I2SNoiseSensor::I2SNoiseSensor(unsigned long sending_timeout)
     : Sensor(sending_timeout) {
     timeout = NOISE_READ_TIMEOUT;
     sensor_name = I2S_NOISE_SENSOR_NAME;
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugNoise = &debugNoiseState;
+    debugSetProbe(i2sDebugProbe());
+#endif
 }
 
 bool I2SNoiseSensor::begin() {

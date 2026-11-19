@@ -149,7 +149,8 @@ class DiagnosticsProfiles(unittest.TestCase):
                  "apis/robonomics_http_api.cpp", "apis/robonomics_datalog_api.cpp"]
         output = "\n".join(preprocess(ROOT / p, ["ALTRUIST_BUILD_DEBUG", "ALTRUIST_HEALTH_TELEMETRY", "ESP32"])
                            for p in paths)
-        for tag in ("BUILD", "BOOT", "LOG", "HEALTH", "PAYLOAD", "DATALOG", "CONNECTIVITY", "SUBSYSTEM"):
+        self.assertIn("Serial.println(F(ALTRUIST_BUILD_LINE));", output)
+        for tag in ("BOOT", "LOG", "HEALTH", "PAYLOAD", "DATALOG", "CONNECTIVITY", "SUBSYSTEM"):
             self.assertIn("[" + tag + "]", output)
         for debug in (False, True):
             output = preprocess(ROOT / "library_diagnostics.h", ["ALTRUIST_BUILD_DEBUG"] if debug else [])
@@ -158,12 +159,16 @@ class DiagnosticsProfiles(unittest.TestCase):
     def test_release_support_routes_and_snapshot(self):
         output = preprocess(ROOT / "utils.cpp", ["ESP32", "ALTRUIST_FORCE_LOG_LEVEL=5"])
         self.assertIn("return min(cfg::debug, static_cast<unsigned int>(DEBUG_MIN_INFO))", output)
-        self.assertIn("xQueueCreate(2048", output)
+        header = preprocess(ROOT / "utils.h", ["ESP32"])
+        self.assertIn("SupportLogTail<2048, true>", header)
+        debug_header = preprocess(ROOT / "utils.h", ["ESP32", "ALTRUIST_BUILD_DEBUG"])
+        self.assertIn("SupportLogTail<LARGE_STR, false>", debug_header)
         self.assertIn("Debug.write(reinterpret_cast<const uint8_t*>(line.c_str())", output)
         self.assertIn("Serial.write(reinterpret_cast<const uint8_t*>(line.c_str())", output)
         self.assertIn("if (!s_usb_log_quiet)", output)
         snapshot = output[output.index("void logSupportStatus("):output.index("void debugSetUsbQuiet(")]
-        self.assertIn('"[BUILD] version="', snapshot)
+        self.assertIn("writeSupportLine(F(ALTRUIST_BUILD_LINE), level)", snapshot)
+        self.assertIn('"[BUILD] version="', (ROOT / "defines.h").read_text())
         for field in ("uptime", "reset_reason", "heap", "wifi", "sensor_errors", "sd_errors"):
             self.assertIn(field + "=", snapshot)
         for forbidden in ("payload", "private_key", "signature", "temperature", "co2", "cfg::wlanpwd"):
@@ -174,8 +179,11 @@ class DiagnosticsProfiles(unittest.TestCase):
         oversized = datalog[datalog.index("if (proto_len > DATALOG_CHAIN_SAFE_BYTES)"):]
         self.assertIn('logSupportEvent(DEBUG_ERROR, F("datalog"), F("payload_too_large"))', oversized)
         self.assertIn("portENTER_CRITICAL", output)
-        self.assertIn("xQueueSendToBack(m_buffer, &buffer[i], 0)", output)
-        self.assertIn("uxQueueSpacesAvailable", output)
+        self.assertIn("m_tail.append(buffer, size)", output)
+        self.assertIn("m_tail.batchSize()", output)
+        esp_log = output[output.index("static int usb_esp_log_vprintf("):
+                         output.index("static void redirectLibcConsoleToUsb(")]
+        self.assertNotIn("vsnprintf(", esp_log)
 
     def test_release_event_details_remain_debug_only(self):
         for path in ("apis/robonomics_http_api.cpp", "apis/robonomics_datalog_api.cpp"):

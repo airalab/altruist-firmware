@@ -75,16 +75,16 @@ Examples:
 ```
 
 Status snapshot on /debug, /advanced or /serial?status=1 explicitly emits BUILD
-and LOG status to the web queue and USB, even with automatic logging off. It
+and LOG status to the web log and USB, even with automatic logging off. It
 includes no measured values, identifiers/credentials from network configuration,
 transport body or signature. wifi=1 means station association, not verified IP
 readiness. Periodic HEALTH and acceptance sensor readings are not introduced in
 release. Ordinary /serial polling does not generate status records.
 
-Release queue: fixed 2048 bytes in RAM; full old records are evicted before
-inserting support lines. Queue writes never wait for queue space; a slow/absent browser
+Release log tail: fixed 2048 bytes in RAM; full old records are evicted before
+inserting support lines. Writes never wait for free space; a slow/absent browser
 cannot accumulate unbounded memory. Debug uses its existing 511-byte capacity;
-its queue writes do not wait for a reader. A mutex coordinates writers
+its writes do not wait for a reader. A mutex coordinates writers
 and draining/eviction. USB output uses the real USB Serial, without forwarding
 support lines to UART0. Snapshot and curated events share the same writer.
 
@@ -92,7 +92,7 @@ Repeated automatic events are suppressed for 30 seconds per subsystem/event/code
 using 16 recent keys protected by a critical section. Older keys may be evicted
 when more than 16 distinct combinations occur. This is diagnostic throttling,
 not counters of failures or attempts. Explicit snapshots and mode acknowledgements bypass this limit.
-Web polling destructively drains the shared queue: multiple browsers and the
+Web polling destructively drains the shared tail: multiple browsers and the
 debug SD consumer do not each receive an independent copy. Persistent storage
 and multi-viewer replay are not supported.
 
@@ -164,7 +164,7 @@ the tester `docs/sensor-log-patterns.md`, section "Acquisition probes and limite
 activity profiles".
 
 Up to 16 metrics and 8192 serialized UTF-8 bytes per line are supported. A
-16384-byte temporary JSON pool is checked independently from serialized length;
+8192-byte temporary JSON pool on ESP32 is checked independently from serialized length;
 overflow or allocation failure emits the fixed v2 snapshot_overflow marker.
 The complete LF-terminated record is written in one call. A short USB write
 is delimited with LF before publishing another observation. A formed but lost

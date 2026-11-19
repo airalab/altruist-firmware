@@ -502,7 +502,7 @@ static void exceptionsLogWorker(void *pvParameters) {
 			continue;
 		}
 
-		// Drain the in-memory debug queue into a small buffer, then append to SD.
+		// Drain the in-memory debug tail into a small buffer, then append to SD.
 		for (int i = 0; i < 20; i++) { // cap work per cycle
 			String line = Debug.popLines();
 			if (line.length() == 0) break;
@@ -1618,16 +1618,7 @@ void setup(void) {
 
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 #if defined(ALTRUIST_BUILD_DEBUG)
-	Serial.printf(
-		"[BUILD] version=%s channel=%s commit=%s model=%s target=%s language=%s profile=%s\r\n",
-		SOFTWARE_VERSION_STR,
-		ALTRUIST_BUILD_CHANNEL,
-		ALTRUIST_BUILD_COMMIT,
-		ALTRUIST_BUILD_MODEL,
-		ALTRUIST_BUILD_TARGET,
-		ALTRUIST_BUILD_LANGUAGE,
-		ALTRUIST_BUILD_PROFILE
-	);
+	Serial.println(F(ALTRUIST_BUILD_LINE));
 #endif
 
 	init_config();

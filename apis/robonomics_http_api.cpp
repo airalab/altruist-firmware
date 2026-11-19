@@ -56,26 +56,18 @@ namespace
 		Serial.print(seq);
 		Serial.print(F(" reason="));
 		Serial.print(reason);
-#endif
 		if (host.length() > 0)
 		{
-#if defined(ALTRUIST_BUILD_DEBUG)
 			Serial.print(F(" host="));
 			Serial.print(host);
-#endif
 		}
-#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F(" code="));
 		Serial.print(code);
-#endif
 		if (response_len > 0)
 		{
-#if defined(ALTRUIST_BUILD_DEBUG)
 			Serial.print(F(" response_len="));
 			Serial.print(response_len);
-#endif
 		}
-#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.println();
 #endif
 	}

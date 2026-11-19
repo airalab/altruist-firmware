@@ -6,6 +6,7 @@
 #include "../utils.h"
 #if defined(ALTRUIST_BUILD_DEBUG)
 #include "uart_v2_json.h"
+#include <assert.h>
 #include <esp_timer.h>
 #include <esp_system.h>
 #endif
@@ -21,16 +22,19 @@ protected:
 
 #if defined(ALTRUIST_BUILD_DEBUG)
   uart_v2::Telemetry debugTelemetry;
-  uart_v2::Metric debugMetrics[16];
+  static constexpr size_t MaxDebugMetrics = 9;
+  static constexpr size_t MaxDebugValues = 3;
+  uart_v2::Metric debugMetrics[MaxDebugMetrics];
   size_t debugMetricCount = 0;
-  uint16_t debugWritten = 0;
-  double debugValues[16] = {};
+  uint8_t debugWritten = 0;
+  double debugValues[MaxDebugValues] = {};
   uart_v2::Kind debugKind = uart_v2::Kind::Bme280;
-  uart_v2::Noise debugNoise;
-  uart_v2::Probe debugProbe;
+  uart_v2::Noise *debugNoise = nullptr;
+  const uart_v2::Probe *debugProbe = nullptr;
+  const char *debugProbeResult = "never";
   uint64_t debugPublishedAttempts = 0;
   const char *debugFetchError = nullptr;
-  bool debugPrepared = false, debugFetching = false, debugActiveSds = false;
+  bool debugPrepared = false, debugFetching = false;
 
   static uint64_t debugNowMs() {
     return static_cast<uint64_t>(esp_timer_get_time()) / 1000;
@@ -46,6 +50,7 @@ protected:
     return id;
   }
   void debugAddMetric(const char *name, const char *units, uint8_t channel = 0) {
+    assert(debugMetricCount < MaxDebugMetrics && (channel != 0 || debugMetricCount < MaxDebugValues));
     debugMetrics[debugMetricCount++] = uart_v2::Metric(name, units, channel);
   }
   void debugCompleteCycle(bool ok, const char *reason = "read_failed") {
@@ -62,8 +67,9 @@ protected:
     }
   }
   void debugSetProbe(const uart_v2::Probe &probe) {
-    if (strcmp(debugProbe.result, probe.result) != 0) debugTelemetry.statePending = true;
-    debugProbe = probe;
+    if (strcmp(debugProbeResult, probe.result) != 0) debugTelemetry.statePending = true;
+    debugProbeResult = probe.result;
+    debugProbe = &probe;
   }
   static void debugWriteLine(const char *line, size_t length) {
     // All sensor snapshots share one USB stream and are written by the sensor worker.
@@ -83,12 +89,6 @@ protected:
     (void)reason;
 #endif
   }
-
-  void debugMetricError(const String &name, const char *reason) {
-    (void)name;
-    debugReadingError(reason);
-  }
-
 
   void updateFetchTime() {
     last_fetch_time = millis();
@@ -177,7 +177,7 @@ public:
     debugMetricCount = 0;
     if (debugKind == Kind::Noise) {
       debugAddMetric("noiseAvg", "dBA"); debugAddMetric("noiseMax", "dBA");
-      debugNoise = uart_v2::Noise(debugNowMs());
+      *debugNoise = uart_v2::Noise(debugNowMs());
       debugNoiseObserver() = this;
       debugTelemetry.setState(0, uart_v2::State::Waiting, "driver_unverified");
     } else if (debugKind == Kind::Sds) {
@@ -204,8 +204,7 @@ public:
 
   void debugSetSdsAvailable(bool available) {
 #if defined(ALTRUIST_BUILD_DEBUG)
-    debugActiveSds = available;
-    if (debugKind == uart_v2::Kind::Noise) debugNoise.pauseBudget = available ? 20000 : 0;
+    if (debugNoise) debugNoise->pauseBudget = available ? 20000 : 0;
 #else
     (void)available;
 #endif
@@ -217,8 +216,8 @@ public:
     debugSdsRunning() = running;
     if (running) ++debugSdsCycle();
     auto *observer = debugNoiseObserver();
-    if (observer && observer->debugNoise.pauseBudget &&
-        observer->debugNoise.setPause(debugNowMs(), debugSdsCycle(), running))
+    if (observer && observer->debugNoise->pauseBudget &&
+        observer->debugNoise->setPause(debugNowMs(), debugSdsCycle(), running))
       observer->debugTelemetry.statePending = true;
 #else
     (void)running;
@@ -229,15 +228,14 @@ public:
 #if defined(ALTRUIST_BUILD_DEBUG)
     if (!debugPrepared) return;
     const uint64_t now = debugNowMs();
-    const bool noise = debugKind == uart_v2::Kind::Noise;
-    const bool limited = noise || debugKind == uart_v2::Kind::Bme680;
-    const bool probeDue = limited && debugProbe.attempts != debugPublishedAttempts &&
+    const bool noise = debugNoise != nullptr;
+    const bool probeDue = debugProbe && debugProbe->attempts != debugPublishedAttempts &&
       now - debugTelemetry.lastPrint >= 30000;
     if (!debugTelemetry.due(now, noise) && !probeDue) return;
     uart_v2::Settings settings(debugKind, timeout, noise ? 0 :
       debugKind == uart_v2::Kind::Sds ? sending_timeout : timeout,
-      debugKind == uart_v2::Kind::Bme680, debugActiveSds);
-    DynamicJsonDocument snapshot(16384);
+      debugKind == uart_v2::Kind::Bme680, noise && debugNoise->pauseBudget != 0);
+    DynamicJsonDocument snapshot(uart_v2::SnapshotCapacity);
     const String device = get_chipid();
 #if defined(ALTRUIST_INSIGHT)
     const char *model = "insight";
@@ -246,8 +244,8 @@ public:
 #endif
     const size_t length = uart_v2::formSnapshot(snapshot, debugTelemetry, settings,
       debugMetrics, debugMetricCount, device.c_str(), debugBootId().c_str(), model,
-      now, noise ? &debugNoise : nullptr, limited ? &debugProbe : nullptr);
-    debugPublishedAttempts = debugProbe.attempts;
+      now, debugNoise, debugProbe);
+    if (debugProbe) debugPublishedAttempts = debugProbe->attempts;
     String line;
     if (length && line.reserve(length + 1)) {
       serializeJson(snapshot, line);

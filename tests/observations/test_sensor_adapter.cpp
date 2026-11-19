@@ -11,9 +11,18 @@ bool refuseStringReserve = false;
 } } while (false)
 
 class Reading : public Sensor {
+  uart_v2::Noise noise;
+  uart_v2::Probe probeData;
 public:
   bool failed = false, partial = false;
-  explicit Reading(const char *name) : Sensor(300000) { sensor_name = name; timeout = 300000; }
+  explicit Reading(const char *name) : Sensor(300000) {
+    sensor_name = name;
+    timeout = 300000;
+    if (strcmp(name, "ICS43434") == 0) {
+      debugNoise = &noise;
+      debugSetProbe(probeData);
+    }
+  }
   bool begin() override { return true; }
   void _fetch(JsonDocument &data) override {
     if (failed) { debugReadingError("injected_read_failure"); return; }
@@ -25,7 +34,7 @@ public:
   uint64_t cycles() const { return debugTelemetry.cycle; }
   void initFail() { debugReadingError("injected_init_failure"); }
   void probe(bool active) {
-    uart_v2::Probe p = debugProbe;
+    auto &p = probeData;
     p.expectedBytes = 8192;
     p.bytes = active ? 8192 : 0;
     p.hasSignal = active;

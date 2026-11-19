@@ -263,16 +263,18 @@ static int usb_vfs_fstat(int fd, struct stat *st)
 
 static int usb_esp_log_vprintf(const char *fmt, va_list args)
 {
+#if defined(ALTRUIST_BUILD_DEBUG)
+	if (s_usb_log_quiet) return 0;
 	char buf[192];
 	const int n = vsnprintf(buf, sizeof(buf), fmt, args);
-	if (n <= 0) {
-		return n;
-	}
-	if (project_diagnostics_enabled && !s_usb_log_quiet) {
+	if (n > 0) {
 		const size_t w = static_cast<size_t>(n) < (sizeof(buf) - 1) ? static_cast<size_t>(n) : (sizeof(buf) - 1);
 		Serial.write(reinterpret_cast<const uint8_t *>(buf), w);
 	}
 	return n;
+#else
+	return 0;
+#endif
 }
 
 #if defined(ALTRUIST_WRAP_LIBC_PRINTF)
@@ -280,13 +282,21 @@ extern "C" int __wrap_printf(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	char buf[256];
-	const int n = vsnprintf(buf, sizeof(buf), fmt, args);
-	va_end(args);
-	if (project_diagnostics_enabled && n > 0 && !s_usb_log_quiet) {
-		const size_t w = static_cast<size_t>(n) < (sizeof(buf) - 1) ? static_cast<size_t>(n) : (sizeof(buf) - 1);
-		Serial.write(reinterpret_cast<const uint8_t *>(buf), w);
+#if defined(ALTRUIST_BUILD_DEBUG)
+	if (!s_usb_log_quiet) {
+		char buf[256];
+		const int n = vsnprintf(buf, sizeof(buf), fmt, args);
+		va_end(args);
+		if (n > 0) {
+			const size_t w = static_cast<size_t>(n) < (sizeof(buf) - 1) ? static_cast<size_t>(n) : (sizeof(buf) - 1);
+			Serial.write(reinterpret_cast<const uint8_t *>(buf), w);
+		}
+		return n;
 	}
+#endif
+	// Preserve printf's return value even when the output is muted.
+	const int n = vsnprintf(nullptr, 0, fmt, args);
+	va_end(args);
 	return n;
 }
 
@@ -351,11 +361,6 @@ void debugRedirectConsoleToUsb()
 LoggingSerial::LoggingSerial()
     : HardwareSerial(0)
 {
-#if defined(ALTRUIST_BUILD_DEBUG)
-	m_buffer = xQueueCreate(LARGE_STR, sizeof(uint8_t));
-#else
-	m_buffer = xQueueCreate(2048, sizeof(uint8_t));
-#endif
 	m_write_mutex = xSemaphoreCreateMutex();
 }
 
@@ -366,27 +371,12 @@ size_t LoggingSerial::write(uint8_t c)
 
 size_t LoggingSerial::write(const uint8_t *buffer, size_t size)
 {
-	if (!buffer || !m_buffer) {
+	if (!buffer) {
 		return 0;
 	}
 	if (m_write_mutex) {
 		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
-	}
-#if !defined(ALTRUIST_BUILD_DEBUG)
-	// Support records arrive as complete lines. Evict whole old records first.
-	while (uxQueueSpacesAvailable(m_buffer) < size && uxQueueMessagesWaiting(m_buffer)) {
-		uint8_t discarded;
-		while (xQueueReceive(m_buffer, &discarded, 0) == pdPASS && discarded != '\n') {}
-	}
-#endif
-	for (size_t i = 0; i < size; i++) {
-		// Keep the newest bytes without blocking the device when nobody polls
-		// the web log. popLines shares this lock so eviction is atomic.
-		if (xQueueSendToBack(m_buffer, &buffer[i], 0) != pdPASS) {
-			uint8_t discarded;
-			xQueueReceive(m_buffer, &discarded, 0);
-			xQueueSendToBack(m_buffer, &buffer[i], 0);
-		}
+		m_tail.append(buffer, size);
 	}
 #if defined(ALTRUIST_BUILD_DEBUG)
 	const size_t n = m_structured_output ? size : HardwareSerial::write(buffer, size);
@@ -469,31 +459,27 @@ int LoggingSerial::readStructured()
 String LoggingSerial::popLines()
 {
 	String r;
-	if (!m_buffer) {
-		return r;
-	}
 	if (m_write_mutex) {
 		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
-	}
-	uint8_t c;
-	// Drain several lines per poll so the web log keeps up at max debug level.
-	unsigned lines = 0;
-	while (lines < 40 && xQueueReceive(m_buffer, &(c), 0)) {
-		r += (char) c;
-		if (c == '\n') {
-			++lines;
-			if (r.length() > 1200) {
-				break;
-			}
+		const size_t size = m_tail.batchSize();
+		if (size && r.reserve(size)) {
+			const size_t first = m_tail.firstSize(size);
+			r.concat(reinterpret_cast<const char*>(m_tail.firstData()), first);
+			r.concat(reinterpret_cast<const char*>(m_tail.secondData()), size - first);
+			m_tail.discard(size);
 		}
-		if (r.length() > 1800) {
-			break;
-		}
-	}
-	if (m_write_mutex) {
 		xSemaphoreGive(m_write_mutex);
 	}
 	return r;
+}
+
+void LoggingSerial::clearLog()
+{
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+		m_tail.clear();
+		xSemaphoreGive(m_write_mutex);
+	}
 }
 
 unsigned int effectiveRuntimeLogLevel() {
@@ -505,11 +491,11 @@ unsigned int effectiveRuntimeLogLevel() {
 }
 
 namespace {
-void writeSupportLine(const String& text, unsigned int level) {
+void writeSupportLine(String line, unsigned int level) {
 	if (level > effectiveRuntimeLogLevel()) {
 		return;
 	}
-	const String line = text + '\n';
+	if (!line.length() || !line.concat('\n')) return;
 	Debug.write(reinterpret_cast<const uint8_t*>(line.c_str()), line.length());
 	if (!s_usb_log_quiet) {
 		Serial.write(reinterpret_cast<const uint8_t*>(line.c_str()), line.length());
@@ -575,13 +561,7 @@ void logSupportStatus(unsigned int level) {
 	if (level > effectiveRuntimeLogLevel()) {
 		return;
 	}
-	writeSupportLine(String(F("[BUILD] version=")) + SOFTWARE_VERSION_STR +
-	                 F(" channel=") + ALTRUIST_BUILD_CHANNEL +
-	                 F(" commit=") + ALTRUIST_BUILD_COMMIT +
-	                 F(" model=") + ALTRUIST_BUILD_MODEL +
-	                 F(" target=") + ALTRUIST_BUILD_TARGET +
-	                 F(" language=") + ALTRUIST_BUILD_LANGUAGE +
-	                 F(" profile=") + ALTRUIST_BUILD_PROFILE, level);
+	writeSupportLine(F(ALTRUIST_BUILD_LINE), level);
 	writeSupportLine(String(F("[LOG] status uptime=")) + String(millis() / 1000UL) +
 	                 F(" boot=") + String(system_metrics.boot_counter) +
 	                 F(" reset_reason=") + system_metrics.reset_reason +

@@ -1,4 +1,5 @@
 #include "sensors/uart_v2_json.h"
+#include "support_log_tail.h"
 #include <cstdlib>
 #include <iostream>
 #include <limits>
@@ -35,7 +36,7 @@ static void success(Telemetry &t, std::vector<Metric> &m, uint64_t now,
 
 static size_t emit(const char *scenario, Telemetry &t, const Settings &s,
                   std::vector<Metric> &m, uint64_t time, Noise *noise = nullptr, const Probe *probe = nullptr) {
-  DynamicJsonDocument doc(24576);
+  DynamicJsonDocument doc(SnapshotCapacity);
   CHECK(formSnapshot(doc, t, s, m.data(), m.size(), "1051DB010C70", "a-b",
                      s.kind == Kind::Bme680 ? "insight" : "urban", time, noise, probe));
   CHECK(!doc.overflowed());
@@ -76,7 +77,7 @@ static void slowSensors() {
     emit(scenario, t, s, m, 1800000);
     success(t, m, 2400000);
     emit(scenario, t, s, m, 2400000);
-    CHECK(t.channels[0].cycles == 4 && t.channels[0].ok == 3 && t.channels[0].failed == 1);
+    CHECK(t.cycle == 4 && t.channels[0].ok == 3 && t.channels[0].failed == 1);
     CHECK(!t.due(2430000, false));
   }
 }
@@ -100,7 +101,8 @@ static void partialGasAndHistory() {
   success(t, m, 1200000, 3);
   emit("gas", t, s, m, 1200000);
   for (uint64_t i = 5; i <= 24; ++i) CHECK(t.complete(i * 300000, 3, 3));
-  CHECK(t.failureCount == 16 && t.failure(0).seq == 7 && t.failure(15).seq == 22);
+  CHECK(t.failureCount == 16 && t.failure(0).cycle == t.cycle - 15 &&
+        t.failure(15).cycle == t.cycle);
   emit("gas", t, s, m, 7200000);
 
   Telemetry disabled(2);
@@ -212,7 +214,6 @@ static void boundsAndPublication() {
   largest.snapshot = maxCounter - 1;
   largest.nextFailure = maxCounter - 16;
   for (Channel &c : largest.channels) {
-    c.cycles = maxCounter - 16;
     c.ok = 1;
     c.failed = maxCounter - 17;
     c.lastOk = maxClock - 1000;
@@ -356,7 +357,52 @@ static void activityEvidence() {
   }
 }
 
+template <size_t Capacity, bool WholeLines>
+static void supportLogTail() {
+  SupportLogTail<Capacity, WholeLines> tail;
+  std::string expected;
+  const auto append = [&](const std::string &text) {
+    if (WholeLines) {
+      while (expected.size() + text.size() > Capacity && !expected.empty()) {
+        const size_t newline = expected.find('\n');
+        expected.erase(0, newline == std::string::npos ? expected.size() : newline + 1);
+      }
+    }
+    expected += text;
+    if (expected.size() > Capacity) expected.erase(0, expected.size() - Capacity);
+    tail.append(reinterpret_cast<const uint8_t*>(text.data()), text.size());
+  };
+  const auto drain = [&]() {
+    size_t size = 0;
+    unsigned lines = 0;
+    while (size < expected.size() && size < 1801) {
+      if (expected[size++] == '\n' && (++lines == 40 || size > 1200)) break;
+    }
+    CHECK(tail.batchSize() == size);
+    const size_t first = tail.firstSize(size);
+    const std::string bytes = std::string(reinterpret_cast<const char*>(tail.firstData()), first) +
+      std::string(reinterpret_cast<const char*>(tail.secondData()), size - first);
+    CHECK(bytes == expected.substr(0, size));
+    expected.erase(0, size);
+    tail.discard(size);
+  };
+
+  for (unsigned i = 0; i < 150; ++i) append("a\n");
+  while (!expected.empty()) drain();
+  for (unsigned i = 0; i < 300; ++i) {
+    append(std::to_string(i) + std::string((i * 71) % 130, 'a') + '\n');
+    if (i % 19 == 0) drain();
+  }
+  append(std::string(Capacity + 37, 'x') + '\n');
+  while (!expected.empty()) drain();
+  append("ignored\n");
+  tail.clear();
+  CHECK(tail.batchSize() == 0);
+}
+
 int main() {
+  supportLogTail<2048, true>();
+  supportLogTail<511, false>();
   slowSensors();
   partialGasAndHistory();
   noiseStatistics();
