@@ -5,6 +5,7 @@
 #include <iostream>
 uint64_t fakeNow = 0;
 FakeSerial Serial;
+bool refuseStringReserve = false;
 #define CHECK(condition) do { if (!(condition)) { \
   std::cerr << __LINE__ << ": " << #condition << '\n'; std::exit(1); \
 } } while (false)
@@ -49,10 +50,10 @@ public:
   uint64_t cycles() const { return debugTelemetry.cycle; }
 };
 
-static void emit(const char *scenario, Sensor &sensor, JsonDocument &data) {
+static void emit(const char *scenario, Sensor &sensor) {
   Serial.output.clear();
   const size_t writes = Serial.writes;
-  sensor.debugSnapshotIfDue(data);
+  sensor.debugSnapshotIfDue();
   CHECK(Serial.writes == writes + 1);
   CHECK(Serial.output.back() == '\n');
   CHECK(Serial.output.find('\n') == Serial.output.size() - 1);
@@ -61,63 +62,81 @@ static void emit(const char *scenario, Sensor &sensor, JsonDocument &data) {
 
 int main() {
   DynamicJsonDocument data(4096);
+  Reading lost("BME280");
+  lost.debugPrepare();
+  Serial.limits = {8, 0};
+  lost.debugSnapshotIfDue();
+  CHECK(Serial.output == "{\"BME280");
+  Serial.output.clear();
+  Reading other("SCD4x");
+  other.debugPrepare();
+  other.debugSnapshotIfDue();
+  CHECK(Serial.output.rfind("\n{", 0) == 0 && Serial.output.back() == '\n');
+  Serial.output.clear();
+  refuseStringReserve = true;
+  Reading outOfMemory("BME280");
+  outOfMemory.debugPrepare();
+  outOfMemory.debugSnapshotIfDue();
+  CHECK(Serial.output == "{\"_observations\":{\"version\":2,\"error\":\"snapshot_overflow\"}}\n");
+  refuseStringReserve = false;
+
   Reading sensor("BME280");
   sensor.debugPrepare();
-  emit("adapter_bme", sensor, data);
+  emit("adapter_bme", sensor);
   CHECK(!data.containsKey("_observations"));
   fakeNow = 1000;
   sensor.fetch(data);
   CHECK(sensor.cycles() == 1 && sensor.jsonUpdated());
-  emit("adapter_bme", sensor, data);
+  emit("adapter_bme", sensor);
   CHECK(!sensor.jsonUpdated());  // UART publication did not consume API state.
   fakeNow = 31000;
   const size_t count = Serial.writes;
-  sensor.debugSnapshotIfDue(data);
+  sensor.debugSnapshotIfDue();
   CHECK(Serial.writes == count);  // cached fields do not create a heartbeat.
   fakeNow = 301000;
   sensor.fetch(data);
-  emit("adapter_bme", sensor, data);  // equal numbers advance all identities once.
+  emit("adapter_bme", sensor);  // equal numbers advance all identities once.
   fakeNow = 601000;
   sensor.failed = true;
   sensor.fetch(data);
-  emit("adapter_bme", sensor, data);
+  emit("adapter_bme", sensor);
   fakeNow = 901000;
   sensor.failed = false;
   sensor.fetch(data);
   // Prove that publication leaves pending API data available.
-  emit("adapter_bme", sensor, data);
+  emit("adapter_bme", sensor);
   CHECK(sensor.jsonUpdated());
   CHECK(!data.containsKey("_observations"));
   fakeNow = 1201000;
   sensor.partial = true;
   sensor.fetch(data);
-  emit("adapter_bme", sensor, data);  // incomplete cycle cannot freshen one field.
+  emit("adapter_bme", sensor);  // incomplete cycle cannot freshen one field.
 
   Reading absent("BME280");
   absent.debugPrepare();
   absent.initFail();
   CHECK(absent.cycles() == 0);
-  emit("adapter_init", absent, data);
+  emit("adapter_init", absent);
 
   PMWindow pm;
   pm.debugPrepare();
-  emit("adapter_sds", pm, data);
+  emit("adapter_sds", pm);
   pm.fetch(data);
   pm.fetch(data);
   CHECK(pm.cycles() == 0);  // UART polls do not complete PM windows.
   Reading mic("ICS43434");
   mic.debugPrepare();
   mic.debugSetSdsAvailable(true);
-  emit("adapter_pause", mic, data);
+  emit("adapter_pause", mic);
   fakeNow += 1000;
   Sensor::debugSdsTransition(true);
-  emit("adapter_pause", mic, data);
+  emit("adapter_pause", mic);
   fakeNow += 20000;
   Sensor::debugSdsTransition(false);
-  emit("adapter_pause", mic, data);
+  emit("adapter_pause", mic);
   pm.ready = true;
   pm.fetch(data);
-  emit("adapter_sds", pm, data);
+  emit("adapter_sds", pm);
   CHECK(pm.cycles() == 1);
   pm.fetch(data);
   CHECK(pm.cycles() == 1);
@@ -127,42 +146,42 @@ int main() {
   fakeNow = 2000000;
   Reading burst("BME280");
   burst.debugPrepare();
-  emit("adapter_burst", burst, data);
+  emit("adapter_burst", burst);
   for (unsigned i = 1; i <= 3; ++i) {
     fakeNow = 2000000 + i * 100;
     burst.failed = i != 3;
     burst.fetch(data);
     const size_t writes = Serial.writes;
-    burst.debugSnapshotIfDue(data);
+    burst.debugSnapshotIfDue();
     CHECK(Serial.writes == writes);
   }
   fakeNow = 2001000;
-  emit("adapter_burst", burst, data);
+  emit("adapter_burst", burst);
 
   // Exercise the actual adapter's acquisition-only trigger, not just due().
   fakeNow = 3000000;
   Reading probeMic("ICS43434");
   probeMic.debugPrepare();
-  emit("adapter_probe", probeMic, data);
+  emit("adapter_probe", probeMic);
   for (unsigned tick = 1; tick <= 1210; ++tick) {
     fakeNow = 3000000 + tick * 100;
     probeMic.probe(true);
     if (tick == 10 || (tick > 10 && (tick - 10) % 300 == 0))
-      emit("adapter_probe", probeMic, data);
+      emit("adapter_probe", probeMic);
     else {
       const size_t writes = Serial.writes;
-      probeMic.debugSnapshotIfDue(data);
+      probeMic.debugSnapshotIfDue();
       CHECK(Serial.writes == writes);
     }
   }
   // No new attempts: even a long pause must not repeat cached probes.
   fakeNow += 300000;
   const size_t writes = Serial.writes;
-  probeMic.debugSnapshotIfDue(data);
+  probeMic.debugSnapshotIfDue();
   CHECK(Serial.writes == writes);
   // Error then recovery inside 1s survives as counters/latest result.
   probeMic.probe(false);
   fakeNow += 100;
   probeMic.probe(true);
-  emit("adapter_probe", probeMic, data);
+  emit("adapter_probe", probeMic);
 }

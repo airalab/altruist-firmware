@@ -138,8 +138,8 @@ inline void writeProbe(JsonObject out, const Probe &p) {
 
 // The caller owns the UART-only document. Form it once, serialize once and
 // append LF in a single Serial.write; never add this metadata to sensors_data.
-// A lost write still consumes snapshot_seq and the interval, exposing the loss.
-inline bool formSnapshot(JsonDocument &doc, Telemetry &t, const Settings &s,
+// Return the measured wire length, or zero so the caller can send a fixed marker.
+inline size_t formSnapshot(JsonDocument &doc, Telemetry &t, const Settings &s,
                          Metric *metrics, size_t metricCount,
                          const char *device, const char *boot, const char *model,
                          uint64_t now, Noise *noise = nullptr, const Probe *probe = nullptr) {
@@ -222,14 +222,8 @@ inline bool formSnapshot(JsonDocument &doc, Telemetry &t, const Settings &s,
       noise->formedSnapshot();
     }
   }
-  if (!valid || doc.overflowed() || measureJson(doc) > 8192) {
-    doc.clear();
-    JsonObject overflow = doc.createNestedObject("_observations");
-    overflow["version"] = 2;
-    overflow["error"] = "snapshot_overflow";
-    return false;
-  }
-  return true;
+  const size_t length = valid && !doc.overflowed() ? measureJson(doc) : 0;
+  return length <= 8192 ? length : 0;
 }
 
 }  // namespace uart_v2

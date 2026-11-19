@@ -91,7 +91,7 @@ support lines to UART0. Snapshot and curated events share the same writer.
 Repeated automatic events are suppressed for 30 seconds per subsystem/event/code
 using 16 recent keys protected by a critical section. Older keys may be evicted
 when more than 16 distinct combinations occur. This is diagnostic throttling,
-not counters of failures or attempts. Explicit snapshots are not throttled.
+not counters of failures or attempts. Explicit snapshots and mode acknowledgements bypass this limit.
 Web polling destructively drains the shared queue: multiple browsers and the
 debug SD consumer do not each receive an independent copy. Persistent storage
 and multi-viewer replay are not supported.
@@ -165,6 +165,8 @@ activity profiles".
 
 Up to 16 metrics and 8192 serialized UTF-8 bytes per line are supported. A
 16384-byte temporary JSON pool is checked independently from serialized length;
-overflow emits the v2 snapshot_overflow marker. One Serial.write emits the
-complete LF-terminated record. A formed but lost record still consumes
-snapshot_seq and the noise interval, allowing the tester to detect coverage loss.
+overflow or allocation failure emits the fixed v2 snapshot_overflow marker.
+The complete LF-terminated record is written in one call. A short USB write
+is delimited with LF before publishing another observation. A formed but lost
+record still consumes snapshot_seq and the noise interval, so the tester can
+detect coverage loss.

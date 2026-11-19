@@ -517,23 +517,22 @@ void writeSupportLine(const String& text, unsigned int level) {
 }
 } // namespace
 
-void logSupportEvent(unsigned int level, const String& subsystem,
-                     const __FlashStringHelper* event, int code) {
-	if (level > effectiveRuntimeLogLevel()) {
-		return;
-	}
-	// A fixed table limits repeated events across tasks without retaining bodies,
-	// paths or credentials. Distinguish numeric codes so HTTP 403 does not
-	// hide a different failure from a fallback route.
-	const String key = subsystem + '/' + String(event) + '/' + String(code);
+namespace {
+bool suppressSupportEvent(const String& subsystem, const char* event, int code, unsigned long now) {
+	// Mix fields directly so suppressed records don't allocate a combined key.
 	uint32_t hash = 2166136261u;
-	for (size_t i = 0; i < key.length(); ++i) {
-		hash = (hash ^ static_cast<uint8_t>(key[i])) * 16777619u;
+	for (size_t i = 0; i < subsystem.length(); ++i) {
+		hash = (hash ^ static_cast<uint8_t>(subsystem[i])) * 16777619u;
 	}
+	hash = (hash ^ '/') * 16777619u;
+	for (const char* c = event; *c; ++c) {
+		hash = (hash ^ static_cast<uint8_t>(*c)) * 16777619u;
+	}
+	hash = (hash ^ static_cast<uint32_t>(code)) * 16777619u;
+
 	struct EventStamp { uint32_t hash; unsigned long at; bool used; };
 	static EventStamp recent[16] = {};
 	static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-	const unsigned long now = millis();
 	portENTER_CRITICAL(&mux);
 	size_t slot = 0;
 	for (size_t i = 0; i < 16; ++i) {
@@ -541,7 +540,7 @@ void logSupportEvent(unsigned int level, const String& subsystem,
 			slot = i;
 			break;
 		}
-		if (!recent[i].used || now - recent[i].at > now - recent[slot].at) {
+		if (!recent[i].used || (recent[slot].used && now - recent[i].at > now - recent[slot].at)) {
 			slot = i;
 		}
 	}
@@ -551,12 +550,24 @@ void logSupportEvent(unsigned int level, const String& subsystem,
 		stamp = {hash, now, true};
 	}
 	portEXIT_CRITICAL(&mux);
-	if (suppressed) {
+	return suppressed;
+}
+} // namespace
+
+void logSupportEvent(unsigned int level, const String& subsystem,
+                     const __FlashStringHelper* event, int code) {
+	if (level > effectiveRuntimeLogLevel()) {
 		return;
 	}
-	writeSupportLine(String(F("[LOG] uptime=")) + String(millis() / 1000UL) +
+	const unsigned long now = millis();
+	const char* event_name = reinterpret_cast<const char*>(event);
+	// Level zero is reserved for explicit operator acknowledgements.
+	if (level != 0 && suppressSupportEvent(subsystem, event_name, code, now)) {
+		return;
+	}
+	writeSupportLine(String(F("[LOG] uptime=")) + String(now / 1000UL) +
 	                 F(" level=") + (level == DEBUG_ERROR ? F("error") : F("event")) + F(" subsystem=") +
-	                 subsystem + F(" event=") + String(event) +
+	                 subsystem + F(" event=") + event_name +
 	                 F(" code=") + String(code), level);
 }
 

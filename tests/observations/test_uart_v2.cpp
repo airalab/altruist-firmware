@@ -228,7 +228,6 @@ static void boundsAndPublication() {
 
   DynamicJsonDocument small(256);
   CHECK(!formSnapshot(small, largest, s, gas.data(), gas.size(), "1051DB010C70", "a-b", "insight", maxClock));
-  CHECK(small["_observations"]["error"] == "snapshot_overflow");
   CHECK(largest.snapshot == maxCounter + 1);  // formation consumes seq even on overflow
 
   Telemetry tooLong;
@@ -238,7 +237,10 @@ static void boundsAndPublication() {
   DynamicJsonDocument big(32768);
   // ArduinoJson borrows const char*, so this exercises encoded bytes, not pool exhaustion.
   CHECK(!formSnapshot(big, tooLong, bme, m.data(), m.size(), "1051DB010C70", "a-b", "urban", 0));
-  CHECK(big["_observations"]["error"] == "snapshot_overflow");
+  DynamicJsonDocument noPool(0);
+  const auto before = tooLong.snapshot;
+  CHECK(formSnapshot(noPool, tooLong, bme, m.data(), m.size(), "1051DB010C70", "a-b", "urban", 1) == 0);
+  CHECK(tooLong.snapshot == before + 1);
 }
 
 static void ratesAndTraffic() {

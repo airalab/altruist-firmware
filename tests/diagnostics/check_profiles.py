@@ -116,7 +116,7 @@ class DiagnosticsProfiles(unittest.TestCase):
                       "snapshot_seq", "time_ms", "seq", "measured_ms", "state", "cycles_total", "failed_total", "reason"):
             self.assertIn('"' + field + '"', common)
         worker = preprocess(ROOT / "airrohr-firmware.ino", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
-        self.assertIn("activeSensors[i]->debugSnapshotIfDue(sensors_data)", worker)
+        self.assertIn("activeSensors[i]->debugSnapshotIfDue()", worker)
         release = preprocess(ROOT / "sensors/sensor.h", ["ESP32", "ALTRUIST_CHANNEL_TESTING", "ALTRUIST_FORCE_LOG_LEVEL=5"])
         self.assertNotIn("serializeJson(snapshot, line);", release)
         self.assertNotIn("uart_v2::Telemetry", release)
@@ -169,6 +169,10 @@ class DiagnosticsProfiles(unittest.TestCase):
         for forbidden in ("payload", "private_key", "signature", "temperature", "co2", "cfg::wlanpwd"):
             self.assertNotIn(forbidden, snapshot)
         self.assertIn("now - stamp.at < 30000UL", output)
+        self.assertIn("level != 0 && suppressSupportEvent", output)
+        datalog = preprocess(ROOT / "apis/robonomics_datalog_api.cpp", ["ESP32"])
+        oversized = datalog[datalog.index("if (proto_len > DATALOG_CHAIN_SAFE_BYTES)"):]
+        self.assertIn('logSupportEvent(DEBUG_ERROR, F("datalog"), F("payload_too_large"))', oversized)
         self.assertIn("portENTER_CRITICAL", output)
         self.assertIn("xQueueSendToBack(m_buffer, &buffer[i], 0)", output)
         self.assertIn("uxQueueSpacesAvailable", output)

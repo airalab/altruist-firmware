@@ -199,6 +199,7 @@ void RobonomicsDatalogAPI::_send(JsonDocument &data)
         }
         if (proto_len > DATALOG_CHAIN_SAFE_BYTES)
         {
+            logSupportEvent(DEBUG_ERROR, F("datalog"), F("payload_too_large"));
 #if defined(ALTRUIST_BUILD_DEBUG)
             Serial.print(F("[DATALOG] failed reason=payload_too_large encoding=proto payload_len="));
             Serial.println(proto_len);

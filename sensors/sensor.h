@@ -65,6 +65,13 @@ protected:
     if (strcmp(debugProbe.result, probe.result) != 0) debugTelemetry.statePending = true;
     debugProbe = probe;
   }
+  static void debugWriteLine(const char *line, size_t length) {
+    // All sensor snapshots share one USB stream and are written by the sensor worker.
+    static bool needsLf = false;
+    if (needsLf && Serial.write('\n') != 1) return;
+    const size_t sent = Serial.write(reinterpret_cast<const uint8_t *>(line), length);
+    needsLf = sent > 0 && sent < length && Serial.write('\n') != 1;
+  }
 #endif
 
   void debugReadingError(const char *reason) {
@@ -218,14 +225,12 @@ public:
 #endif
   }
 
-  void debugSnapshotIfDue(JsonDocument &data) {
+  void debugSnapshotIfDue() {
 #if defined(ALTRUIST_BUILD_DEBUG)
-    (void)data;
     if (!debugPrepared) return;
     const uint64_t now = debugNowMs();
     const bool noise = debugKind == uart_v2::Kind::Noise;
     const bool limited = noise || debugKind == uart_v2::Kind::Bme680;
-    if (noise) debugNoise.advance(now);
     const bool probeDue = limited && debugProbe.attempts != debugPublishedAttempts &&
       now - debugTelemetry.lastPrint >= 30000;
     if (!debugTelemetry.due(now, noise) && !probeDue) return;
@@ -239,16 +244,20 @@ public:
 #else
     const char *model = "urban";
 #endif
-    uart_v2::formSnapshot(snapshot, debugTelemetry, settings, debugMetrics,
-      debugMetricCount, device.c_str(), debugBootId().c_str(), model, now,
-      noise ? &debugNoise : nullptr, limited ? &debugProbe : nullptr);
+    const size_t length = uart_v2::formSnapshot(snapshot, debugTelemetry, settings,
+      debugMetrics, debugMetricCount, device.c_str(), debugBootId().c_str(), model,
+      now, noise ? &debugNoise : nullptr, limited ? &debugProbe : nullptr);
     debugPublishedAttempts = debugProbe.attempts;
     String line;
-    serializeJson(snapshot, line);
-    line += '\n';
-    Serial.write(reinterpret_cast<const uint8_t *>(line.c_str()), line.length());
-#else
-    (void)data;
+    if (length && line.reserve(length + 1)) {
+      serializeJson(snapshot, line);
+      if (line.length() == length && line.concat('\n')) {
+        debugWriteLine(line.c_str(), line.length());
+        return;
+      }
+    }
+    static constexpr char overflow[] = "{\"_observations\":{\"version\":2,\"error\":\"snapshot_overflow\"}}\n";
+    debugWriteLine(overflow, sizeof(overflow) - 1);
 #endif
   }
 
