@@ -13,6 +13,9 @@ public:
     void setSDSRunning(bool running) { is_SDS_running = running; }
 
 private:
+#if defined(ALTRUIST_BUILD_DEBUG)
+    uart_v2::Noise debugNoiseState;
+#endif
     void _fetch(JsonDocument &data) override;
     bool is_SDS_running = false;
     uint8_t last_value_DBMETER = 0;

@@ -159,8 +159,10 @@ bool EPD_4IN2_V2_ReadBusy(void)
         
         // Check for timeout
         if (now - start > timeout_ms) {
+#if defined(ALTRUIST_BUILD_DEBUG)
             Serial.println(F("[EPD] ERROR: busy timeout after 10s! Display may be stuck."));
             Serial.flush();
+#endif
             return false; // Timed out - display stuck
         }
         

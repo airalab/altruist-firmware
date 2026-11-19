@@ -61,28 +61,39 @@ namespace
 
     void logDatalogAttempt(size_t payload_len, const char *encoding, bool using_self_owner)
     {
+        logSupportEvent(DEBUG_MIN_INFO, F("datalog"), F("attempt"));
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.print(F("[DATALOG] attempt payload_len="));
         Serial.print(payload_len);
         Serial.print(F(" encoding="));
         Serial.print(encoding);
         Serial.print(F(" owner_self_fallback="));
         Serial.println(using_self_owner ? 1 : 0);
+#endif
     }
 
     void logDatalogSuccess(size_t response_len)
     {
+        logSupportEvent(DEBUG_MIN_INFO, F("datalog"), F("success"));
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.print(F("\r\n[DATALOG] success response_len="));
         Serial.println(response_len);
+#endif
     }
 
     void logDatalogLocalFailure(const char *reason)
     {
+        logSupportEvent(DEBUG_ERROR, F("datalog"), F("local_failure"));
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.print(F("[DATALOG] failed reason="));
         Serial.println(reason);
+#endif
     }
 
     void logDatalogFailure(const String &reason, int code, const String &message, size_t response_len)
     {
+        logSupportEvent(DEBUG_ERROR, F("datalog"), F("send_failed"), code);
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.print(F("\r\n[DATALOG] failed reason="));
         Serial.print(reason);
         Serial.print(F(" code="));
@@ -91,6 +102,7 @@ namespace
         Serial.print(message);
         Serial.print(F(" response_len="));
         Serial.println(response_len);
+#endif
     }
 
     bool parseRpcError(const String &response, int &code, String &message)
@@ -187,8 +199,11 @@ void RobonomicsDatalogAPI::_send(JsonDocument &data)
         }
         if (proto_len > DATALOG_CHAIN_SAFE_BYTES)
         {
+            logSupportEvent(DEBUG_ERROR, F("datalog"), F("payload_too_large"));
+#if defined(ALTRUIST_BUILD_DEBUG)
             Serial.print(F("[DATALOG] failed reason=payload_too_large encoding=proto payload_len="));
             Serial.println(proto_len);
+#endif
             is_ok = false;
             return;
         }

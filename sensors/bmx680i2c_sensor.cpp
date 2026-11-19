@@ -26,6 +26,9 @@ BME680Sensor::BME680Sensor(unsigned long sending_timeout)
         timeout = BME680_SENSOR_MIN_TIMEOUT;
     }
     sensor_name = BME680_SENSOR_NAME;
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugSetProbe(debugGasProbe);
+#endif
 }
 
 BME680Sensor::~BME680Sensor() {
@@ -36,6 +39,8 @@ bool BME680Sensor::begin() {
     debug_outln_info(F("Begin BME680Sensor"));
     I2cBusLock bus;
     if (!bus.ok()) {
+        debugReadingError("bme680_bus_lock_failed");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_bus_lock_failed"));
         debug_outln_error(F("BME680 I2C bus lock failed"));
         return false;
     }
@@ -63,6 +68,9 @@ bool BME680Sensor::begin() {
         return true;
     }
 
+    debugReadingError("bme680_not_found");
+
+    logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_not_found"));
     return false;
 }
 
@@ -89,11 +97,28 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     {
         I2cBusLock bus;
         if (!bus.ok()) {
+            debugReadingError("bme680_bus_lock_failed");
+            logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_bus_lock_failed"));
             debug_outln_error(F("BME680 I2C bus lock failed in fetch"));
             return;
         }
 
-        if (!bme680->performReading()) {
+        const bool readOk = bme680->performReading();
+#if defined(ALTRUIST_BUILD_DEBUG)
+        auto &probe = debugGasProbe;
+        probe.hasGas = readOk && bme680->debugNewData;
+        probe.gasStatus = bme680->debugStatus;
+        probe.gasResistance = bme680->debugGasResistance;
+        probe.error = bme680->debugReadCode;
+        const bool activity = probe.hasGas && probe.gasResistance > 0;
+        probe.record(debugNowMs(), probe.hasGas, activity,
+          !readOk ? "read_failed" : !probe.hasGas ? "no_new_data" : activity ? "activity" : "no_activity");
+        debugSetProbe(probe);
+        if (readOk && !bme680->debugNewData) debugReadingError("bme680_no_new_data");
+#endif
+        if (!readOk) {
+            debugReadingError("bme680_read_failed");
+            logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_read_failed"));
             debug_outln_error(F("BME680 reading failed"));
             return;
         }
@@ -200,9 +225,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     addValueToJSON(data, F("gas_resistance"), last_gas_resistance_value, INTL_GAS_RESISTANCE, F("Ohm"));
     addValueToJSON(data, F("gas_baseline"), (uint32_t)(gas_baseline_ohm + 0.5f), INTL_GAS_BASELINE, F("Ohm"));
 
-#if defined(ALTRUIST_BUILD_DEBUG)
-    serializeJson(data, Serial);
-#endif
+
 }
 
 void BME680Sensor::updateVocSpikeDetector() {
@@ -391,6 +414,7 @@ void BME680Sensor::persistVocDay() {
     doc["e"] = voc_event_open;
     File f = SPIFFS.open(F("/voc_day.json"), "w");
     if (!f) {
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bme680_voc_save_failed"));
         debug_outln_error(F("BME680 VOC day save failed"));
         return;
     }

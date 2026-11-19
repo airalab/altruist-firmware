@@ -33,14 +33,20 @@ bool SDS011Sensor::begin() {
     cmd(PmSensorCmd::ContinuousMode);
     delay(100);
     debug_outln_info(F("Stopping SDS011..."));
-    is_SDS_running = cmd(PmSensorCmd::Stop);
+    setRunning(cmd(PmSensorCmd::Stop));
     last_measure_time = millis() - (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS));
     debug_outln_info(F("SDS011 started with fetch interval (sec): "), String(sending_timeout/1000));
+    if (last_value_SDS_version.length() == 0) {
+        debugReadingError("sds011_not_found");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("sds011_not_found"));
+    }
     return last_value_SDS_version.length() > 0;
 }
 
 void SDS011Sensor::sdsUartRecover() {
 	sds_recovery_count++;
+	debugReadingError("sds011_recovery");
+	logSupportEvent(DEBUG_ERROR, F("sensor"), F("sds011_recovery"));
 	debug_outln_info(F("[SDS011] recover: drain UART, re-init, idle cycle"));
 	debug_outln_info(F("[SDS011] recovery count: "), String(sds_recovery_count));
 	while (serialSDS.available()) {
@@ -56,7 +62,7 @@ void SDS011Sensor::sdsUartRecover() {
 	delay(150);
 	cmd(PmSensorCmd::ContinuousMode);
 	delay(100);
-	is_SDS_running = cmd(PmSensorCmd::Stop);
+	setRunning(cmd(PmSensorCmd::Stop));
 	SDS_waiting_for = SDS_REPLY_HDR;
 	last_measure_time = millis() - (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS));
 }
@@ -64,13 +70,13 @@ void SDS011Sensor::sdsUartRecover() {
 void SDS011Sensor::_fetch(JsonDocument &data) {
 	if (msSince(last_measure_time) < (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
 		if (is_SDS_running) {
-			is_SDS_running = cmd(PmSensorCmd::Stop);
+			setRunning(cmd(PmSensorCmd::Stop));
             debug_outln_verbose(F("SDS011 stopped"));
 		}
         return;
 	} else {
 		if (! is_SDS_running) {
-			is_SDS_running = cmd(PmSensorCmd::Start);
+			setRunning(cmd(PmSensorCmd::Start));
 			SDS_waiting_for = SDS_REPLY_HDR;
             debug_outln_verbose(F("SDS011 started"));
 		}
@@ -121,19 +127,22 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
             last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
             addValueToJSON(data, F("P1"), last_value_SDS_P1, "PM10", F("µg/m³"));
             addValueToJSON(data, F("P2"), last_value_SDS_P2, "PM2.5", F("µg/m³"));
+#if defined(ALTRUIST_BUILD_DEBUG)
+            debugCompleteCycle(true);
+#endif
             sds_bad_window_streak = 0;
             debug_outln_verbose(F("PM10: "), String(last_value_SDS_P1));
             debug_outln_verbose(F("PM2.5: "), String(last_value_SDS_P2));
-            #if defined(ALTRUIST_BUILD_DEBUG)
-            serializeJson(data, Serial);
-            Serial.println();
-            Serial.println();
-            #endif
+
             debug_outln_verbose(F("\r\nJSON memory usage: "), String(data.memoryUsage()));
             if (sds_val_count < 3) {
                 SDS_error_count++;
             }
         } else {
+            debugReadingError("sds011_empty_window");
+#if defined(ALTRUIST_BUILD_DEBUG)
+            debugCompleteCycle(false, "sds011_empty_window");
+#endif
             SDS_error_count++;
             sds_bad_window_streak++;
             if (sds_bad_window_streak >= kSdsRecoverAfterBadWindows) {
@@ -151,7 +160,7 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
         sds_pm25_min = 20000;
 
         if (is_SDS_running) {
-            is_SDS_running = cmd(PmSensorCmd::Stop);
+            setRunning(cmd(PmSensorCmd::Stop));
         }
     }
 }
@@ -159,7 +168,7 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
 String SDS011Sensor::version_date() {
 	if (!last_value_SDS_version.length()) {
 		debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(DBG_TXT_SDS011_VERSION_DATE));
-		is_SDS_running = cmd(PmSensorCmd::Start);
+		setRunning(cmd(PmSensorCmd::Start));
 		delay(250);
 #if defined(ESP8266)
 		serialSDS.perform_work();
@@ -212,6 +221,8 @@ bool SDS011Sensor::rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, cons
 	buf[18] = 0xAB;
 	const size_t written = serialSDS.write(buf, cmd_len);
 	if (written != cmd_len) {
+		debugReadingError("sds011_command_failed");
+		logSupportEvent(DEBUG_ERROR, F("sensor"), F("sds011_command_failed"));
 		debug_outln_error(F("[SDS011] command write failed"));
 		return false;
 	}

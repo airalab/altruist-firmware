@@ -14,11 +14,15 @@
 #ifndef __DEBUG_H
 #define __DEBUG_H
 
+#if defined(ALTRUIST_BUILD_DEBUG)
 #define USE_DEBUG 1
+#else
+#define USE_DEBUG 0
+#endif
 #if USE_DEBUG
 	#define Debug(__info) Serial.print(__info)
 #else
-	#define Debug(__info)  
+	#define Debug(__info)
 #endif
 
 #endif

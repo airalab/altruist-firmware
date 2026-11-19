@@ -79,6 +79,7 @@ enum {
 
 BMX280Sensor::BMX280Sensor(unsigned long sending_timeout)
     : Sensor(sending_timeout) {
+    sensor_name = BME_SENSOR_NAME;
     if (sending_timeout > BMX_SENSOR_MIN_TIMEOUT) {
     timeout = sending_timeout;
     } else {
@@ -89,12 +90,16 @@ BMX280Sensor::BMX280Sensor(unsigned long sending_timeout)
 bool BMX280Sensor::begin() {
     I2cBusLock bus;
     if (!bus.ok()) {
+        debugReadingError("bmx280_bus_lock_failed");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_bus_lock_failed"));
         debug_outln_error(F("BMX280 I2C bus lock failed"));
         return false;
     }
 
     bool res;
     if (!begin(0x76, I2C_MASTER_NUM) && !begin(0x77, I2C_MASTER_NUM)) {
+        debugReadingError("bmx280_not_found");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_not_found"));
         debug_outln_error(F("Check BMx280 wiring"));
         res = false;
     } else {
@@ -109,12 +114,16 @@ bool BMX280Sensor::begin() {
 void BMX280Sensor::_fetch(JsonDocument &data) {
     I2cBusLock bus;
     if (!bus.ok()) {
+        debugReadingError("bmx280_bus_lock_failed");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_bus_lock_failed"));
         debug_outln_error(F("BMX280 I2C bus lock failed in fetch"));
         return;
     }
 
     if (_sensorID != BMP280_SENSOR_ID && _sensorID != BME280_SENSOR_ID) {
         if (!begin(0x76, I2C_MASTER_NUM) && !begin(0x77, I2C_MASTER_NUM)) {
+            debugReadingError("bmx280_not_found");
+            logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_not_found"));
             debug_outln_error(F("Check BMx280 wiring"));
             return;
         }
@@ -134,6 +143,8 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
 		temperature = -128.0;
 		humidity = -1.0;
 		pressure = -1.0;
+		debugReadingError("bmx280_read_failed");
+		logSupportEvent(DEBUG_ERROR, F("sensor"), F("bmx280_read_failed"));
 		debug_outln_error(F("BMP/BME280 read failed"));
 	} else {
 		temperature = t + readCorrectionOffset(cfg::temp_correction);
@@ -153,11 +164,7 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
     debug_outln_verbose(F("BME temperature: "), String(temperature));
     debug_outln_verbose(F("BME humidity: "), String(humidity));
     debug_outln_verbose(F("BME pressure: "), String(pressure));
-    #if defined(ALTRUIST_BUILD_DEBUG)
-    serializeJson(data, Serial);
-    Serial.println();
-    Serial.println();
-    #endif
+
     debug_outln_verbose(F("\r\nJSON memory usage: "), String(data.memoryUsage()));
 	debug_outln_verbose(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
@@ -197,7 +204,9 @@ bool BMX280Sensor::init() {
   // check if sensor, i.e. the chip ID is correct
   _sensorID = read8(BMX280_REGISTER_CHIPID);
   if (_sensorID != BMP280_SENSOR_ID && _sensorID != BME280_SENSOR_ID) {
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.printf("Unexpected chip ID: 0x%02X\r\n", _sensorID);
+#endif
     return false;
   }
 
@@ -278,7 +287,9 @@ void BMX280Sensor::write8(uint8_t reg, uint8_t value) {
     esp_err_t ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
     i2c_cmd_link_delete(cmd);
     if (ret != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.printf("Error writing reg 0x%02X\r\n", reg);
+#endif
     }
 }
 
@@ -299,7 +310,9 @@ uint8_t BMX280Sensor::read8(uint8_t reg) {
     esp_err_t ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
     i2c_cmd_link_delete(cmd);
     if (ret != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.printf("Error writing reg 0x%02X for read\r\n", reg);
+#endif
         return 0;
     }
     // Now read one byte
@@ -311,7 +324,9 @@ uint8_t BMX280Sensor::read8(uint8_t reg) {
     ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
     i2c_cmd_link_delete(cmd);
     if (ret != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.printf("Error reading reg 0x%02X\r\n", reg);
+#endif
         return 0;
     }
     return data;
@@ -328,7 +343,9 @@ uint16_t BMX280Sensor::read16_LE(uint8_t reg) {
     esp_err_t ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
     i2c_cmd_link_delete(cmd);
     if (ret != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.printf("Error writing reg 0x%02X for read16\r\n", reg);
+#endif
         return 0;
     }
     // Now read 2 bytes
@@ -340,7 +357,9 @@ uint16_t BMX280Sensor::read16_LE(uint8_t reg) {
     ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
     i2c_cmd_link_delete(cmd);
     if (ret != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.printf("Error reading reg 0x%02X for read16\r\n", reg);
+#endif
         return 0;
     }
     // Return little‑endian value
@@ -373,7 +392,9 @@ uint32_t BMX280Sensor::read24(uint8_t reg) {
     esp_err_t ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
     i2c_cmd_link_delete(cmd);
     if (ret != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.printf("Error writing reg 0x%02X for read24\r\n", reg);
+#endif
         return 0;
     }
     // Now read 3 bytes
@@ -385,7 +406,9 @@ uint32_t BMX280Sensor::read24(uint8_t reg) {
     ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
     i2c_cmd_link_delete(cmd);
     if (ret != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
         Serial.printf("Error reading reg 0x%02X for read24\r\n", reg);
+#endif
         return 0;
     }
     return (((uint32_t)data[0]) << 16) | (((uint32_t)data[1]) << 8) | data[2];

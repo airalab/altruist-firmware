@@ -42,6 +42,13 @@ static bool audioReady = false;
 static bool sound = false;
 
 static SoundSensor soundSensor;
+#if defined(ALTRUIST_BUILD_DEBUG)
+#include <esp_timer.h>
+uart_v2::Probe &i2sDebugProbe() {
+  static uart_v2::Probe probe;
+  return probe;
+}
+#endif
 
 bool initI2sSound() {
   return soundSensor.begin();
@@ -49,6 +56,12 @@ bool initI2sSound() {
 
 void fetchSensorI2sSound(uint8_t *max_noise, float *mean_noise) {
   if (!initI2sSound()) {
+#if defined(ALTRUIST_BUILD_DEBUG)
+    auto &probe = i2sDebugProbe();
+    probe.bytes = 0;
+    probe.hasSignal = false;
+    probe.record(static_cast<uint64_t>(esp_timer_get_time()) / 1000, false, false, "init_failed");
+#endif
     return;
   }
   if( !soundSensor.running())

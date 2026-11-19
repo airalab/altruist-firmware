@@ -21,6 +21,8 @@ bool SCD4xSensor::begin() {
     debug_outln_info(F("Begin SCD4xSensor"));
     I2cBusLock bus;
     if (!bus.ok()) {
+        debugReadingError("scd4x_bus_lock_failed");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("scd4x_bus_lock_failed"));
         debug_outln_error(F("SCD4x I2C bus lock failed"));
         return false;
     }
@@ -30,6 +32,10 @@ bool SCD4xSensor::begin() {
         debug_outln_info(F("SCD4x Sensor started with fetch interval (sec): "), String(timeout/1000));
         debug_outln_info(F("SCD4x automatic self-calibration (ASC) enabled"));
     }
+    if (!res) {
+        debugReadingError("scd4x_not_found");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("scd4x_not_found"));
+    }
     last_fetch_time = millis() - timeout;
     return res;
 }
@@ -38,6 +44,8 @@ void SCD4xSensor::_fetch(JsonDocument &data) {
     debug_outln_verbose(F("fetch SCD4x"));
     I2cBusLock bus;
     if (!bus.ok()) {
+        debugReadingError("scd4x_bus_lock_failed");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("scd4x_bus_lock_failed"));
         debug_outln_error(F("SCD4x I2C bus lock failed in fetch"));
         return;
     }
@@ -51,6 +59,10 @@ void SCD4xSensor::_fetch(JsonDocument &data) {
             break;
         }
     }
+    if (!is_meas) {
+        debugReadingError("scd4x_read_timeout");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("scd4x_read_timeout"));
+    }
     if (is_meas) {
         last_co2_value = mySensor.getCO2();
         last_temerature_value = mySensor.getTemperature();
@@ -63,8 +75,6 @@ void SCD4xSensor::_fetch(JsonDocument &data) {
         addValueToJSON(data, F("co2"), last_co2_value, INTL_CO2, F("ppm"));
         addValueToJSON(data, F("temperature"), last_temerature_value, INTL_TEMPERATURE, F("°C"));
         addValueToJSON(data, F("humidity"), last_humidity_value, INTL_HUMIDITY, F("%"));
-#if defined(ALTRUIST_BUILD_DEBUG)
-        serializeJson(data, Serial);
-#endif
+
     }
 }

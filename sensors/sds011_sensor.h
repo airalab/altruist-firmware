@@ -22,6 +22,10 @@ public:
   bool getIsSDSRunning() { return is_SDS_running; }
 
 private:
+    void setRunning(bool running) {
+        is_SDS_running = running;
+        debugSdsTransition(running);
+    }
     void _fetch(JsonDocument &data) override;
     void sdsUartRecover();
     unsigned long SDS_error_count = 0;

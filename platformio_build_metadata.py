@@ -3,6 +3,7 @@ Import("env")
 import os
 import re
 import subprocess
+from pathlib import Path
 
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
@@ -51,7 +52,14 @@ def _infer_testing_channel(branch):
 esp_target = _project_option("custom_esp_target")
 model = _project_option("custom_model")
 language = _project_option("custom_language")
-build_profile = env.GetBuildType()
+# C3 debug deliberately uses the size-optimized release build type. The
+# diagnostic profile must match the compile-time gate, not optimization flags.
+parsed_defines = env.ParseFlags(env.get("BUILD_FLAGS", [])).get("CPPDEFINES", [])
+debug_profile = any(
+    (item[0] if isinstance(item, (tuple, list)) else item) == "ALTRUIST_BUILD_DEBUG"
+    for item in parsed_defines
+)
+build_profile = "debug" if debug_profile else "release"
 git_branch = _git_output("symbolic-ref", "--short", "HEAD")
 
 defines = [
@@ -79,10 +87,11 @@ configured_health_telemetry = _read_optional_boolean_env(
     "ALTRUIST_HEALTH_TELEMETRY"
 )
 health_telemetry = (
-    True
+    debug_profile
     if configured_health_telemetry is None
     else configured_health_telemetry
 )
+health_telemetry = debug_profile and health_telemetry
 if health_telemetry:
     defines.append("ALTRUIST_HEALTH_TELEMETRY")
 
@@ -102,6 +111,20 @@ if build_commit:
     )
 
 env.Append(CPPDEFINES=defines)
+
+
+def _library_diagnostics(build_env, node):
+    source = Path(node.srcnode().get_abspath())
+    # Match the library's actual source root, without modifying .pio/libdeps.
+    if "ESPRobonomicsClient" not in source.parts or source.suffix != ".cpp":
+        return node
+    library_env = build_env.Clone()
+    header = str(Path(env.subst("$PROJECT_DIR")) / "library_diagnostics.h")
+    library_env.Append(CCFLAGS=["-include", header])
+    return library_env.Object(node)
+
+
+env.AddBuildMiddleware(_library_diagnostics)
 print("Altruist build:")
 print(f"  source: {channel_source}")
 print(f"  branch: {git_branch or 'detached/unknown'}")

@@ -10,13 +10,24 @@ I2SNoiseSensor::I2SNoiseSensor(unsigned long sending_timeout)
     : Sensor(sending_timeout) {
     timeout = NOISE_READ_TIMEOUT;
     sensor_name = I2S_NOISE_SENSOR_NAME;
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugNoise = &debugNoiseState;
+    debugSetProbe(i2sDebugProbe());
+#endif
 }
 
 bool I2SNoiseSensor::begin() {
     float db_mean = 0;
     fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugSetProbe(i2sDebugProbe());
+#endif
     last_send_time = millis();
     debug_outln_info(F("I2S Noise Sensor started with fetch interval (sec): "), String(sending_timeout/1000));
+    if (db_mean <= 0) {
+        debugReadingError("i2s_init_failed");
+        logSupportEvent(DEBUG_ERROR, F("sensor"), F("i2s_init_failed"));
+    }
     return db_mean > 0;
 }
 
@@ -28,6 +39,9 @@ void I2SNoiseSensor::_fetch(JsonDocument &data) {
         return;
 	} else {
 		fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
+#if defined(ALTRUIST_BUILD_DEBUG)
+    debugSetProbe(i2sDebugProbe());
+#endif
 		if (last_value_DBMETER > last_value_DBMETER_max) {
 			last_value_DBMETER_max = last_value_DBMETER;
 		}
@@ -53,11 +67,7 @@ void I2SNoiseSensor::_fetch(JsonDocument &data) {
         debug_outln_verbose(F("I2S noise: "), String(db_mean));
         debug_outln_verbose(F("I2S noiseMax: "), String(last_value_DBMETER_max));
         debug_outln_verbose(F("I2S noiseAvg: "), String(last_value_DBMETER_mean));
-        #if defined(ALTRUIST_BUILD_DEBUG)
-        serializeJson(data, Serial);
-        Serial.println();
-        Serial.println();
-        #endif
+
         debug_outln_verbose(F("\r\nJSON memory usage: "), String(data.memoryUsage()));
         last_send_time = millis();
         reset_values();
