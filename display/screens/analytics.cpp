@@ -37,11 +37,16 @@ constexpr uint8_t kAnalyticsCo2WindowHoursMax = 12;
 /** Bars: 12 h window plus the end hour (22:00–10:00 still shows 10). */
 constexpr uint8_t kAnalyticsCo2HoursMax = 13;
 constexpr float kCo2CurveBandPpm = 1000.0f;
+constexpr float kVocCurveBandPpb = 250.0f;
+constexpr float kVocYMaxFloor = 500.0f;
 /** If this share of samples in the hour was ≥ 1000 ppm, count the whole hour. */
 constexpr uint8_t kCo2AboveCountAsHourPct = 90;
 /** Face is Elevated if time above 1000 is at least this long (a 10 min blip stays Good). */
 constexpr uint16_t kCo2ElevatedMinMinutes = 30;
 analytics_view_t g_analytics_view = analytics_view_t::OVERVIEW_24H;
+/** 0 = night CO2 bars, 1 = night VOC bars (CO2 analysis only). */
+static uint8_t g_night_subpage = 0;
+static constexpr uint8_t kNightSubpageCount = 2;
 
 #if defined(INTL_RU)
 #define A_TXT(en, ru) ru
@@ -860,15 +865,16 @@ static void dumpAnalyticsToSdDev(uint32_t now_ts, bool forced_save) {
 #endif
 
 static void updateRollingHourMetric(RollingHourHistory &hist, float value, uint32_t hour_key,
-                                    float above_thr = -1.0f) {
+                                    float above_thr = -1.0f, float extrema = NAN) {
     const uint32_t idx = hour_key % 48U;
     RollingHourBucket &b = hist.buckets[idx];
+    const float ext = isnan(extrema) ? value : extrema;
     const bool above = (above_thr > 0.0f && value >= above_thr);
     if (b.count == 0 || b.hour_key != hour_key) {
         b.hour_key = hour_key;
         b.sum_v = value;
-        b.max_v = value;
-        b.min_v = value;
+        b.max_v = ext;
+        b.min_v = ext;
         b.count = 1;
         b.above_count = above ? 1 : 0;
         return;
@@ -880,11 +886,11 @@ static void updateRollingHourMetric(RollingHourHistory &hist, float value, uint3
             b.above_count++;
         }
     }
-    if (value > b.max_v) {
-        b.max_v = value;
+    if (ext > b.max_v) {
+        b.max_v = ext;
     }
-    if (value < b.min_v) {
-        b.min_v = value;
+    if (ext < b.min_v) {
+        b.min_v = ext;
     }
 }
 
@@ -977,7 +983,7 @@ static uint16_t hourSpanMinutes(const uint32_t *keys, uint8_t i, uint32_t curren
 static uint16_t minutesAboveFromHours(uint8_t n, const bool *has, const float *avgs,
                                       const uint16_t *counts, const uint16_t *aboves,
                                       const float *maxs, const uint32_t *keys,
-                                      uint32_t current_hk, time_t now) {
+                                      uint32_t current_hk, time_t now, float band) {
     uint32_t total = 0;
     for (uint8_t i = 0; i < n; i++) {
         if (!has || !has[i]) {
@@ -995,7 +1001,7 @@ static uint16_t minutesAboveFromHours(uint8_t n, const bool *has, const float *a
             }
         } else {
             const float peak = hourPeakPpm(avgs ? avgs[i] : 0.0f, maxs ? maxs[i] : 0.0f);
-            if (peak >= kCo2CurveBandPpm) {
+            if (peak >= band) {
                 contrib = span;
             }
         }
@@ -1192,6 +1198,30 @@ analytics_view_t analyticsGetView() {
     return g_analytics_view;
 }
 
+bool analyticsNightPagerEnabled() {
+    return analyticsUseCo2Screen();
+}
+
+bool analyticsNightSubpageStep(int dir) {
+    if (!analyticsNightPagerEnabled()) {
+        return true;
+    }
+    const int next = (int)g_night_subpage + dir;
+    if (next < 0 || next >= (int)kNightSubpageCount) {
+        return true;
+    }
+    g_night_subpage = (uint8_t)next;
+    return false;
+}
+
+void analyticsNightSubpageOnEnter(bool from_main) {
+    if (!analyticsNightPagerEnabled()) {
+        g_night_subpage = 0;
+        return;
+    }
+    g_night_subpage = from_main ? 0 : (uint8_t)(kNightSubpageCount - 1);
+}
+
 bool analyticsNextViewAtEdge() {
     g_analytics_view = analytics_view_t::OVERVIEW_24H;
     return true;
@@ -1209,6 +1239,9 @@ const char* analyticsViewLabel() {
 static const char* analyticsViewLabelTitle() {
     if (!analyticsUseCo2Screen()) {
         return A_TXT("Night score", "Оценка ночи");
+    }
+    if (g_night_subpage == 1) {
+        return A_TXT("VOC analysis", "Анализ VOC");
     }
     return A_TXT("CO2 analysis", "Анализ CO2");
 }
@@ -1253,11 +1286,25 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
             const int v = bme["voc_spikes_today"]["value"].as<int>();
             values.voc_spikes_today = (int16_t)(v < 0 ? 0 : v);
         }
-        if (bme.containsKey("voc_ppb")) {
+        int voc_lv = 0;
+        bool voc_lv_ok = false;
+        if (bme.containsKey("voc_level")) {
+            voc_lv = bme["voc_level"]["value"].as<int>();
+            voc_lv_ok = true;
+        }
+        if (voc_lv_ok && voc_lv < 0) {
+            // Heater / ABC not ready — do not ingest 0 as a real sample.
+        } else if (bme.containsKey("voc_ppb")) {
             const int ppb = bme["voc_ppb"]["value"].as<int>();
             if (ppb >= 0 && ppb <= 10000) {
                 values.voc_index.current = (float)ppb;
                 values.voc_index.has_current = true;
+            }
+            if (bme.containsKey("voc_ppb_raw")) {
+                const int raw = bme["voc_ppb_raw"]["value"].as<int>();
+                if (raw >= 0 && raw <= 10000) {
+                    values.voc_ppb_raw = (float)raw;
+                }
             }
         } else if (bme.containsKey("voc_index")) {
             const int index = bme["voc_index"]["value"].as<int>();
@@ -1463,7 +1510,10 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
             updated_metrics++;
         }
         if (values.voc_index.has_current) {
-            updateRollingHourMetric(g_voc_index_hour_hist, values.voc_index.current, hour_key, 250.0f);
+            const float ext =
+                (values.voc_ppb_raw >= 0.f) ? values.voc_ppb_raw : values.voc_index.current;
+            updateRollingHourMetric(g_voc_index_hour_hist, values.voc_index.current, hour_key, 250.0f,
+                                    ext);
             updated = true;
             updated_metrics++;
         }
@@ -1846,9 +1896,11 @@ void analyticsReadLastHours(analytics_hour_series_t series, analytics_last_hours
     }
 }
 
-/** Fill CO2 series for the configured analytics window (default 22:00–07:00). */
-static uint8_t collectNightWindowCo2(uint8_t *n_out, float *vals, bool *has_out, uint32_t *keys,
-                                     float *maxs, uint16_t *counts, uint16_t *aboves) {
+/** Fill hourly series for the configured analytics window (default 22:00–07:00). */
+static uint8_t collectNightWindowHours(const RollingHourHistory &hist, uint8_t *n_out,
+                                       float *vals, bool *has_out, uint32_t *keys,
+                                       float *maxs, uint16_t *counts, uint16_t *aboves,
+                                       float *mins = nullptr) {
     unsigned start_u = nightCfgStartMinutes();
     unsigned end_u = nightCfgEndMinutes();
     cfgClampNightWindowToMaxHours(&start_u, &end_u, kAnalyticsCo2WindowHoursMax);
@@ -1890,13 +1942,16 @@ static uint8_t collectNightWindowCo2(uint8_t *n_out, float *vals, bool *has_out,
         if (maxs) {
             maxs[i] = 0.0f;
         }
+        if (mins) {
+            mins[i] = 0.0f;
+        }
         if (counts) {
             counts[i] = 0;
         }
         if (aboves) {
             aboves[i] = 0;
         }
-        const RollingHourBucket *b = findHourBucket(g_co2_hour_hist, hk);
+        const RollingHourBucket *b = findHourBucket(hist, hk);
         if (!b) {
             continue;
         }
@@ -1908,6 +1963,9 @@ static uint8_t collectNightWindowCo2(uint8_t *n_out, float *vals, bool *has_out,
         }
         if (maxs) {
             maxs[i] = b->max_v;
+        }
+        if (mins) {
+            mins[i] = b->min_v;
         }
         if (counts) {
             counts[i] = b->count;
@@ -2846,10 +2904,11 @@ static void nightDrawVocBars(int left, int cy, int n_filled, int n_total) {
 
 static void drawNightCo2Curve12h(int content_left, int content_top, int content_width,
                                  const analytics_screen_values_t &values,
-                                 const char *sensor_ss58) {
+                                 const char *sensor_ss58, bool voc_page) {
     uint8_t n = 0;
     float vals[kAnalyticsCo2HoursMax];
     float maxs[kAnalyticsCo2HoursMax];
+    float mins[kAnalyticsCo2HoursMax];
     uint16_t counts[kAnalyticsCo2HoursMax];
     uint16_t aboves[kAnalyticsCo2HoursMax];
     bool has[kAnalyticsCo2HoursMax];
@@ -2859,21 +2918,34 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
     if (now > 0) {
         now_hk = currentLocalHourKey(now);
     }
-    uint8_t found = collectNightWindowCo2(&n, vals, has, keys, maxs, counts, aboves);
-    if (n > 0 && now_hk > 0 && values.co2.has_current && isValidCO2(values.co2.current)) {
+    const RollingHourHistory &hist = voc_page ? g_voc_index_hour_hist : g_co2_hour_hist;
+    const float thr = voc_page ? kVocCurveBandPpb : kCo2CurveBandPpm;
+    uint8_t found = collectNightWindowHours(hist, &n, vals, has, keys, maxs, counts, aboves, mins);
+    const bool live_ok = voc_page
+        ? (values.voc_index.has_current && values.voc_index.current >= 0.0f)
+        : (values.co2.has_current && isValidCO2(values.co2.current));
+    const float live_v = voc_page ? values.voc_index.current : values.co2.current;
+    const float live_ext = (voc_page && values.voc_ppb_raw >= 0.0f) ? values.voc_ppb_raw : live_v;
+    if (n > 0 && now_hk > 0 && live_ok) {
         for (uint8_t i = 0; i < n; i++) {
             if (keys[i] != now_hk) {
                 continue;
             }
             if (!has[i]) {
-                vals[i] = values.co2.current;
-                maxs[i] = values.co2.current;
+                vals[i] = live_v;
+                maxs[i] = live_ext;
+                mins[i] = live_ext;
                 counts[i] = 1;
-                aboves[i] = (values.co2.current >= kCo2CurveBandPpm) ? 1 : 0;
+                aboves[i] = (live_v >= thr) ? 1 : 0;
                 has[i] = true;
                 found++;
-            } else if (values.co2.current > maxs[i]) {
-                maxs[i] = values.co2.current;
+            } else {
+                if (live_ext > maxs[i]) {
+                    maxs[i] = live_ext;
+                }
+                if (live_ext < mins[i]) {
+                    mins[i] = live_ext;
+                }
             }
             break;
         }
@@ -2893,7 +2965,9 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
     }
 
     float max_ppm = 0.0f;
+    float min_ppm = 0.0f;
     bool have_max = false;
+    bool have_min = false;
     for (uint8_t i = 0; i < n; i++) {
         if (!has[i]) {
             continue;
@@ -2903,20 +2977,34 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
             max_ppm = hour_max;
             have_max = true;
         }
+        if (voc_page) {
+            float mn = mins[i];
+            if (mn <= 5.0f && vals[i] > 50.0f) {
+                continue;
+            }
+            if (mn > vals[i]) {
+                mn = vals[i];
+            }
+            if (!have_min || mn < min_ppm) {
+                min_ppm = mn;
+                have_min = true;
+            }
+        }
     }
     if (!have_max) {
         return;
     }
 
-    const uint16_t minutes_above = minutesAboveFromHours(n, has, vals, counts, aboves, maxs, keys, now_hk, now);
+    const uint16_t minutes_above = minutesAboveFromHours(
+        n, has, vals, counts, aboves, maxs, keys, now_hk, now, thr);
 
-    float ymin = 400.0f;
-    float ymax = 1600.0f;
+    float ymin = voc_page ? 0.0f : 400.0f;
+    float ymax = voc_page ? kVocYMaxFloor : 1600.0f;
     if (max_ppm > ymax - 80.0f) {
         ymax = max_ppm + 200.0f;
     }
-    if (ymax < kCo2CurveBandPpm + 80.0f) {
-        ymax = kCo2CurveBandPpm + 80.0f;
+    if (ymax < thr + 80.0f) {
+        ymax = thr + 80.0f;
     }
 
     const int split_x = content_left + (content_width * 64) / 100;
@@ -2952,6 +3040,19 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
     const char *max_tag = A_TXT("max", "макс");
     Paint_DrawString_Display(content_left, content_top, max_tag,
                              &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    if (voc_page && have_min) {
+        char min_lab[20];
+        snprintf(min_lab, sizeof(min_lab), "%s %u", A_TXT("min", "мин"),
+                 (unsigned)lroundf(min_ppm));
+        uint16_t min_w = Paint_GetStringWidth_Display(min_lab, &Font12, &font_12_cyrillic,
+                                                      &font_12_ascii);
+        int min_x = plot_right - (int)min_w;
+        if (min_x < content_left + 80) {
+            min_x = content_left + 80;
+        }
+        Paint_DrawString_Display(min_x, content_top, min_lab,
+                                 &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    }
 
     char num[12];
     snprintf(num, sizeof(num), "%u", (unsigned)lroundf(max_ppm));
@@ -2959,7 +3060,7 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
     Paint_DrawString_Display(content_left, num_y, num,
                              &Font24, &font_40_cyrillic, &font_40_ascii, WHITE, BLACK);
     const uint16_t num_w = Paint_GetStringWidth_Display(num, &Font24, &font_40_cyrillic, &font_40_ascii);
-    const char *ppm = "ppm";
+    const char *ppm = voc_page ? "ppb" : "ppm";
     int ppm_y = num_y + (num_h - (int)Font16.Height) / 2;
     if (ppm_y < num_y) {
         ppm_y = num_y;
@@ -2999,16 +3100,41 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
         }
         const int x0 = plot_left + 3 + (int)i * slot_w;
         const int x1 = x0 + bar_w;
-        const float bar_v = hourPeakPpm(vals[i], maxs[i]);
+        const float mean_v = vals[i];
+        const float peak_v = hourPeakPpm(vals[i], maxs[i]);
+        const float bar_v = voc_page ? mean_v : peak_v;
         int y_top = yOf(bar_v);
         if (plot_bottom - y_top < 3) {
             y_top = plot_bottom - 3;
         }
-        const bool over = (bar_v >= kCo2CurveBandPpm);
+        if (voc_page) {
+            int y_hat = yOf(peak_v);
+            if (y_hat < plot_top) {
+                y_hat = plot_top;
+            }
+            if (y_top - y_hat >= 4) {
+                int gx0 = x0 - 1;
+                int gx1 = x1 + 1;
+                if (gx0 < plot_left + 1) {
+                    gx0 = plot_left + 1;
+                }
+                if (gx1 > plot_right - 1) {
+                    gx1 = plot_right - 1;
+                }
+                for (int x = gx0; x <= gx1; x++) {
+                    for (int py = y_hat; py < y_top; py++) {
+                        if ((x & 1) != 0 && (py & 1) != 0) {
+                            Paint_SetPixel((UWORD)x, (UWORD)py, BLACK);
+                        }
+                    }
+                }
+            }
+        }
+        const bool over = (bar_v >= thr);
         Paint_DrawRectangle((UWORD)x0, (UWORD)y_top, (UWORD)x1, (UWORD)plot_bottom,
                             BLACK, DOT_PIXEL_1X1,
                             over ? DRAW_FILL_FULL : DRAW_FILL_EMPTY);
-        if (vocEventsForOneHour(keys[i]) > 0) {
+        if (!voc_page && vocEventsForOneHour(keys[i]) > 0) {
             const int mx = x0 + bar_w / 2;
             int my = y_top - 5;
             if (my < plot_top + 2) {
@@ -3019,10 +3145,10 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
         }
     }
 
-    if (kCo2CurveBandPpm >= ymin && kCo2CurveBandPpm <= ymax) {
-        const int yb = yOf(kCo2CurveBandPpm);
+    if (thr >= ymin && thr <= ymax) {
+        const int yb = yOf(thr);
         Paint_DrawLine(plot_left, yb, plot_right, yb, BLACK, DOT_PIXEL_1X1, LINE_STYLE_DOTTED);
-        drawYLabel(kCo2CurveBandPpm);
+        drawYLabel(thr);
     }
 
     const int label_y = plot_bottom + 3;
@@ -3042,20 +3168,21 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
     }
 
     char above_txt[48];
+    const unsigned band_n = voc_page ? 250u : 1000u;
     if (minutes_above >= 60) {
         const unsigned h = (unsigned)(minutes_above / 60);
         const unsigned m = (unsigned)(minutes_above % 60);
         if (m == 0) {
             snprintf(above_txt, sizeof(above_txt),
-                     A_TXT("%u h above 1000", "%u ч выше 1000"), h);
+                     A_TXT("%u h above %u", "%u ч выше %u"), h, band_n);
         } else {
             snprintf(above_txt, sizeof(above_txt),
-                     A_TXT("%u h %u min above 1000", "%u ч %u мин выше 1000"), h, m);
+                     A_TXT("%u h %u min above %u", "%u ч %u мин выше %u"), h, m, band_n);
         }
     } else {
         snprintf(above_txt, sizeof(above_txt),
-                 A_TXT("%u min above 1000", "%u мин выше 1000"),
-                 (unsigned)minutes_above);
+                 A_TXT("%u min above %u", "%u мин выше %u"),
+                 (unsigned)minutes_above, band_n);
     }
     uint16_t aw = Paint_GetStringWidth_Display(above_txt, &Font12, &font_12_cyrillic, &font_12_ascii);
     int ax = content_left + ((split_x - content_left) - (int)aw) / 2;
@@ -3073,7 +3200,7 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
     const char *band = (mood == 2) ? A_TXT("High", "Высокий")
                      : (mood == 1) ? A_TXT("Elevated", "Повышен")
                                    : A_TXT("Good", "Норма");
-    const char *band_co2 = "CO2";
+    const char *band_co2 = voc_page ? "VOC" : "CO2";
     const bool warn = (mood == 2);
     uint16_t band_w = Paint_GetStringWidth_Display(band, &Font16, &font_16_cyrillic, &font_16_ascii);
     uint16_t co2_w = Paint_GetStringWidth_Display(band_co2, &Font16, &font_16_cyrillic, &font_16_ascii);
@@ -3088,7 +3215,7 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
     if (qr_budget_h < 40) {
         qr_budget_h = 40;
     }
-    const String map_url = buildSensorsSocialMapUrl(sensor_ss58, "co2");
+    const String map_url = buildSensorsSocialMapUrl(sensor_ss58, voc_page ? "voc" : "co2");
     const int qr_side = analyticsMakeMapQr(map_url.c_str(), right_w - 2, qr_budget_h - 12);
     const int qr_h = (qr_side > 0) ? (qr_side + 16) : 0;
 
@@ -3152,7 +3279,10 @@ static void drawNightCo2Curve12h(int content_left, int content_top, int content_
         Paint_DrawString_Display(lx, y, s, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     };
     drawTipLine("VOC", tip_top);
-    drawTipLine(voc_count, tip_top + Font12.Height + 4);
+    char voc_unit_line[24];
+    snprintf(voc_unit_line, sizeof(voc_unit_line), "%s %s", voc_count,
+             A_TXT("spikes", "спайки"));
+    drawTipLine(voc_unit_line, tip_top + Font12.Height + 4);
     drawTipLine(voc_phrase, tip_top + Font12.Height + 4 + Font12.Height + 4);
 
     if (qr_side > 0) {
@@ -3212,7 +3342,8 @@ void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &value
     const int content_top = header_bottom_border_y + 12;
 
     if (analyticsUseCo2Screen()) {
-        drawNightCo2Curve12h(content_left, content_top, content_width, values, sensor_ss58.c_str());
+        drawNightCo2Curve12h(content_left, content_top, content_width, values, sensor_ss58.c_str(),
+                             g_night_subpage == 1);
     } else {
         drawNightSinglePage(content_left, content_top, content_width, values);
     }

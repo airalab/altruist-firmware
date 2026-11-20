@@ -719,6 +719,9 @@
 #ifndef INTL_DESK_VOC_NOTE
 #define INTL_DESK_VOC_NOTE "Relative, not lab TVOC"
 #endif
+#ifndef INTL_DESK_VOC_WARMUP
+#define INTL_DESK_VOC_WARMUP "Warm up"
+#endif
 #ifndef INTL_DESK_FOOTER_NOISE
 #define INTL_DESK_FOOTER_NOISE "NOISE"
 #endif

@@ -642,7 +642,19 @@ String form_select_reg() {
 
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length, bool enabled) {
 	RESERVE_STRING(s, MED_STR);
-	if (enabled) {
+	String t_value;
+	String attrs;
+	String cls;
+	ConfigShapeEntry c;
+	memcpy_P(&c, &configShape[cfgid], sizeof(ConfigShapeEntry));
+	const bool is_password = (c.cfg_type == Config_Type_Password);
+	if (is_password) {
+		s = F("<div class='form-group form-group--password'>"
+				"<label for='{n}'>{i}</label>"
+				"<div class='password-wrap'>"
+				"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'{c}{a}{d}/>"
+				"{e}</div></div>");
+	} else if (enabled) {
 		s = F("<div class='form-group'>"
 				"<label for='{n}'>{i}</label>"
 				"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'{c}{a}/>"
@@ -653,11 +665,6 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 			"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'{c}{a} disabled/>"
 			"</div>");
 	}
-	String t_value;
-	String attrs;
-	String cls;
-	ConfigShapeEntry c;
-	memcpy_P(&c, &configShape[cfgid], sizeof(ConfigShapeEntry));
 	switch (c.cfg_type) {
 	case Config_Type_UInt:
 		t_value = String(*c.cfg_val.as_uint);
@@ -706,6 +713,10 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 	s.replace("{l}", String(length));
 	s.replace("{c}", cls);
 	s.replace("{a}", attrs);
+	if (is_password) {
+		s.replace("{d}", enabled ? emptyString : F(" disabled"));
+		s.replace("{e}", FPSTR(WEB_PASSWORD_TOGGLE_BTN));
+	}
 	page_content += s;
 }
 
@@ -1174,7 +1185,6 @@ void append_guest_setup_passwords_card(String& page_content, const String& ip, c
 		"<button type='submit' class='submit-btn guest__setup-finish-btn'>" INTL_SETUP_CONTINUE "</button>"
 		"</div></form></div></div>");
 	page_content += FPSTR(WEB_GUEST_WIZARD_SUBMIT_JS);
-	page_content += FPSTR(WEB_PASSWORD_TOGGLE_JS);
 }
 
 void append_guest_success_restart_ui(String& page_content) {

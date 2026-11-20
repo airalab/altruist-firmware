@@ -125,10 +125,13 @@ void append_hub_backup_section(String& page_content) {
 	if (need_www) {
 		append_device_backup_need_password_notice(page_content);
 	} else {
-		page_content += F("<div class='form-group'>"
+		page_content += F("<div class='form-group form-group--password'>"
 			"<label for='backup-ui-password'>" INTL_GUEST_WWW_PWD_LABEL "</label>"
+			"<div class='password-wrap'>"
 			"<input type='password' id='backup-ui-password' name='ui_password' "
-			"autocomplete='current-password' spellcheck='false' required>"
+			"autocomplete='current-password' spellcheck='false' required>");
+		page_content += FPSTR(WEB_PASSWORD_TOGGLE_BTN);
+		page_content += F("</div>"
 			"<p class='form-hint'>" INTL_DEVICE_BACKUP_AUTH_HINT "</p></div>");
 	}
 	page_content += F("<div class='ui-notice ui-notice--err' id='device-backup-status' hidden></div>");

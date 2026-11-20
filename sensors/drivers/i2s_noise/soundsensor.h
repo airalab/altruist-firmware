@@ -25,10 +25,11 @@
 #include <Arduino.h>
 #include <driver/i2s.h>
 #include "arduinoFFT.h"
+#include "i2s_noise_valid.h"
 
 // size of noise sample
-#define SAMPLES 2048  //1024       ///< at sample frequency of 22,627 kHz with 2048 samples, duration is 90 ms.
-#define SAMPLE_FREQ 22627          ///< this makes a bin bandwith of 22627 / 2048 = 11 Hz
+#define SAMPLES I2S_NOISE_SAMPLES  ///< 2048 @ 22,627 kHz ≈ 90 ms.
+#define SAMPLE_FREQ I2S_NOISE_SAMPLE_FREQ  ///< bin bandwidth 22627 / 2048 = 11 Hz
 #define OCTAVES 9
 
 const int BLOCK_SIZE = SAMPLES;
@@ -42,13 +43,13 @@ class SoundSensor {
 
     /// \brief Initialize Sound sensor class and start.
     bool begin();
-    void start();
+    bool start();
     void stop();
     void disable();
     bool running()  { return _i2s; }
     
-    // Read multiple samples at once and calculate the sound pressure
-    // returns energy in octave bands
+    // Read one full block and calculate octave energy.
+    // nullptr if the I2S read failed or was short — caller must not FFT/aggregate.
     float* readSamples();
 
   private:

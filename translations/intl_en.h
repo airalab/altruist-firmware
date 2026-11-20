@@ -326,6 +326,7 @@ const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configura
 #define INTL_DESK_FOOTER_VOC "VOC"
 #define INTL_DESK_VOC_UNIT "ppb"
 #define INTL_DESK_VOC_NOTE "Relative, not lab TVOC"
+#define INTL_DESK_VOC_WARMUP "Warm up"
 #define INTL_DESK_FOOTER_NOISE "NOISE"
 #define INTL_DESK_FOOTER_PRESSURE "PRESSURE"
 #define INTL_DESK_BAND_GOOD "Good"

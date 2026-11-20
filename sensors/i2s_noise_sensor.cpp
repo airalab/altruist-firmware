@@ -1,6 +1,7 @@
 #include "i2s_noise_sensor.h"
 #include "../utils.h"
 #include "drivers/i2s_noise/i2s_noise.h"
+#include "drivers/i2s_noise/i2s_noise_valid.h"
 #include "../intl.h"
 #include "sensor_names.h"
 
@@ -18,40 +19,49 @@ I2SNoiseSensor::I2SNoiseSensor(unsigned long sending_timeout)
 
 bool I2SNoiseSensor::begin() {
     float db_mean = 0;
-    fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
+    const bool ok = fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
 #if defined(ALTRUIST_BUILD_DEBUG)
     debugSetProbe(i2sDebugProbe());
 #endif
     last_send_time = millis();
     debug_outln_info(F("I2S Noise Sensor started with fetch interval (sec): "), String(sending_timeout/1000));
-    if (db_mean <= 0) {
+    if (ok) {
+        last_value_DBMETER_max = last_value_DBMETER;
+        last_value_DBMETER_sum += (uint32_t)db_mean;
+        last_value_DBMETER_count++;
+        last_value_DBMETER_mean = db_mean;
+    } else {
         debugReadingError("i2s_init_failed");
         logSupportEvent(DEBUG_ERROR, F("sensor"), F("i2s_init_failed"));
     }
-    return db_mean > 0;
+    // Stay in activeSensors so a failed first read can recover (#195).
+    return true;
 }
 
 void I2SNoiseSensor::_fetch(JsonDocument &data) {
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), sensor_name);
-    float db_mean;
+    float db_mean = 0;
 	if (is_SDS_running) {
 		debug_outln_verbose(F("Don't measure noise: SDS is running"));
         return;
-	} else {
-		fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
-#if defined(ALTRUIST_BUILD_DEBUG)
-    debugSetProbe(i2sDebugProbe());
-#endif
-		if (last_value_DBMETER > last_value_DBMETER_max) {
-			last_value_DBMETER_max = last_value_DBMETER;
-		}
-		last_value_DBMETER_sum += db_mean;
-		last_value_DBMETER_count++;
-		last_value_DBMETER_mean = (float)last_value_DBMETER_sum / (float)last_value_DBMETER_count;
 	}
-    // debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
-    // debug_outln_info(F("Noise mean: "), last_value_DBMETER_mean);
-    // String noise_mean(last_value_DBMETER_mean, 0);
+
+	const bool acq_ok = fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
+#if defined(ALTRUIST_BUILD_DEBUG)
+	debugSetProbe(i2sDebugProbe());
+#endif
+	if (!i2sNoiseShouldUpdateAggregates(is_SDS_running, acq_ok)) {
+		debug_outln_verbose(F("I2S noise: acquisition failed, keep last values"));
+		return;
+	}
+
+	if (last_value_DBMETER > last_value_DBMETER_max) {
+		last_value_DBMETER_max = last_value_DBMETER;
+	}
+	last_value_DBMETER_sum += (uint32_t)db_mean;
+	last_value_DBMETER_count++;
+	last_value_DBMETER_mean = (float)last_value_DBMETER_sum / (float)last_value_DBMETER_count;
+
     uint8_t last_value_DBMETER_mean_round = (uint8_t)last_value_DBMETER_mean;
     addValueToJSON(data, F("noiseMax"), last_value_DBMETER_max, INTL_NOISE_MAX, F("dBA"));
     addValueToJSON(data, F("noiseAvg"), last_value_DBMETER_mean_round, INTL_NOISE_MEAN, F("dBA"));

@@ -45,6 +45,8 @@ public:
   uint32_t pressure;
   float humidity;
   uint32_t gas_resistance;
+  /** True only when this reading has both gas-valid and heater-stable flags. */
+  bool gas_valid = false;
 
 private:
   uint8_t _i2c_num;

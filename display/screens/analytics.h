@@ -41,7 +41,8 @@ struct analytics_screen_values_t {
     analytics_metric_t noise_max;
     // VOC organic events today (−1 = sensor absent)
     int16_t voc_spikes_today = -1;
-    analytics_metric_t voc_index; 
+    analytics_metric_t voc_index;
+    float voc_ppb_raw = -1.f;
 };
 
 analytics_view_t analyticsGetView();
@@ -91,6 +92,11 @@ int analyticsPrepareMapQr(const char *qr_url, int max_w, int max_h);
 void analyticsDrawPreparedMapQr(int x, int y);
 void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values,
                        const String &sensor_ss58 = "");
+/** CO2 analysis: two night pages (CO2 then VOC). Night score stays one page. */
+bool analyticsNightPagerEnabled();
+/** Step CO2 ↔ VOC. true = already at that edge (caller should leave the screen). */
+bool analyticsNightSubpageStep(int dir);
+void analyticsNightSubpageOnEnter(bool from_main);
 /** Clear PM2.5/noise night buckets that came from Urban (when switching to standalone). */
 void analyticsClearUrbanNightHistory();
 

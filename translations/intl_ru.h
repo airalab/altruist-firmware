@@ -341,6 +341,7 @@ const char INTL_NODE_ID[] PROGMEM = "ID узла CPS (0 = не задан)";
 #define INTL_DESK_FOOTER_VOC "VOC"
 #define INTL_DESK_VOC_UNIT "ppb"
 #define INTL_DESK_VOC_NOTE "Относительно, не лабораторно"
+#define INTL_DESK_VOC_WARMUP "Прогрев"
 #define INTL_DESK_FOOTER_NOISE "ШУМ"
 #define INTL_DESK_FOOTER_PRESSURE "ДАВЛЕНИЕ"
 #define INTL_DESK_BAND_GOOD "Норма"

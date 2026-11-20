@@ -306,15 +306,44 @@ const char WEB_PASSWORD_TOGGLE_BTN[] PROGMEM =
 	"</button>";
 
 const char WEB_PASSWORD_TOGGLE_JS[] PROGMEM =
-	"<script>(function(){document.addEventListener('click',function(e){"
+	"<style>.password-wrap:not(.is-editing) .password-toggle{display:none}"
+	".password-wrap:not(.is-editing) input{padding-right:12px}</style>"
+	"<script>(function(){"
+	"function wrapOf(el){return el&&el.closest&&el.closest('.password-wrap');}"
+	"function canReveal(inp){"
+	"return !!(inp&&!inp.disabled&&inp.getAttribute('data-keep-mask')!=='1'&&inp.value.length);"
+	"}"
+	"function resetBtn(b){"
+	"if(!b)return;b.classList.remove('is-on');"
+	"b.setAttribute('aria-pressed','false');"
+	"b.setAttribute('aria-label',b.getAttribute('data-show')||'');"
+	"}"
+	"function sync(wrap){"
+	"if(!wrap)return;"
+	"var inp=wrap.querySelector('input');"
+	"var b=wrap.querySelector('.password-toggle');"
+	"var on=canReveal(inp);"
+	"wrap.classList.toggle('is-editing',on);"
+	"if(!on&&inp&&inp.type==='text'){inp.type='password';resetBtn(b);}"
+	"}"
+	"function dropKeepMask(inp){"
+	"if(!inp||inp.getAttribute('data-keep-mask')!=='1')return;"
+	"inp.value='';inp.removeAttribute('data-keep-mask');"
+	"}"
+	"document.addEventListener('click',function(e){"
 	"var b=e.target.closest&&e.target.closest('.password-toggle');if(!b)return;"
 	"e.preventDefault();var wrap=b.closest('.password-wrap');"
-	"var inp=wrap&&wrap.querySelector('input');if(!inp)return;"
+	"var inp=wrap&&wrap.querySelector('input');if(!canReveal(inp))return;"
 	"var show=inp.type==='password';inp.type=show?'text':'password';"
 	"b.classList.toggle('is-on',show);"
 	"b.setAttribute('aria-pressed',show?'true':'false');"
 	"b.setAttribute('aria-label',show?(b.getAttribute('data-hide')||''):(b.getAttribute('data-show')||''));"
-	"},true);})();</script>";
+	"},true);"
+	"document.addEventListener('focusin',function(e){dropKeepMask(e.target);sync(wrapOf(e.target));},true);"
+	"document.addEventListener('input',function(e){dropKeepMask(e.target);sync(wrapOf(e.target));},true);"
+	"function init(){var w=document.querySelectorAll('.password-wrap');for(var i=0;i<w.length;i++)sync(w[i]);}"
+	"if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();"
+	"})();</script>";
 
 const char WEB_COPY_IP_JS[] PROGMEM = "<script>function copyText(){const e=document.querySelector('.guest-ip,.ip-address');if(!e)return;var t=e.innerText||e.textContent;if(navigator.clipboard)navigator.clipboard.writeText(t).then((function(){alert('Copied to clipboard')})).catch((function(){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=t,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
 

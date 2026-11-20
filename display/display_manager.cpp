@@ -56,6 +56,9 @@ bool display_sleeping = false;
 static unsigned long next_main_refresh_ms = 0;
 // Analytics-only cadence for normal refreshes: 4 partial, then 1 full.
 static uint8_t analytics_refresh_cycle_pos = 0;
+/** CO2 analysis pages (CO2 ↔ VOC) auto-flip; reset on short press / enter. */
+static unsigned long s_analytics_page_flip_ms = 0;
+static constexpr unsigned long ANALYTICS_PAGE_FLIP_MS = 5UL * 60UL * 1000UL;
 static bool analytics_priority_autoswitch_done = false;
 static bool analytics_priority_prev_window_state = false;
 /** Urban page switch on MAIN: partial refresh (full every 5th). */
@@ -79,6 +82,30 @@ static void deskClampSlot() {
     if (s_desk_slot >= n) {
         s_desk_slot = 0;
     }
+}
+
+/** Step Wall slides. true = already at that edge (caller should leave the screen). */
+static bool deskStepSlot(int dir) {
+    const uint8_t n = deskCarouselCount();
+    deskClampSlot();
+    if (n <= 1) {
+        s_desk_slot = 0;
+        return true;
+    }
+    if (dir < 0) {
+        if (s_desk_slot == 0) {
+            return true;
+        }
+        s_desk_slot = (uint8_t)(s_desk_slot - 1);
+    } else {
+        if ((uint8_t)(s_desk_slot + 1) >= n) {
+            return true;
+        }
+        s_desk_slot = (uint8_t)(s_desk_slot + 1);
+    }
+    s_desk_skip_advance = false;
+    s_desk_advance = false;
+    return false;
 }
 
 // Cycle order for screens when navigating with UP/SET
@@ -168,6 +195,8 @@ void DisplayManager::setScreen(ScreenPage pageID) {
 
     if (pageID == ScreenPage::ANALYTICS && currentScreenID != ScreenPage::ANALYTICS) {
         analytics_refresh_cycle_pos = 0;
+        analyticsNightSubpageOnEnter(currentScreenID == ScreenPage::MAIN);
+        s_analytics_page_flip_ms = millis();
         if (currentScreenID == ScreenPage::MAIN) {
             // Desk/main ghosting: full refresh on the first analytics paint.
             force_full_refresh = true;
@@ -295,11 +324,40 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 return;
             }
             if (currentScreenID == ScreenPage::MAIN) {
-#if defined(ALTRUIST_INSIGHT)
+                if (deskLayoutActive()) {
+                    // Wall: short UP/SET flips slides; long UP/SET leaves to other screens.
+                    // Extra Urbans are Desk-only — Wall always shows the chosen Urban.
+                    if (btn_press.press_type == PressType::LONG) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            ScreenPage target = getPrevScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            ScreenPage target = getNextScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
+                        }
+                    } else if (btn_press.press_type == PressType::SHORT) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            if (deskStepSlot(-1)) {
+                                ScreenPage target = getPrevScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
+                            } else {
+                                refresh_now = true;
+                            }
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            if (deskStepSlot(1)) {
+                                ScreenPage target = getNextScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
+                            } else {
+                                refresh_now = true;
+                            }
+                        }
+                    }
+                } else {
                 const bool urban_can_cycle = httpUrbanCanCycleOnMain();
-#else
-                const bool urban_can_cycle = false;
-#endif
                 if (urban_can_cycle) {
                     if (btn_press.press_type == PressType::LONG) {
                         if (btn_press.button_num == ButtonNum::UP) {
@@ -345,13 +403,31 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         setScreen(target);
                     }
                 }
+                }
             } 
             else if (currentScreenID == ScreenPage::ANALYTICS) {
                 // Night analytics uses NVS (not SD). Do not call checkInserted() here:
                 // a failed remount used to set analytics_has_sd=false and then the old
                 // "no SD" + SHORT handlers both ran → double setScreen (e.g. Analytics→Main→Settings).
-                if (btn_press.press_type == PressType::LONG ||
-                    btn_press.press_type == PressType::SHORT) {
+                // CO2 analysis: short UP/SET flips CO2 ↔ VOC; long leaves screens.
+                // Night score: short and long still leave screens.
+                if (btn_press.press_type == PressType::SHORT && analyticsNightPagerEnabled() &&
+                    (btn_press.button_num == ButtonNum::UP ||
+                     btn_press.button_num == ButtonNum::SET)) {
+                    const int dir = (btn_press.button_num == ButtonNum::UP) ? -1 : 1;
+                    if (analyticsNightSubpageStep(dir)) {
+                        ScreenPage target = (dir < 0) ? getPrevScreen(currentScreenID)
+                                                      : getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
+                    } else {
+                        s_analytics_page_flip_ms = millis();
+                        force_full_refresh = true;
+                        analytics_refresh_cycle_pos = 0;
+                        refresh_now = true;
+                    }
+                } else if (btn_press.press_type == PressType::LONG ||
+                           btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
@@ -574,6 +650,24 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         refresh_now = true;
     }
 
+    if (currentScreenID == ScreenPage::ANALYTICS && analyticsNightPagerEnabled()) {
+        if (s_analytics_page_flip_ms == 0) {
+            s_analytics_page_flip_ms = millis();
+        } else if ((int32_t)(millis() - s_analytics_page_flip_ms) >= (int32_t)ANALYTICS_PAGE_FLIP_MS) {
+            if (analyticsNightSubpageStep(1)) {
+                // Last page: stay (timer does not leave screens). Restart so we do not spin.
+                s_analytics_page_flip_ms = millis();
+            } else {
+                s_analytics_page_flip_ms = millis();
+                force_full_refresh = true;
+                analytics_refresh_cycle_pos = 0;
+                refresh_now = true;
+            }
+        }
+    } else {
+        s_analytics_page_flip_ms = 0;
+    }
+
     // Always refresh on first run (loading screen) or when explicitly requested.
     //
     // On MAIN screen, instead of a fixed "every DISPLAY_REFRESH_INTERVAL ms"
@@ -661,7 +755,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 extractMainScreenValues(sensors_data, cached_main_values);
                 xSemaphoreGive(mutex);
             }
+            if (deskLayoutActive()) {
+                httpUrbanResetToMainPage();
+            }
             overlayCurrentUrbanOnMain(cached_main_values);
+            if (deskLayoutActive()) {
+                cached_main_values.urban_index = 1;
+                cached_main_values.urban_total = 1;
+            }
             debug_outln_verbose(F("[Display] Refresh MAIN screen"));
             uint8_t desk_page = 0;
             uint8_t desk_pos = 1;

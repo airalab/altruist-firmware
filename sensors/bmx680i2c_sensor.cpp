@@ -63,7 +63,9 @@ bool BME680Sensor::begin() {
         debug_outln_info(F("Fetch interval (sec): "), String(timeout / 1000));
         loadVocDay();
         loadVocAbc();
-        abc_boot_skip = 6;
+        // Loaded 5-day baseline: only skip a couple of heater samples.
+        // Empty ABC: keep ~30 min so a cold first R does not become "clean air".
+        abc_boot_skip = (abc_r_clean > 0.0f) ? 2 : 6;
         last_fetch_time = millis() - timeout;
         return true;
     }
@@ -94,6 +96,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     float raw_humidity = 0.0f;
     float pressure = 0.0f;
     uint32_t gas_ohm = 0;
+    bool gas_ok = false;
     {
         I2cBusLock bus;
         if (!bus.ok()) {
@@ -127,6 +130,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
         raw_humidity = bme680->humidity;
         pressure     = bme680->pressure;
         gas_ohm      = bme680->gas_resistance;
+        gas_ok       = bme680->gas_valid && gas_ohm > 0;
     }
 
     // ---------------- СЫРЫЕ ЗНАЧЕНИЯ ----------------
@@ -190,8 +194,14 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     last_temperature_value = corrected_temp;
     last_humidity_value    = smoothed_humidity;  // Используем сглаженное значение
     last_pressure_value    = pressure;
-    last_gas_resistance_value = gas_ohm;
-    updateVocSpikeDetector();
+    if (gas_ok) {
+        last_gas_resistance_value = gas_ohm;
+        updateVocSpikeDetector();
+    } else {
+        debug_outln_info(F("BME680 gas invalid"),
+            String(F("R=")) + String(gas_ohm) +
+            F(" (need heater-stable and gas-valid)"));
+    }
 
     // ---------------- ОТЛАДКА ----------------
     debug_outln_verbose(F("BME680 temperature: "), String(last_temperature_value, 1));
@@ -219,8 +229,9 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     }
     addValueToJSON(data, F("voc_phrase"), String(voc_phrase), INTL_VOC_ORGANIC, F(""));
     addValueToJSON(data, F("voc_ppb"), voc_ppb, INTL_VOC_PPB, F("ppb"));
+    addValueToJSON(data, F("voc_ppb_raw"), voc_ppb_raw, INTL_VOC_PPB, F("ppb"));
     addValueToJSON(data, F("voc_index"), voc_index, INTL_VOC_INDEX, INTL_VOC_AU);
-    addValueToJSON(data, F("voc_level"), voc_level, INTL_VOC_ORGANIC, F(""));
+    addValueToJSON(data, F("voc_level"), (int)voc_level, INTL_VOC_ORGANIC, F(""));
     addValueToJSON(data, F("voc_spikes_today"), voc_spikes_today, INTL_VOC_SPIKES_TODAY, F(""));
     addValueToJSON(data, F("gas_resistance"), last_gas_resistance_value, INTL_GAS_RESISTANCE, F("Ohm"));
     addValueToJSON(data, F("gas_baseline"), (uint32_t)(gas_baseline_ohm + 0.5f), INTL_GAS_BASELINE, F("Ohm"));
@@ -233,7 +244,7 @@ void BME680Sensor::updateVocSpikeDetector() {
     // ppb: ABC vs 5-day max gas resistance (cleanest air).
     // Ignore drops while the package is cooling — MOX resistance follows T/H.
     // Spike count is local calendar day (until 00:00), persisted on SPIFFS.
-    static constexpr uint8_t kWarmupSamples = 4;
+    static constexpr uint8_t kWarmupSamples = 2;
     static constexpr float kSpikeRatio = 0.92f;
     static constexpr float kSuddenRatio = 0.92f;
     static constexpr float kRecoverRatio = 0.92f;
@@ -287,9 +298,6 @@ void BME680Sensor::updateVocSpikeDetector() {
         prev_gas_ohm = rf;
         prev_temp_c = t;
         prev_gas_valid = true;
-        voc_level = 0;
-        voc_index = 0;
-        voc_ppb = 0;
         const float r_comp = abcCompensate(rf, t, last_humidity_value);
         const bool allow_abc = (abc_boot_skip == 0);
         if (abc_boot_skip > 0) {
@@ -297,6 +305,13 @@ void BME680Sensor::updateVocSpikeDetector() {
         }
         abcNoteSample(r_comp, cooling, allow_abc);
         applyVocFromAbc(r_comp, cooling);
+        if (allow_abc && !abcPrimed() && r_comp > abc_r_session) {
+            abc_r_session = r_comp;
+        }
+        if (voc_ppb == 0 && (gas_baseline_samples < kWarmupSamples || !abcPrimed())) {
+            voc_level = -1;
+            voc_ppb_smooth = false;
+        }
         persistVocAbc();
         debug_outln_info(F("BME680 gas baseline warmup"),
             String((int)gas_baseline_samples) + F("/") + String((int)kWarmupSamples) +
@@ -358,11 +373,19 @@ void BME680Sensor::updateVocSpikeDetector() {
     }
     abcNoteSample(r_comp, cooling, allow_abc);
     applyVocFromAbc(r_comp, cooling);
+    if (allow_abc && !abcPrimed() && r_comp > abc_r_session) {
+        abc_r_session = r_comp;
+    }
+    if (voc_ppb == 0 && !abcPrimed()) {
+        voc_level = -1;
+        voc_ppb_smooth = false;
+    }
     persistVocAbc();
     debug_outln_info(F("BME680 VOC ppb"),
         String(voc_ppb) + F(" R=") + String(r) +
         F(" Rc=") + String((uint32_t)(r_comp + 0.5f)) +
-        F(" Rclean=") + String((uint32_t)(abc_r_clean + 0.5f)));
+        F(" Rclean=") + String((uint32_t)(abc_r_clean + 0.5f)) +
+        F(" Rsess=") + String((uint32_t)(abc_r_session + 0.5f)));
 
     prev_gas_ohm = rf;
     prev_temp_c = t;
@@ -371,7 +394,7 @@ void BME680Sensor::updateVocSpikeDetector() {
 }
 
 void BME680Sensor::loadVocDay() {
-    if (!SPIFFS.begin(true)) {
+    if (!SPIFFS.begin(false)) {
         return;
     }
     File f = SPIFFS.open(F("/voc_day.json"), "r");
@@ -404,7 +427,7 @@ void BME680Sensor::loadVocDay() {
 }
 
 void BME680Sensor::persistVocDay() {
-    if (!SPIFFS.begin(true)) {
+    if (!SPIFFS.begin(false)) {
         return;
     }
     DynamicJsonDocument doc(256);
@@ -433,7 +456,10 @@ void BME680Sensor::persistVocDay() {
 // Relative MOS equivalent, not lab TVOC. Logarithmic:
 //   ppb = 3248 * ln(R_clean / R_comp)   so ~8% drop → 250, 50% drop → ~2250.
 // First ~30 min after boot does not raise the baseline.
-static constexpr uint32_t kAbcMagic = 0x32434241u; // "ABC2" (humidity-compensated R)
+// ABC3: unix hour per slot + checksum; load/save never formats SPIFFS.
+// ABC2 (no per-slot hours / checksum) is migrated once on load.
+static constexpr uint32_t kAbcMagic = 0x33434241u; // "ABC3"
+static constexpr uint32_t kAbcMagic2 = 0x32434241u; // "ABC2"
 static constexpr float kAbcHumSlope = 0.03f;
 static constexpr float kAbcLnGain = 3248.4f; // 250 / ln(1.08)
 static constexpr uint16_t kAbcMaxPpb = 10000;
@@ -482,16 +508,43 @@ float BME680Sensor::abcCompensate(float r_ohm, float t_c, float rh) const {
     return r_ohm * factor;
 }
 
+void BME680Sensor::abcClearRing() {
+    memset(abc_slot, 0, sizeof(abc_slot));
+    memset(abc_slot_hour, 0, sizeof(abc_slot_hour));
+    abc_cur_hour = 0;
+    abc_cur_max = 0;
+}
+
+static bool abcHourInWindow(uint32_t slot_hour, uint32_t now_hour, uint8_t window) {
+    if (slot_hour == 0 || now_hour == 0) {
+        return false;
+    }
+    if (slot_hour > now_hour) {
+        return false;
+    }
+    return (now_hour - slot_hour) < window;
+}
+
+static uint32_t abcXorWords(uint32_t crc, const uint32_t *w, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        crc ^= w[i];
+    }
+    return crc;
+}
+
 void BME680Sensor::abcRefreshClean() {
-    uint32_t tmp[kAbcHours + 1];
+    uint32_t now_hour = abc_cur_hour;
+    uint32_t live = 0;
+    if (abcUnixHour(&live) && live > 0) {
+        now_hour = live;
+    }
+    uint32_t tmp[kAbcHours];
     uint8_t n = 0;
     for (uint8_t i = 0; i < kAbcHours; i++) {
-        if (abc_slot[i] > 0) {
+        if (abc_slot[i] > 0 && abc_slot_hour[i] != now_hour &&
+            abcHourInWindow(abc_slot_hour[i], now_hour, kAbcHours)) {
             tmp[n++] = abc_slot[i];
         }
-    }
-    if (abc_cur_max > 0) {
-        tmp[n++] = abc_cur_max;
     }
     if (n == 0) {
         abc_r_clean = 0.0f;
@@ -513,6 +566,38 @@ void BME680Sensor::abcRefreshClean() {
     abc_r_clean = (float)tmp[idx];
 }
 
+bool BME680Sensor::abcPrimed() const {
+    uint32_t now_hour = abc_cur_hour;
+    uint32_t live = 0;
+    if (abcUnixHour(&live) && live > 0) {
+        now_hour = live;
+    }
+    if (now_hour == 0) {
+        return false;
+    }
+    uint32_t lo = 0;
+    uint32_t hi = 0;
+    uint8_t n = 0;
+    for (uint8_t i = 0; i < kAbcHours; i++) {
+        if (abc_slot[i] == 0 || abc_slot_hour[i] == now_hour ||
+            !abcHourInWindow(abc_slot_hour[i], now_hour, kAbcHours)) {
+            continue;
+        }
+        n++;
+        if (lo == 0 || abc_slot[i] < lo) {
+            lo = abc_slot[i];
+        }
+        if (abc_slot[i] > hi) {
+            hi = abc_slot[i];
+        }
+    }
+    if (n < 2 || lo == 0 || hi == 0) {
+        return false;
+    }
+    // ~8% MOS drop is 250 ppb on our scale — need at least that in completed hours.
+    return hi >= (uint32_t)((float)lo * 1.08f + 0.5f);
+}
+
 void BME680Sensor::abcNoteSample(float r_comp, bool cooling, bool allow_baseline) {
     if (cooling || r_comp <= 0.0f) {
         return;
@@ -522,9 +607,8 @@ void BME680Sensor::abcNoteSample(float r_comp, bool cooling, bool allow_baseline
     }
     const uint32_t r = (uint32_t)(r_comp + 0.5f);
     if (!allow_baseline) {
-        if (abc_r_clean <= 0.0f) {
-            abc_r_clean = r_comp;
-        }
+        // Do not seed R_clean from a cold first sample. That pins ppb at 0
+        // while the heater is still rising (current R looks "cleaner").
         return;
     }
     uint32_t hour = 0;
@@ -547,15 +631,31 @@ void BME680Sensor::abcNoteSample(float r_comp, bool cooling, bool allow_baseline
         abc_dirty = true;
     } else if (hour != abc_cur_hour) {
         if (abc_cur_max > 0) {
-            abc_slot[abc_cur_hour % kAbcHours] = abc_cur_max;
+            const uint8_t idx = (uint8_t)(abc_cur_hour % kAbcHours);
+            abc_slot[idx] = abc_cur_max;
+            abc_slot_hour[idx] = abc_cur_hour;
         }
         if (hour > abc_cur_hour) {
             const uint32_t gap = hour - abc_cur_hour;
             if (gap >= (uint32_t)kAbcHours) {
-                memset(abc_slot, 0, sizeof(abc_slot));
+                abcClearRing();
             } else {
                 for (uint32_t h = abc_cur_hour + 1; h < hour; h++) {
-                    abc_slot[h % kAbcHours] = 0;
+                    const uint8_t g = (uint8_t)(h % kAbcHours);
+                    abc_slot[g] = 0;
+                    abc_slot_hour[g] = 0;
+                }
+            }
+        } else {
+            const uint32_t back = abc_cur_hour - hour;
+            if (back >= (uint32_t)kAbcHours) {
+                abcClearRing();
+            } else {
+                for (uint8_t i = 0; i < kAbcHours; i++) {
+                    if (abc_slot_hour[i] > hour) {
+                        abc_slot[i] = 0;
+                        abc_slot_hour[i] = 0;
+                    }
                 }
             }
         }
@@ -569,11 +669,11 @@ void BME680Sensor::abcNoteSample(float r_comp, bool cooling, bool allow_baseline
     abcRefreshClean();
 }
 
-uint16_t BME680Sensor::abcToPpb(float r_comp) const {
-    if (abc_r_clean <= 0.0f || r_comp <= 0.0f) {
+uint16_t BME680Sensor::abcToPpb(float r_comp, float r_clean) const {
+    if (r_clean <= 0.0f || r_comp <= 0.0f) {
         return 0;
     }
-    float ratio = abc_r_clean / r_comp;
+    float ratio = r_clean / r_comp;
     if (ratio < 1.0f) {
         return 0;
     }
@@ -594,14 +694,23 @@ void BME680Sensor::applyVocFromAbc(float r_comp, bool cooling) {
     if (cooling) {
         return;
     }
-    if (abc_r_clean <= 0.0f) {
+    float r_ref = 0.0f;
+    if (abcPrimed() && abc_r_clean > 0.0f) {
+        r_ref = abc_r_clean;
+    } else if (abc_r_session > 0.0f) {
+        r_ref = abc_r_session;
+    }
+    if (r_ref <= 0.0f) {
         voc_ppb = 0;
+        voc_ppb_raw = 0;
         voc_ppb_f = 0.0f;
         voc_index = 0;
-        voc_level = 0;
+        voc_level = -1;
+        voc_ppb_smooth = false;
         return;
     }
-    const uint16_t raw = abcToPpb(r_comp);
+    const uint16_t raw = abcToPpb(r_comp, r_ref);
+    voc_ppb_raw = raw;
     if (!voc_ppb_smooth) {
         voc_ppb_f = (float)raw;
         voc_ppb_smooth = true;
@@ -626,43 +735,106 @@ void BME680Sensor::applyVocFromAbc(float r_comp, bool cooling) {
 }
 
 void BME680Sensor::loadVocAbc() {
-    if (!SPIFFS.begin(true)) {
+    if (!SPIFFS.begin(false)) {
         return;
     }
     File f = SPIFFS.open(F("/voc_abc.bin"), "r");
     if (!f) {
         return;
     }
-    const size_t need = 12 + sizeof(abc_slot);
-    if (f.size() < need) {
-        f.close();
-        return;
-    }
     uint32_t magic = 0;
-    if (f.read((uint8_t *)&magic, 4) != 4 || magic != kAbcMagic) {
+    if (f.read((uint8_t *)&magic, 4) != 4) {
         f.close();
         return;
     }
-    if (f.read((uint8_t *)&abc_cur_hour, 4) != 4 ||
-        f.read((uint8_t *)&abc_cur_max, 4) != 4 ||
-        f.read((uint8_t *)abc_slot, sizeof(abc_slot)) != sizeof(abc_slot)) {
-        memset(abc_slot, 0, sizeof(abc_slot));
-        abc_cur_hour = 0;
-        abc_cur_max = 0;
+    bool migrated = false;
+    if (magic == kAbcMagic) {
+        const size_t need = 16 + sizeof(abc_slot) + sizeof(abc_slot_hour);
+        uint32_t crc_file = 0;
+        if (f.size() < need ||
+            f.read((uint8_t *)&abc_cur_hour, 4) != 4 ||
+            f.read((uint8_t *)&abc_cur_max, 4) != 4 ||
+            f.read((uint8_t *)abc_slot, sizeof(abc_slot)) != sizeof(abc_slot) ||
+            f.read((uint8_t *)abc_slot_hour, sizeof(abc_slot_hour)) != sizeof(abc_slot_hour) ||
+            f.read((uint8_t *)&crc_file, 4) != 4) {
+            abcClearRing();
+            f.close();
+            return;
+        }
+        f.close();
+        uint32_t crc = kAbcMagic ^ abc_cur_hour ^ abc_cur_max;
+        crc = abcXorWords(crc, abc_slot, kAbcHours);
+        crc = abcXorWords(crc, abc_slot_hour, kAbcHours);
+        if (crc != crc_file) {
+            abcClearRing();
+            debug_outln_error(F("BME680 VOC ABC ignored (checksum)"));
+            return;
+        }
+    } else if (magic == kAbcMagic2) {
+        const size_t need = 12 + sizeof(abc_slot);
+        if (f.size() < need ||
+            f.read((uint8_t *)&abc_cur_hour, 4) != 4 ||
+            f.read((uint8_t *)&abc_cur_max, 4) != 4 ||
+            f.read((uint8_t *)abc_slot, sizeof(abc_slot)) != sizeof(abc_slot)) {
+            abcClearRing();
+            f.close();
+            return;
+        }
+        f.close();
+        memset(abc_slot_hour, 0, sizeof(abc_slot_hour));
+        if (abc_cur_hour > 0) {
+            for (uint8_t i = 0; i < kAbcHours; i++) {
+                if (abc_slot[i] == 0) {
+                    continue;
+                }
+                const uint32_t age =
+                    (abc_cur_hour + (uint32_t)kAbcHours - (uint32_t)i) % (uint32_t)kAbcHours;
+                if (age <= abc_cur_hour) {
+                    abc_slot_hour[i] = abc_cur_hour - age;
+                }
+            }
+        }
+        migrated = true;
+        abc_dirty = true;
+    } else {
         f.close();
         return;
     }
-    f.close();
+    uint32_t now_hour = 0;
+    if (abcUnixHour(&now_hour)) {
+        if (abc_cur_hour > now_hour) {
+            for (uint8_t i = 0; i < kAbcHours; i++) {
+                if (abc_slot_hour[i] > now_hour) {
+                    abc_slot[i] = 0;
+                    abc_slot_hour[i] = 0;
+                }
+            }
+            abc_cur_hour = now_hour;
+            abc_cur_max = 0;
+        }
+        for (uint8_t i = 0; i < kAbcHours; i++) {
+            if (abc_slot[i] > 0 && !abcHourInWindow(abc_slot_hour[i], now_hour, kAbcHours)) {
+                abc_slot[i] = 0;
+                abc_slot_hour[i] = 0;
+            }
+        }
+    }
     abcRefreshClean();
-    debug_outln_info(F("BME680 VOC ABC loaded"),
+    if (abc_r_clean > 0.0f) {
+        abc_from_file = true;
+    }
+    debug_outln_info(migrated ? F("BME680 VOC ABC migrated") : F("BME680 VOC ABC loaded"),
         String(F("Rclean=")) + String((uint32_t)(abc_r_clean + 0.5f)));
+    if (abc_dirty) {
+        persistVocAbc();
+    }
 }
 
 void BME680Sensor::persistVocAbc() {
     if (!abc_dirty) {
         return;
     }
-    if (!SPIFFS.begin(true)) {
+    if (!SPIFFS.begin(false)) {
         return;
     }
     File f = SPIFFS.open(F("/voc_abc.bin"), "w");
@@ -671,10 +843,19 @@ void BME680Sensor::persistVocAbc() {
         return;
     }
     const uint32_t magic = kAbcMagic;
-    f.write((const uint8_t *)&magic, 4);
-    f.write((const uint8_t *)&abc_cur_hour, 4);
-    f.write((const uint8_t *)&abc_cur_max, 4);
-    f.write((const uint8_t *)abc_slot, sizeof(abc_slot));
+    uint32_t crc = magic ^ abc_cur_hour ^ abc_cur_max;
+    crc = abcXorWords(crc, abc_slot, kAbcHours);
+    crc = abcXorWords(crc, abc_slot_hour, kAbcHours);
+    if (f.write((const uint8_t *)&magic, 4) != 4 ||
+        f.write((const uint8_t *)&abc_cur_hour, 4) != 4 ||
+        f.write((const uint8_t *)&abc_cur_max, 4) != 4 ||
+        f.write((const uint8_t *)abc_slot, sizeof(abc_slot)) != sizeof(abc_slot) ||
+        f.write((const uint8_t *)abc_slot_hour, sizeof(abc_slot_hour)) != sizeof(abc_slot_hour) ||
+        f.write((const uint8_t *)&crc, 4) != 4) {
+        f.close();
+        debug_outln_error(F("BME680 VOC ABC save failed"));
+        return;
+    }
     f.close();
     abc_dirty = false;
 }

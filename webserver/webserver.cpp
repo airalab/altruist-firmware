@@ -1866,6 +1866,7 @@ void SensorWebServer::end_html_page(String& page_content) {
 		web_send_content_ram(&server, page_content.c_str(), page_content.length());
 		page_content = emptyString;
 	}
+	web_send_content_progmem(&server, WEB_PASSWORD_TOGGLE_JS, strlen_P(WEB_PASSWORD_TOGGLE_JS));
 	web_send_content_progmem(&server, WEB_PAGE_FOOTER, strlen_P(WEB_PAGE_FOOTER));
 	web_page_finish_chunked(&server);
 }
@@ -1875,6 +1876,7 @@ void SensorWebServer::end_html_page_guest(String& page_content) {
 		web_send_content_ram(&server, page_content.c_str(), page_content.length());
 		page_content = emptyString;
 	}
+	web_send_content_progmem(&server, WEB_PASSWORD_TOGGLE_JS, strlen_P(WEB_PASSWORD_TOGGLE_JS));
 	web_send_content_progmem(&server, WEB_PAGE_GUEST_FOOTER, strlen_P(WEB_PAGE_GUEST_FOOTER));
 	web_page_finish_chunked(&server);
 }
@@ -1936,6 +1938,7 @@ void SensorWebServer::end_html_page_app(String& page_content) {
 		"});"
 		"onScroll();"
 		"})();</script>"));
+	web_send_content_progmem(&server, WEB_PASSWORD_TOGGLE_JS, strlen_P(WEB_PASSWORD_TOGGLE_JS));
 	web_send_content_progmem(&server, WEB_PAGE_APP_FOOTER, strlen_P(WEB_PAGE_APP_FOOTER));
 	web_page_finish_chunked(&server);
 }
