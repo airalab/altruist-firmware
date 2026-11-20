@@ -124,8 +124,6 @@ jobs:
         run: |
           set -euo pipefail
           pio run \
-            -e esp32c3_urban_en_debug \
-            -e esp32c3_urban_ru_debug \
             -e esp32c6_urban_en_debug \
             -e esp32c6_urban_ru_debug \
             -e esp32c6_inside_en_debug \
