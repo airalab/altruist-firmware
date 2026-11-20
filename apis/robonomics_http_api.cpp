@@ -11,16 +11,21 @@ namespace
 
 	void logConnectivityAttempt(uint32_t seq, const String &region, const String &host)
 	{
+        logSupportEvent(DEBUG_MIN_INFO, F("connectivity"), F("attempt"));
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] attempt channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" region="));
 		Serial.print(region);
 		Serial.print(F(" host="));
 		Serial.println(host);
+#endif
 	}
 
 	void logConnectivitySuccess(uint32_t seq, const String &host, int code, const String &region)
 	{
+        logSupportEvent(DEBUG_MIN_INFO, F("connectivity"), F("success"), code);
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] success channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" region="));
@@ -29,18 +34,24 @@ namespace
 		Serial.print(host);
 		Serial.print(F(" code="));
 		Serial.println(code);
+#endif
 	}
 
 	void logConnectivityFailure(uint32_t seq, const String &reason)
 	{
+        logSupportEvent(DEBUG_ERROR, F("connectivity"), F("local_failure"));
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" reason="));
 		Serial.println(reason);
+#endif
 	}
 
 	void logConnectivityFailure(uint32_t seq, const String &reason, const String &host, int code, size_t response_len = 0)
 	{
+        logSupportEvent(DEBUG_ERROR, F("connectivity"), F("send_failed"), code);
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" reason="));
@@ -58,16 +69,36 @@ namespace
 			Serial.print(response_len);
 		}
 		Serial.println();
+#endif
+	}
+
+	// Health GET only selects a server; its failure is not a data-send outcome.
+	void logConnectivityHealthFailure(uint32_t seq, const String &reason, const String &host, int code)
+	{
+        logSupportEvent(DEBUG_MIN_INFO, F("connectivity"), F("health_failed"), code);
+#if defined(ALTRUIST_BUILD_DEBUG)
+		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
+		Serial.print(seq);
+		Serial.print(F(" stage=health reason="));
+		Serial.print(reason);
+		Serial.print(F(" host="));
+		Serial.print(host);
+		Serial.print(F(" code="));
+		Serial.println(code);
+#endif
 	}
 
 	void logConnectivityNoServer(uint32_t seq, const String &region, const String &hosts)
 	{
+        logSupportEvent(DEBUG_ERROR, F("connectivity"), F("no_server_available"));
+#if defined(ALTRUIST_BUILD_DEBUG)
 		Serial.print(F("[CONNECTIVITY] failed channel=sensors-connectivity seq="));
 		Serial.print(seq);
 		Serial.print(F(" reason=no_server_available region="));
 		Serial.print(region);
 		Serial.print(F(" host="));
 		Serial.println(hosts.length() > 0 ? hosts : String(F("-")));
+#endif
 	}
 
 	bool isRuRegion(const String &reg)
@@ -783,7 +814,7 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal)
 			}
 			else
 			{
-				logConnectivityFailure(map_send_seq_active, F("health_get_failed"), s_Host, result);
+				logConnectivityHealthFailure(map_send_seq_active, F("health_get_failed"), s_Host, result);
 				if (result >= HTTP_CODE_BAD_REQUEST)
 				{
 					debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] server error from ") + s_Host + " HTTP " + String(result));
@@ -798,7 +829,7 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal)
 		}
 		else
 		{
-			logConnectivityFailure(map_send_seq_active, F("health_begin_failed"), s_Host, 0);
+			logConnectivityHealthFailure(map_send_seq_active, F("health_begin_failed"), s_Host, 0);
 			debug_outln_verbose(F("[Map] Cannot connect to host"));
 			debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] host: ") + s_Host);
 		}

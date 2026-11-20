@@ -32,7 +32,8 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HardwareSerial.h>
-#include <freertos/queue.h>
+#include <freertos/semphr.h>
+#include "support_log_tail.h"
 
 const char DBG_TXT_TEMPERATURE[] PROGMEM = "Temperature (°C): ";
 const char DBG_TXT_DECIBEL[] PROGMEM = "Noise Level (DB): ";
@@ -167,9 +168,14 @@ public:
 	int readStructured();
 	bool structuredOutputEnabled() const { return m_structured_output; }
 	String popLines();
+	void clearLog();
 
 private:
-	QueueHandle_t m_buffer;
+#if defined(ALTRUIST_BUILD_DEBUG)
+	SupportLogTail<LARGE_STR, false> m_tail;
+#else
+	SupportLogTail<2048, true> m_tail;
+#endif
 	SemaphoreHandle_t m_write_mutex;
 	bool m_structured_output = false;
 };
@@ -179,8 +185,13 @@ extern class LoggingSerial Debug;
 /** After LoRa owns UART0, send libc/ROM/IDF console to USB CDC (not GPIO22). */
 extern void debugRedirectConsoleToUsb();
 extern unsigned int effectiveRuntimeLogLevel();
+extern void logSupportEvent(unsigned int level, const String& subsystem,
+                            const __FlashStringHelper* event, int code = 0);
+/** Explicit support snapshot; level 0 permits an on-demand snapshot with logs off. */
+extern void logSupportStatus(unsigned int level = 0);
 /** Mute USB CDC logs while Improv Serial owns the port (webflasher). */
 extern void debugSetUsbQuiet(bool quiet);
+#if defined(ALTRUIST_BUILD_DEBUG)
 extern void debug_out(const String& text, unsigned int level);
 extern void debug_out(const __FlashStringHelper* text, unsigned int level);
 extern void debug_outln(const String& text, unsigned int level);
@@ -193,10 +204,28 @@ extern void debug_outln_info(const __FlashStringHelper* text, const String& opti
 extern void debug_outln_info(const __FlashStringHelper* text, float value);
 extern void debug_outln_verbose(const __FlashStringHelper* text, const String& option);
 extern void debug_outln_info_bool(const __FlashStringHelper* text, const bool option);
+
+#else
+inline void debug_out(const String& , unsigned int) {}
+inline void debug_out(const __FlashStringHelper* , unsigned int) {}
+inline void debug_outln(const String& , unsigned int) {}
+inline void debug_outln_info(const String&) {}
+inline void debug_outln_verbose(const String&) {}
+inline void debug_outln_error(const __FlashStringHelper*) {}
+inline void debug_outln_info(const __FlashStringHelper*) {}
+inline void debug_outln_verbose(const __FlashStringHelper*) {}
+inline void debug_outln_info(const __FlashStringHelper* , const String&) {}
+inline void debug_outln_info(const __FlashStringHelper* , float) {}
+inline void debug_outln_verbose(const __FlashStringHelper* , const String&) {}
+inline void debug_outln_info_bool(const __FlashStringHelper* , const bool) {}
+
+#endif
+
 extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
 extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
 extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
 extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
+
 
 
 extern bool isNumeric(const String& str);

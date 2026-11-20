@@ -35,6 +35,12 @@ public:
   bool endReading();
   int remainingReadingMillis();
 
+#if defined(ALTRUIST_BUILD_DEBUG)
+  bool debugNewData = false;
+  uint8_t debugStatus = 0;
+  uint32_t debugGasResistance = 0;
+  int debugReadCode = 0;
+#endif
   float temperature;
   uint32_t pressure;
   float humidity;

@@ -1,0 +1,277 @@
+"""Static profile checks; does not invoke PlatformIO, compile, or access a device."""
+import configparser
+import os
+from pathlib import Path
+import re
+import shlex
+import subprocess
+import unittest
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[2]
+CONFIG = configparser.ConfigParser(interpolation=None)
+CONFIG.read(ROOT / "platformio.ini")
+
+
+def flags(section, option="build_flags"):
+    value = CONFIG[section][option]
+    return re.sub(r"\$\{([^}.]+)\.([^}]+)\}", lambda m: flags(m[1], m[2]), value)
+
+
+class BuildEnv(dict):
+    def __init__(self, section):
+        super().__init__(BUILD_FLAGS=flags(section))
+        self.section = section
+
+    def GetProjectOption(self, name, default=""):
+        return CONFIG[self.section].get(name, default)
+
+    def ParseFlags(self, value):
+        return {"CPPDEFINES": [s[2:].split("=", 1)[0] for s in shlex.split(value) if s.startswith("-D")]}
+
+    def StringifyMacro(self, value):
+        return '"' + value + '"'
+
+    def subst(self, value):
+        return value.replace("$PROJECT_DIR", str(ROOT))
+
+    def Append(self, **kwargs):
+        for key, value in kwargs.items():
+            self.setdefault(key, []).extend(value)
+
+    def AddBuildMiddleware(self, callback):
+        self.middleware = callback
+
+
+def preprocess(path, defines):
+    # This is a policy check, not a C++ build: platform headers are intentionally
+    # omitted. The real project guards are evaluated by the host preprocessor.
+    source = re.sub(r'^\s*#include[^\n]*', '', path.read_text(), flags=re.M)
+    return subprocess.check_output(
+        ["cpp", "-P", "-x", "c++", "-include", str(ROOT / "diagnostics.h"),
+         *["-D" + d for d in defines], "-"], input=source, text=True,
+    )
+
+
+class DiagnosticsProfiles(unittest.TestCase):
+    def test_metadata_matrix(self):
+        script = (ROOT / "platformio_build_metadata.py").read_text()
+        targets = [s for s in CONFIG.sections() if s.startswith("env:")]
+        self.assertEqual(len(targets), 12)
+        for section in targets:
+            for channel in ("0", "1"):
+                for health in ("0", "1"):
+                    with self.subTest(section=section, channel=channel, health=health):
+                        env = BuildEnv(section)
+                        namespace = {"env": env, "Import": lambda _: None}
+                        with patch.dict(os.environ, {
+                            "ALTRUIST_CHANNEL_TESTING": channel,
+                            "ALTRUIST_HEALTH_TELEMETRY": health,
+                            "ALTRUIST_BUILD_COMMIT": "344f123",
+                        }), patch("subprocess.check_output", return_value="esp32"), patch("builtins.print"):
+                            exec(compile(script, "platformio_build_metadata.py", "exec"), namespace)
+                        debug = section.endswith("_debug")
+                        metadata = dict(d for d in env["CPPDEFINES"] if isinstance(d, tuple))
+                        self.assertEqual(metadata["ALTRUIST_BUILD_PROFILE"], '"debug"' if debug else '"release"')
+                        self.assertEqual(namespace["health_telemetry"], debug and health == "1")
+                        self.assertEqual(namespace["testing_channel"], channel == "1")
+
+    def test_release_output_and_functional_paths(self):
+        sources = [ROOT / "airrohr-firmware.ino", *ROOT.glob("apis/**/*.cpp"),
+                   *ROOT.glob("sensors/**/*.cpp"), *ROOT.glob("display/**/*.cpp")]
+        sources = [p for p in sources if re.search(r'\bSerial\.', p.read_text())]
+        for model, target in (("URBAN", "ESP32C3"), ("URBAN", "ESP32C6"), ("INSIGHT", "ESP32C6")):
+            for language in ("EN", "RU"):
+                for channel in ([], ["ALTRUIST_CHANNEL_TESTING"]):
+                    defines = ["ESP32", "ALTRUIST_" + model, "CONFIG_IDF_TARGET_" + target,
+                               "INTL_" + language, "USE_SD_CARD", "ALTRUIST_HEALTH_TELEMETRY",
+                               "CORE_DEBUG_LEVEL=5", "LOG_LOCAL_LEVEL=5", "ALTRUIST_FORCE_LOG_LEVEL=5", *channel]
+                    for path in sources:
+                        with self.subTest(path=path, defines=defines):
+                            output = preprocess(path, defines)
+                            self.assertNotRegex(output, r'\bSerial\.(?:print\w*|flush)\(')
+                            if path.name == "airrohr-firmware.ino":
+                                self.assertIn("checkSystemWatchdogs();", output)
+                                self.assertIn("saveCrashContext();", output)
+                                self.assertIn("metricsWorker,", output)
+                                self.assertNotIn("writeBootFile", output)
+                    output = preprocess(ROOT / "improv/improv_serial.cpp", defines)
+                    self.assertIn("Serial.write(buf, pos);", output)
+                    output = preprocess(ROOT / "utils.cpp", defines)
+                    self.assertIn("HardwareSerial::write(data, len)", output)
+                    self.assertNotIn('"[SUBSYSTEM] "', output)
+                    self.assertNotIn('"[HEALTH] uptime="', output)
+                    self.assertIn("project_diagnostics_enabled = false", output)
+
+    def test_debug_sensor_snapshots(self):
+        for name in ("bmx280i2c", "sds011", "i2s_noise", "scd4x", "bmx680i2c"):
+            with self.subTest(sensor=name):
+                output = preprocess(ROOT / f"sensors/{name}_sensor.cpp", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
+                self.assertIn("addValueToJSON(data,", output)
+                self.assertNotIn("serializeJson(data, Serial);", output)
+        common = preprocess(ROOT / "sensors/sensor.h", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
+        self.assertIn("serializeJson(snapshot, line);", common)
+        common += preprocess(ROOT / "sensors/uart_v2_json.h", ["ALTRUIST_BUILD_DEBUG"])
+        for field in ("_observations", "version", "device_id", "boot_id", "model", "sensor",
+                      "snapshot_seq", "time_ms", "seq", "measured_ms", "state", "cycles_total", "failed_total", "reason"):
+            self.assertIn('"' + field + '"', common)
+        worker = preprocess(ROOT / "airrohr-firmware.ino", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
+        self.assertIn("activeSensors[i]->debugSnapshotIfDue()", worker)
+        release = preprocess(ROOT / "sensors/sensor.h", ["ESP32", "ALTRUIST_CHANNEL_TESTING", "ALTRUIST_FORCE_LOG_LEVEL=5"])
+        self.assertNotIn("serializeJson(snapshot, line);", release)
+        self.assertNotIn("uart_v2::Telemetry", release)
+        self.assertNotIn('"_observations"', release)
+        output = preprocess(ROOT / "sensors/bmx680i2c_sensor.cpp", ["ALTRUIST_BUILD_DEBUG", "ESP32"])
+        for field in ("voc_ppb", "voc_index", "voc_level", "voc_spikes_today", "gas_resistance", "gas_baseline"):
+            self.assertIn('"' + field + '"', output)
+
+        self.assertIn('addValueToJSON(data, F("voc_ppb"), voc_ppb, INTL_VOC_PPB, F("ppb"));', output)
+
+    def test_map_health_is_separate_from_send_outcomes(self):
+        path = ROOT / "apis/robonomics_http_api.cpp"
+        output = preprocess(path, ["ESP32", "ALTRUIST_BUILD_DEBUG"])
+        health = output[output.index("void logConnectivityHealthFailure("):
+                        output.index("void logConnectivityNoServer(")]
+        self.assertIn('" stage=health reason="', health)
+        self.assertIn('F("health_failed")', health)
+        self.assertNotIn('F("send_failed")', health)
+        for reason in ("health_get_failed", "health_begin_failed"):
+            self.assertIn('logConnectivityHealthFailure(map_send_seq_active, F("' + reason + '")', output)
+            self.assertNotIn('logConnectivityFailure(map_send_seq_active, F("' + reason + '")', output)
+        release = preprocess(path, ["ESP32"])
+        health = release[release.index("void logConnectivityHealthFailure("):
+                         release.index("void logConnectivityNoServer(")]
+        self.assertIn('F("health_failed")', health)
+        self.assertNotIn("Serial.print", health)
+
+    def test_debug_structured_events(self):
+        paths = ["airrohr-firmware.ino", "utils.cpp", "apis/helpers/message_formatter.cpp",
+                 "apis/robonomics_http_api.cpp", "apis/robonomics_datalog_api.cpp"]
+        output = "\n".join(preprocess(ROOT / p, ["ALTRUIST_BUILD_DEBUG", "ALTRUIST_HEALTH_TELEMETRY", "ESP32"])
+                           for p in paths)
+        self.assertIn("Serial.println(F(ALTRUIST_BUILD_LINE));", output)
+        for tag in ("BOOT", "LOG", "HEALTH", "PAYLOAD", "DATALOG", "CONNECTIVITY", "SUBSYSTEM"):
+            self.assertIn("[" + tag + "]", output)
+        for debug in (False, True):
+            output = preprocess(ROOT / "library_diagnostics.h", ["ALTRUIST_BUILD_DEBUG"] if debug else [])
+            self.assertEqual("class AltruistSilentLibrarySerial" in output, not debug)
+
+    def test_release_support_routes_and_snapshot(self):
+        output = preprocess(ROOT / "utils.cpp", ["ESP32", "ALTRUIST_FORCE_LOG_LEVEL=5"])
+        self.assertIn("return min(cfg::debug, static_cast<unsigned int>(DEBUG_MIN_INFO))", output)
+        header = preprocess(ROOT / "utils.h", ["ESP32"])
+        self.assertIn("SupportLogTail<2048, true>", header)
+        debug_header = preprocess(ROOT / "utils.h", ["ESP32", "ALTRUIST_BUILD_DEBUG"])
+        self.assertIn("SupportLogTail<LARGE_STR, false>", debug_header)
+        self.assertIn("Debug.write(reinterpret_cast<const uint8_t*>(line.c_str())", output)
+        self.assertIn("Serial.write(reinterpret_cast<const uint8_t*>(line.c_str())", output)
+        self.assertIn("if (!s_usb_log_quiet)", output)
+        snapshot = output[output.index("void logSupportStatus("):output.index("void debugSetUsbQuiet(")]
+        self.assertIn("writeSupportLine(F(ALTRUIST_BUILD_LINE), level)", snapshot)
+        self.assertIn('"[BUILD] version="', (ROOT / "defines.h").read_text())
+        for field in ("uptime", "reset_reason", "heap", "wifi", "sensor_errors", "sd_errors"):
+            self.assertIn(field + "=", snapshot)
+        for forbidden in ("payload", "private_key", "signature", "temperature", "co2", "cfg::wlanpwd"):
+            self.assertNotIn(forbidden, snapshot)
+        self.assertIn("now - stamp.at < 30000UL", output)
+        self.assertIn("level != 0 && suppressSupportEvent", output)
+        datalog = preprocess(ROOT / "apis/robonomics_datalog_api.cpp", ["ESP32"])
+        oversized = datalog[datalog.index("if (proto_len > DATALOG_CHAIN_SAFE_BYTES)"):]
+        self.assertIn('logSupportEvent(DEBUG_ERROR, F("datalog"), F("payload_too_large"))', oversized)
+        self.assertIn("portENTER_CRITICAL", output)
+        self.assertIn("m_tail.append(buffer, size)", output)
+        self.assertIn("m_tail.batchSize()", output)
+        esp_log = output[output.index("static int usb_esp_log_vprintf("):
+                         output.index("static void redirectLibcConsoleToUsb(")]
+        self.assertNotIn("vsnprintf(", esp_log)
+
+    def test_release_event_details_remain_debug_only(self):
+        for path in ("apis/robonomics_http_api.cpp", "apis/robonomics_datalog_api.cpp"):
+            output = preprocess(ROOT / path, ["ESP32"])
+            # Only the logging helpers precede these functional helpers.
+            end = output.index("bool isRuRegion") if "http_api" in path else output.index("bool parseRpcError")
+            logging = output[:end]
+            self.assertIn("logSupportEvent(DEBUG_ERROR", logging)
+            self.assertNotIn("Serial.print", logging)
+            self.assertNotIn("response_len=", logging)
+            self.assertNotIn("host=", logging)
+            self.assertNotIn("message=", logging)
+        output = preprocess(ROOT / "utils.cpp", ["ESP32"])
+        subsystem = output[output.index("void logSubsystemEvent(\n"):output.index("void logSubsystemError(")]
+        self.assertIn("subsystem, reason", subsystem)
+        self.assertNotIn("Serial.print", subsystem)
+        self.assertNotIn("+ details", subsystem)
+        header = preprocess(ROOT / "utils.h", ["ESP32"])
+        self.assertIn("inline void debug_outln_info", header)
+        self.assertIn("inline void debug_outln_verbose", header)
+
+    def test_support_web_controls_in_both_profiles(self):
+        for debug in (False, True):
+            defines = ["ESP32", "ALTRUIST_BUILD_DEBUG"] if debug else ["ESP32"]
+            output = preprocess(ROOT / "webserver/pages/debug.cpp", defines)
+            self.assertIn("Debug.popLines()", output)
+            self.assertIn("cfg::debug = level", output)
+            self.assertIn("logSupportStatus()", output)
+            levels = re.search(r"levels\[\] = \{([^}]+)\}", output)[1]
+            self.assertEqual([int(n) for n in re.findall(r"\d+", levels)], [0, 1, 3, 4, 5] if debug else [0, 1, 3])
+        output = preprocess(ROOT / "webserver/webserver.cpp", ["ESP32"])
+        endpoint = output[output.index("void SensorWebServer::_webserver_serial()"):]
+        self.assertLess(endpoint.index("webserver_request_auth()"), endpoint.index("Debug.popLines()"))
+        self.assertIn('server.arg("status") == "1"', endpoint)
+
+    def test_log_ui_has_one_named_mode_control(self):
+        source = (ROOT / "webserver/pages/config.cpp").read_text()
+        self.assertNotIn("add_form_input(page_content, Config_debug", source)
+        self.assertIn("type='hidden' name='debug'", source)
+        self.assertIn("String(cfg::debug)", source)
+        for debug in (False, True):
+            defines = ["ESP32", "ALTRUIST_FORCE_LOG_LEVEL=4"]
+            if debug:
+                defines.append("ALTRUIST_BUILD_DEBUG")
+            output = preprocess(ROOT / "webserver/pages/debug.cpp", defines)
+            self.assertNotIn("String(effectiveRuntimeLogLevel())", output)
+            self.assertIn("INTL_SUPPORT_OFF", output)
+            self.assertIn("INTL_SUPPORT_ERRORS", output)
+            self.assertIn("aria-pressed", output)
+            if debug:
+                self.assertIn("INTL_SUPPORT_FORCED", output)
+                self.assertIn("level < static_cast<unsigned int>(4)", output)
+            self.assertIn("value[0] != '2'", output)
+            self.assertNotIn("if (level == DEBUG_WARNING)", output)
+            self.assertIn('F("mode_changed")', output)
+
+    def test_snapshot_does_not_select_or_save_a_mode(self):
+        output = preprocess(ROOT / "webserver/pages/debug.cpp", ["ESP32"])
+        request = output[output.index("void apply_log_request"):output.index("void append_log_controls")]
+        snapshot_branch = request[request.index('if (server.arg("status")'):request.index('if (server.hasArg("lvl")')]
+        self.assertIn("logSupportStatus()", snapshot_branch)
+        self.assertIn("return;", snapshot_branch)
+        self.assertNotIn("cfg::debug =", snapshot_branch)
+        self.assertNotIn("writeConfig", request)
+        self.assertNotIn("sensor_restart", request)
+        self.assertNotIn("esp_restart", request)
+        self.assertIn("INTL_SUPPORT_STATUS_HINT", output)
+
+    def test_operational_lifecycle_hooks(self):
+        for path, events in {
+            "airrohr-firmware.ino": ["ready", "unavailable", "connected", "disconnected", "watchdog_restart"],
+            "OTA_Update.cpp": ["started", "verified"],
+            "sensors/scd4x_sensor.cpp": ["scd4x_read_timeout", "scd4x_not_found"],
+            "sensors/bmx680i2c_sensor.cpp": ["bme680_not_found", "bme680_read_failed"],
+        }.items():
+            with self.subTest(path=path):
+                output = preprocess(ROOT / path, ["ESP32", "ALTRUIST_INSIGHT"])
+                for event in events:
+                    self.assertIn('"' + event + '"', output)
+
+    def test_core_levels_are_compile_time_clamped(self):
+        with subprocess.Popen(["cpp", "-dM", "-DCORE_DEBUG_LEVEL=5", "-DLOG_LOCAL_LEVEL=5",
+                               str(ROOT / "diagnostics.h")], stdout=subprocess.PIPE, text=True) as process:
+            output = process.communicate()[0]
+            self.assertEqual(process.returncode, 0)
+        self.assertIn("#define CORE_DEBUG_LEVEL 0", output)
+        self.assertIn("#define LOG_LOCAL_LEVEL 0", output)
+
+
+if __name__ == "__main__":
+    unittest.main()

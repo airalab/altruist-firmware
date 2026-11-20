@@ -12,6 +12,7 @@
 #include <Preferences.h>
 #include <esp_system.h>
 
+#if defined(ALTRUIST_BUILD_DEBUG)
 namespace {
 struct CrashContextStatus {
 	bool valid = false;
@@ -49,6 +50,7 @@ const char* getCrashSectionNameForStatus(uint8_t section) {
 	}
 }
 } // namespace
+#endif
 
 /*****************************************************************
  * Webserver root: show device status
@@ -79,12 +81,12 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus,
 	add_reading_metric_card(page_content, FPSTR(INTL_RESET_REASON), get_reset_reason_text(), nullptr);
 	add_reading_metrics_grid_end(page_content);
 
+#if defined(ALTRUIST_BUILD_DEBUG)
 	CrashContextStatus crash_ctx = loadCrashContextStatus();
 	if (crash_ctx.valid) {
 		add_data_row_from_value(page_content, "Last active section", getCrashSectionNameForStatus(crash_ctx.section));
 		add_data_row_from_value(page_content, "Free heap before reset", String(crash_ctx.free_heap));
 	}
-#if defined(ALTRUIST_BUILD_DEBUG)
 	add_data_row_from_value(page_content, "Reset reason code", String((int)esp_reset_reason()));
 	if (!crash_ctx.valid) {
 		add_data_row_from_value(page_content, "Last active section", "N/A (no saved context)");

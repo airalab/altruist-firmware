@@ -1407,4 +1407,30 @@
 #define INTL_REMOVE_EXTRA_URBAN "Remove"
 #endif
 
+#if defined(INTL_RU)
+#define INTL_SUPPORT_LOG_TITLE "Журнал"
+#define INTL_SUPPORT_OFF "Выключено"
+#define INTL_SUPPORT_ERRORS "Только ошибки"
+#define INTL_SUPPORT_DETAIL "Подробно"
+#define INTL_SUPPORT_MAX_DETAIL "Максимально подробно"
+#define INTL_SUPPORT_STATUS_HINT "Показывает состояние, не меняя режим журнала."
+#define INTL_SUPPORT_FORCED "Эта отладочная прошивка всегда включает подробный журнал; доступны только режимы не ниже заданной детализации."
+#define INTL_SUPPORT_EVENTS "События"
+#define INTL_SUPPORT_STATUS "Снимок состояния"
+#define INTL_SUPPORT_LIMIT "Доступны ошибки и события. Подробная диагностика требует отладочной прошивки."
+#define INTL_SUPPORT_VOLATILE "Режим меняется сразу, без перезагрузки. Чтобы сохранить его, нажмите «Сохранить и перезапустить» в расширенных настройках; устройство перезагрузится."
+#else
+#define INTL_SUPPORT_LOG_TITLE "Logs"
+#define INTL_SUPPORT_OFF "Off"
+#define INTL_SUPPORT_ERRORS "Errors only"
+#define INTL_SUPPORT_DETAIL "Detailed"
+#define INTL_SUPPORT_MAX_DETAIL "Most detailed"
+#define INTL_SUPPORT_STATUS_HINT "Shows device status without changing the log mode."
+#define INTL_SUPPORT_FORCED "This debug firmware always enables detailed logs; only modes at or above that detail are available."
+#define INTL_SUPPORT_EVENTS "Events"
+#define INTL_SUPPORT_STATUS "Status snapshot"
+#define INTL_SUPPORT_LIMIT "Errors and events are available. Detailed diagnostics require debug firmware."
+#define INTL_SUPPORT_VOLATILE "The mode changes immediately without reboot. To keep it, use Save and restart in advanced settings; the device will reboot."
+#endif
+
 #endif

@@ -112,7 +112,7 @@ legacy `inside` environment name builds Insight firmware.
 - Use `esp32c3_urban_en_debug` to debug old ESP32-C3 Urban hardware with the
   same reduced feature set as the C3 release build.
 
-Local builds infer the channel from the branch, enable health telemetry, and
+Local builds infer the channel from the branch, enable health telemetry only in debug, and
 read the source commit from Git. Detached or no-Git local builds fall back to
 Stable unless `ALTRUIST_CHANNEL_TESTING=1` is set explicitly. The build output
 prints the resolved branch, channel, profile, telemetry state, and commit before
@@ -123,11 +123,29 @@ channel controls firmware identity, artifact names, and OTA policy; the build
 profile controls diagnostic verbosity. Debug builds force verbose project logs
 with `ALTRUIST_FORCE_LOG_LEVEL=4`.
 
-The tester UART contract is independent from runtime project logs: `[BOOT]`,
-`[BUILD]`, `[LOG]`, `[HEALTH]`, `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`, and
-`[SUBSYSTEM]` are emitted directly to Serial in release builds, while full
-transport payloads, sensor internals, and HTTP details stay behind verbose/debug
-logging.
+USB sensor acceptance diagnostics require a `_debug` target. Full sensor JSON,
+`[BOOT]`, `[HEALTH]`, `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`, `[SUBSYSTEM]`
+details and protocol/library dumps remain debug-only.
+
+Release includes a bounded operational log for local support and the webflasher
+USB console: `[BUILD]` identity, `[LOG]` status snapshots, curated subsystem
+errors, Wi-Fi transitions, sensor availability, OTA and upload results. It never
+logs sensor readings, payloads, remote response bodies, credentials or signatures.
+The local `/debug` and `/advanced` pages offer named modes Off, Errors only and
+Events; release cannot enable detailed debug output. Debug also offers Detailed
+and Most detailed, showing only modes at or above its build-time forced minimum.
+The active mode is highlighted; there is no separate numeric input. Live changes do not reboot. The existing
+Save and restart form persists the current mode and deliberately reboots. **Status snapshot** shows identity and runtime counters on
+request, including when automatic logging is off; `/serial?status=1` also returns
+it. `/serial` uses the same configured authentication as the debug page.
+
+The release web log is a 2048-byte RAM tail; old records are evicted without waiting for a reader. Repeated event/code pairs are limited for 30 seconds using a fixed
+16-entry recent-event cache. Web polling drains the shared queue; it is not a
+persistent archive or an independent log for every viewer. USB is also muted
+while Improv provisioning owns the port. Core/library dumps and SD boot/runtime
+diagnostic files remain debug-only. Working UI/API, SD sensor CSV and network
+payloads remain available in both profiles.
+See [diagnostic profiles and logging behavior](DIAGNOSTICS.md).
 
 CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
 `ALTRUIST_BUILD_COMMIT` explicitly, so published builds do not depend on local
@@ -139,7 +157,7 @@ external compatibility and point to the same Testing firmware.
 
 Stable firmware keeps the base version, for example `R-URB_2026-06.1`. Testing
 firmware includes its source revision, for example
-`R-URB_2026-06.1-testing+7445b03`. UART startup logs and the status page expose
+`R-URB_2026-06.1-testing+7445b03`. UART support identity and the status page expose
 the channel, commit, model, target, language, and profile.
 
 Insight builds use the `ALTRUIST_INSIGHT` compile-time flag. The previous

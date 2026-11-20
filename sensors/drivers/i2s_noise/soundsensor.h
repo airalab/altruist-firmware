@@ -62,9 +62,12 @@ class SoundSensor {
     int           _runningN = 0;      // running DSC offset average count
     esp_err_t     _err;               ///< Variable to store errors from ESP32
     boolean       _i2s;
+#if defined(ALTRUIST_BUILD_DEBUG)
+    esp_err_t _debugStartError = ESP_OK;
+#endif
 
     /// \brief Convert integer to float
-    void integerToFloat(int32_t *samples, float *vReal, float *vImag, uint16_t size);
+    bool integerToFloat(int32_t *samples, float *vReal, float *vImag, uint16_t size);
     
     // calculates energy from Re and Im parts and places it back in the Re part (Im part is zeroed)
     void calculateEnergy(float *vReal, float *vImag, uint16_t samples);

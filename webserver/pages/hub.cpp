@@ -544,7 +544,7 @@ void webserver_hub_advanced(String& page_content, WebServer& server, bool wifico
 
 	append_hub_page_start(page_content);
 
-	append_hub_section_start(page_content, FPSTR(INTL_DEBUG_LEVEL), "debug");
+	append_hub_section_start(page_content, F(INTL_SUPPORT_LOG_TITLE), "debug");
 	webserver_debug_hub_section(server, page_content);
 	append_hub_section_end(page_content);
 

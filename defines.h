@@ -62,6 +62,11 @@ void firmwareBlockingYieldHook(void);
 #define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE
 #endif
 
+#define ALTRUIST_BUILD_LINE "[BUILD] version=" SOFTWARE_VERSION_STR \
+	" channel=" ALTRUIST_BUILD_CHANNEL " commit=" ALTRUIST_BUILD_COMMIT \
+	" model=" ALTRUIST_BUILD_MODEL " target=" ALTRUIST_BUILD_TARGET \
+	" language=" ALTRUIST_BUILD_LANGUAGE " profile=" ALTRUIST_BUILD_PROFILE
+
 // OTA is intentionally pinned to Stable artifacts. Testing firmware can be
 // installed explicitly through webflasher/local builds, but OTA must not move
 // deployed devices onto Testing until channel switching is designed separately.
@@ -204,7 +209,7 @@ void firmwareBlockingYieldHook(void);
  * - ALTRUIST_CHANNEL_TESTING identifies testing-channel firmware.
  * - ALTRUIST_HEALTH_TELEMETRY enables UART health telemetry.
  * - ALTRUIST_DEFAULT_LOG_LEVEL sets the initial cfg::debug value.
- * - ALTRUIST_FORCE_LOG_LEVEL sets the minimum effective project log level.
+ * - ALTRUIST_FORCE_LOG_LEVEL sets the minimum debug project log level.
  * - ALTRUIST_BUILD_* strings describe the source and build identity.
  */
 
@@ -631,7 +636,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define ALTRUIST_DEFAULT_LOG_LEVEL DEBUG_MIN_INFO
 #endif
 
-// Minimum project log level regardless of the value restored into cfg::debug.
+// Debug-only minimum log level. Release support logs are capped at level 3.
 #ifndef ALTRUIST_FORCE_LOG_LEVEL
 #define ALTRUIST_FORCE_LOG_LEVEL 0
 #endif

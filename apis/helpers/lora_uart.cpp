@@ -165,8 +165,10 @@ void logHandshakeTimeout()
 	} else if (rx_bytes_seen > 0) {
 		hint = "bytes but not PROTO frames";
 	}
+#if defined(ALTRUIST_BUILD_DEBUG)
 	Serial.printf("[LoRa UART] Meshtastic handshake timeout rx=%u frames=%u last=%s (%s)\r\n", rx_bytes_seen,
 		      rx_frames_seen, last_frame_len ? hex : "-", hint);
+#endif
 }
 
 bool writeWantConfig()
@@ -256,6 +258,7 @@ void setupLoRaUart()
 	}
 	Debug.beginStructuredOutput(LORA_UART_BAUD, LORA_UART_RX_PIN, LORA_UART_TX_PIN);
 	uart_ready = true;
+#if defined(ALTRUIST_BUILD_DEBUG)
 	Serial.printf(
 	    "[LoRa UART] unicast proto port=%u TX=GPIO%d RX=GPIO%d baud=%d interval=%lus\r\n",
 	    static_cast<unsigned int>(MESHTASTIC_PORTNUM_PRIVATE_APP),
@@ -264,6 +267,7 @@ void setupLoRaUart()
 	    LORA_UART_BAUD,
 	    static_cast<unsigned long>(cfg::lora_uart_sending_intervall_ms) / 1000UL
 	);
+#endif
 }
 
 void sendLoRaTelemetryIfDue(JsonDocument &data, Robonomics *robonomics)
@@ -337,8 +341,10 @@ void sendLoRaTelemetryIfDue(JsonDocument &data, Robonomics *robonomics)
 	last_send_ms = millis();
 	char dest_hex[12];
 	snprintf(dest_hex, sizeof(dest_hex), "!%08x", static_cast<unsigned int>(dest));
+#if defined(ALTRUIST_BUILD_DEBUG)
 	Serial.printf("[LoRa UART] unicast SignedEnvelope %s port=256 bytes=%u. Serial=PROTO, not chat.\r\n", dest_hex,
 		      static_cast<unsigned int>(envelope_len));
+#endif
 }
 
 #else

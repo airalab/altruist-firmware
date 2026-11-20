@@ -13,7 +13,7 @@ static void append_debug_log(String &page_content) {
 		"var busy=false;"
 		"function slog_update(){"
 		"if(busy)return;busy=true;"
-		"fetch('/serial').then(function(r){return r.status===204?Promise.resolve(''):r.text();})"
+		"fetch('/serial',{cache:'no-store'}).then(function(r){return r.status===204?Promise.resolve(''):r.text();})"
 		".then(function(t){"
 		"if(!t)return;"
 		"var el=document.getElementById('slog');if(!el)return;"
@@ -28,113 +28,92 @@ static void append_debug_log(String &page_content) {
 		"</script>");
 }
 
-/*****************************************************************
- * Webserver set debug level                                     *
- *****************************************************************/
-void webserver_debug_level(WebServer &server, String &page_content, bool hub_embed) {
-
+namespace {
+void apply_log_request(WebServer& server) {
+	if (server.arg("status") == "1") {
+		logSupportStatus();
+		return;
+	}
 	if (server.hasArg("lvl")) {
-		debug_outln_info(F("ws: debug level ..."));
-
-		const int lvl = server.arg("lvl").toInt();
-		if (lvl >= 0 && lvl <= 5) {
-			page_content += F("<div class='ui-notice ui-notice--ok'><strong>");
-			page_content += FPSTR(INTL_DEBUG_SETTING_TO);
-			page_content += F(" ");
-
-			const __FlashStringHelper* lvlText;
-			switch (lvl) {
-			case DEBUG_ERROR:
-				lvlText = F(INTL_ERROR);
-				break;
-			case DEBUG_WARNING:
-				lvlText = F(INTL_WARNING);
-				break;
-			case DEBUG_MIN_INFO:
-				lvlText = F(INTL_MIN_INFO);
-				break;
-			case DEBUG_MED_INFO:
-				lvlText = F(INTL_MED_INFO);
-				break;
-			case DEBUG_MAX_INFO:
-				lvlText = F(INTL_MAX_INFO);
-				break;
-			default:
-				lvlText = F(INTL_NONE);
+		const String value = server.arg("lvl");
+		if (value.length() == 1 && value[0] >= '0' && value[0] <= '5' && value[0] != '2') {
+			unsigned int level = value[0] - '0';
+#if !defined(ALTRUIST_BUILD_DEBUG)
+			level = min(level, static_cast<unsigned int>(DEBUG_MIN_INFO));
+#endif
+#if defined(ALTRUIST_BUILD_DEBUG)
+			if (level < static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL)) {
+				return;
 			}
-
-			page_content += lvlText;
-			page_content += F(".</strong></div>");
+#endif
+			cfg::debug = level;
+			if (effectiveRuntimeLogLevel() == 0) {
+				Debug.clearLog();
+			}
+			logSupportEvent(0, F("logging"), F("mode_changed"), effectiveRuntimeLogLevel());
 		}
 	}
+}
 
+void append_log_controls(String& page_content, const char* path) {
+	page_content += F("<p>" INTL_SUPPORT_VOLATILE "</p>");
+#if !defined(ALTRUIST_BUILD_DEBUG)
+	page_content += F("<p>" INTL_SUPPORT_LIMIT "</p>");
+#else
+#if ALTRUIST_FORCE_LOG_LEVEL > 0
+	page_content += F("<p>" INTL_SUPPORT_FORCED "</p>");
+#endif
+#endif
+	page_content += F("<div class='debug-level-grid'>");
+	const unsigned int levels[] = {0, 1, 3,
+#if defined(ALTRUIST_BUILD_DEBUG)
+		4, 5,
+#endif
+	};
+	unsigned int active = effectiveRuntimeLogLevel();
+	for (unsigned int level : levels) {
+#if defined(ALTRUIST_BUILD_DEBUG)
+		if (level < static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL)) {
+			continue;
+		}
+#endif
+		page_content += F("<a class='debug-level-btn' href='");
+		page_content += path;
+		page_content += F("?lvl=");
+		page_content += String(level);
+		page_content += F("' aria-pressed='");
+		page_content += active == level ? F("true") : F("false");
+		page_content += F("'>");
+		page_content += level == 0 ? F(INTL_SUPPORT_OFF) : level == 1 ? F(INTL_SUPPORT_ERRORS) :
+		                level == 3 ? F(INTL_SUPPORT_EVENTS) : level == 4 ? F(INTL_SUPPORT_DETAIL) : F(INTL_SUPPORT_MAX_DETAIL);
+		page_content += F("</a>");
+	}
+	page_content += F("</div><p><a class='debug-level-btn' href='");
+	page_content += path;
+	page_content += F("?status=1'>" INTL_SUPPORT_STATUS "</a> " INTL_SUPPORT_STATUS_HINT "</p>");
+}
+} // namespace
+
+void webserver_debug_level(WebServer& server, String& page_content, bool hub_embed) {
+	apply_log_request(server);
 	if (!hub_embed) {
 		page_content += F("<section class='app-panel'><h3 class='app-panel__title'>");
-		page_content += FPSTR(INTL_DEBUG_LEVEL);
+		page_content += F(INTL_SUPPORT_LOG_TITLE);
 		page_content += F("</h3>");
 	}
 	append_debug_log(page_content);
+	append_log_controls(page_content, "/debug");
 	if (!hub_embed) {
 		page_content += F("</section>");
 	}
-
-	if (!hub_embed) {
-		page_content += F("<section class='app-panel'><h3 class='app-panel__title'>");
-		page_content += FPSTR(INTL_DEBUG_SETTING_TO);
-		page_content += F("</h3><div class='debug-level-grid'>"
-			"<a class='debug-level-btn' href='/debug?lvl=0'>" INTL_NONE "</a>"
-			"<a class='debug-level-btn' href='/debug?lvl=1'>" INTL_ERROR "</a>"
-			"<a class='debug-level-btn' href='/debug?lvl=3'>" INTL_MIN_INFO "</a>"
-			"<a class='debug-level-btn' href='/debug?lvl=5'>" INTL_MAX_INFO "</a>"
-			"</div></section>");
-	}
 }
 
-void webserver_debug_log_embed(String &page_content) {
+void webserver_debug_log_embed(String& page_content) {
 	append_debug_log(page_content);
 }
 
-void webserver_debug_hub_section(WebServer &server, String &page_content) {
-	if (server.hasArg("lvl")) {
-		debug_outln_info(F("ws: debug level ..."));
-
-		const int lvl = server.arg("lvl").toInt();
-		if (lvl >= 0 && lvl <= 5) {
-			page_content += F("<div class='ui-notice ui-notice--ok'><strong>");
-			page_content += FPSTR(INTL_DEBUG_SETTING_TO);
-			page_content += F(" ");
-
-			const __FlashStringHelper* lvlText;
-			switch (lvl) {
-			case DEBUG_ERROR:
-				lvlText = F(INTL_ERROR);
-				break;
-			case DEBUG_WARNING:
-				lvlText = F(INTL_WARNING);
-				break;
-			case DEBUG_MIN_INFO:
-				lvlText = F(INTL_MIN_INFO);
-				break;
-			case DEBUG_MED_INFO:
-				lvlText = F(INTL_MED_INFO);
-				break;
-			case DEBUG_MAX_INFO:
-				lvlText = F(INTL_MAX_INFO);
-				break;
-			default:
-				lvlText = F(INTL_NONE);
-			}
-
-			page_content += lvlText;
-			page_content += F(".</strong></div>");
-		}
-	}
-
+void webserver_debug_hub_section(WebServer& server, String& page_content) {
+	apply_log_request(server);
 	append_debug_log(page_content);
-	page_content += F("<div class='debug-level-grid'>"
-		"<a class='debug-level-btn' href='/advanced?lvl=0'>" INTL_NONE "</a>"
-		"<a class='debug-level-btn' href='/advanced?lvl=1'>" INTL_ERROR "</a>"
-		"<a class='debug-level-btn' href='/advanced?lvl=3'>" INTL_MIN_INFO "</a>"
-		"<a class='debug-level-btn' href='/advanced?lvl=5'>" INTL_MAX_INFO "</a>"
-		"</div>");
+	append_log_controls(page_content, "/advanced");
 }
