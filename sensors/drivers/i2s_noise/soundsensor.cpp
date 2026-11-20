@@ -86,6 +86,7 @@ bool SoundSensor::begin(){
 #if defined(ALTRUIST_BUILD_DEBUG)
     Serial.printf("Failed setting pin: %d\r\n", _err);
 #endif
+    i2s_driver_uninstall(I2S_PORT);
     return false;
   }
   // Serial.printf("I2S driver installed.\r\n");
@@ -93,15 +94,22 @@ bool SoundSensor::begin(){
   return true;
 }
 
-void SoundSensor::start() {
-  // Serial.printf("i2s_start\r\n");
+bool SoundSensor::start() {
 #if defined(ALTRUIST_BUILD_DEBUG)
   _debugStartError = i2s_start(I2S_PORT);
+  _err = _debugStartError;
 #else
-  i2s_start( I2S_PORT);
+  _err = i2s_start(I2S_PORT);
 #endif
+  if (_err != ESP_OK) {
+#if defined(ALTRUIST_BUILD_DEBUG)
+    Serial.printf("Failed starting I2S: %d\r\n", _err);
+#endif
+    _i2s = false;
+    return false;
+  }
   _i2s = true;
-  // Serial.printf("i2s_started\r\n");
+  return true;
 }
 
 void SoundSensor::stop() {
@@ -118,33 +126,39 @@ float* SoundSensor::readSamples(){
   // Read multiple samples at once and calculate the sound pressure
    
   size_t num_bytes_read = 0;
+  const TickType_t read_ticks = pdMS_TO_TICKS(i2sNoiseReadTimeoutMs());
   _err = i2s_read(
     I2S_PORT,
     (char *) _samples,
-    BLOCK_SIZE * 4,        // 4 bytes per sample
+    I2S_NOISE_BLOCK_BYTES,
     &num_bytes_read,
-    portMAX_DELAY
-  );    // no timeout
+    read_ticks
+  );
 
-   if(_err != ESP_OK){
-#if defined(ALTRUIST_BUILD_DEBUG)
-    Serial.printf("%d err\r\n",_err);
-#endif
-  }
- 
+  const bool full = i2sNoiseReadBlockValid((int)_err, num_bytes_read, I2S_NOISE_BLOCK_BYTES);
 #if defined(ALTRUIST_BUILD_DEBUG)
   auto &probe = i2sDebugProbe();
   probe.error = _debugStartError != ESP_OK ? _debugStartError : _err;
   probe.bytes = num_bytes_read;
-  probe.expectedBytes = BLOCK_SIZE * sizeof(_samples[0]);
-  const bool full = probe.error == ESP_OK && num_bytes_read == probe.expectedBytes;
+  probe.expectedBytes = I2S_NOISE_BLOCK_BYTES;
   probe.hasSignal = full;
   const uint64_t readAt = static_cast<uint64_t>(esp_timer_get_time()) / 1000;
 #endif
-  [[maybe_unused]] const bool activity = integerToFloat(_samples, _real, _imag, SAMPLES);
+  if (!full) {
 #if defined(ALTRUIST_BUILD_DEBUG)
-  probe.record(readAt, full, activity,
-    probe.error != ESP_OK ? "read_failed" : !full ? "short_read" : activity ? "activity" : "no_activity");
+    Serial.printf("I2S read failed err=%d bytes=%u expected=%u\r\n",
+                  (int)_err, (unsigned)num_bytes_read, (unsigned)I2S_NOISE_BLOCK_BYTES);
+    probe.record(readAt, false, false,
+                 probe.error != ESP_OK ? "read_failed" : "short_read");
+#endif
+    return nullptr;
+  }
+
+  const bool activity = integerToFloat(_samples, _real, _imag, SAMPLES);
+#if defined(ALTRUIST_BUILD_DEBUG)
+  probe.record(readAt, true, activity, activity ? "activity" : "no_activity");
+#else
+  (void)activity;
 #endif
 
   // apply HANN window, optimal for energy calculations

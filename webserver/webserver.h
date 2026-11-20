@@ -44,6 +44,10 @@ private:
     uint8_t wifiInfoCount;
 
     bool webserver_request_auth();
+    bool webserver_request_owner_auth();
+    void sendGuestSetupPasswordsPage(const String& address, bool show_error);
+    void sendGuestConnectingPage();
+    void appendGuestFinishAfterWifi(String& page_content, const String& address);
     void sendHttpRedirectGuest();
     void sendHttpRedirectConnected(String &address);
     void stream_html_page_head(const String& title, bool guest_page = false, const char* app_page = nullptr, bool app_config_layout = false);
@@ -86,6 +90,8 @@ private:
     void _webserver_ota_install_json();
     void _webserver_ota_progress_json();
     void _webserver_finish_setup();
+    void _webserver_setup_passwords();
+    void _webserver_guest_wifi_status();
 
     void _webserver_group();
 

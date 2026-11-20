@@ -779,11 +779,25 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 			const int v = bme_voc["voc_spikes_today"]["value"].as<int>();
 			values.voc_spikes_today = (int16_t)(v < 0 ? 0 : v);
 		}
-		if (bme_voc.containsKey("voc_ppb")) {
+		int voc_lv = 0;
+		bool voc_lv_ok = false;
+		if (bme_voc.containsKey("voc_level")) {
+			voc_lv = bme_voc["voc_level"]["value"].as<int>();
+			voc_lv_ok = true;
+		}
+		if (voc_lv_ok && voc_lv < 0) {
+			// Heater warmup: do not store 0 as a real hour sample.
+		} else if (bme_voc.containsKey("voc_ppb")) {
 			const int ppb = bme_voc["voc_ppb"]["value"].as<int>();
 			if (ppb >= 0 && ppb <= 10000) {
 				values.voc_index.current = (float)ppb;
 				values.voc_index.has_current = true;
+			}
+			if (bme_voc.containsKey("voc_ppb_raw")) {
+				const int raw = bme_voc["voc_ppb_raw"]["value"].as<int>();
+				if (raw >= 0 && raw <= 10000) {
+					values.voc_ppb_raw = (float)raw;
+				}
 			}
 		} else if (bme_voc.containsKey("voc_index")) {
 			const int index = bme_voc["voc_index"]["value"].as<int>();
@@ -1354,7 +1368,7 @@ void buttonsWorker(void *pvParameters) {
 					reset_press_start_ms = millis();
 				} else if (!pressed_now && reset_pressed) {
 					if (reset_armed) {
-						debug_outln_info(F("[RESET] Confirmed by release, wiping WiFi + Web UI creds and restarting into Wi-Fi portal"));
+						debug_outln_info(F("[RESET] Confirmed by release, wiping WiFi + Web UI + hotspot password and restarting into Wi-Fi portal"));
 						leds_controller_urban.setMode(LedMode::RESETTING);
 						leds_controller_urban.process();
 						removeWiFiCredentials();
@@ -1707,7 +1721,18 @@ void setup(void) {
 			debug_outln_info(F("[WiFi] C3 Urban: STA did not connect with saved credentials; starting config portal."));
 			wifiConfig(webserver);
 #else
-			debug_outln_info(F("[WiFi] Saved credentials but STA did not connect; skipping config AP (runtime reconnect)."));
+			if (!cfgSetupSecretsReady()) {
+				// Guest setup saved an SSID but never finished passwords, or Wi‑Fi reset cleared them.
+				// Do not skip the hotspot: otherwise setup is unreachable (no LAN IP, no AP).
+				debug_outln_info(F("[WiFi] Setup incomplete and STA did not connect; starting config portal."));
+#ifdef ALTRUIST_URBAN_HW_UI
+				leds_controller_urban.setMode(LedMode::PROVISIONING);
+				leds_controller_urban.process();
+#endif
+				wifiConfig(webserver);
+			} else {
+				debug_outln_info(F("[WiFi] Saved credentials but STA did not connect; skipping config AP (runtime reconnect)."));
+			}
 #endif
 		}
 	}

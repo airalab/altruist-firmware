@@ -54,7 +54,7 @@ bool initI2sSound() {
   return soundSensor.begin();
 }
 
-void fetchSensorI2sSound(uint8_t *max_noise, float *mean_noise) {
+bool fetchSensorI2sSound(uint8_t *max_noise, float *mean_noise) {
   if (!initI2sSound()) {
 #if defined(ALTRUIST_BUILD_DEBUG)
     auto &probe = i2sDebugProbe();
@@ -62,20 +62,33 @@ void fetchSensorI2sSound(uint8_t *max_noise, float *mean_noise) {
     probe.hasSignal = false;
     probe.record(static_cast<uint64_t>(esp_timer_get_time()) / 1000, false, false, "init_failed");
 #endif
-    return;
+    return false;
   }
-  if( !soundSensor.running())
-    soundSensor.start();
-  float* energy = soundSensor.readSamples();
+  if (!soundSensor.running()) {
+    if (!soundSensor.start()) {
+      soundSensor.disable();
+      return false;
+    }
+  }
+  float *energy = soundSensor.readSamples();
+  if (!energy) {
+    soundSensor.stop();
+    soundSensor.disable();
+    return false;
+  }
 
-  aMeasurement.update( energy);
+  aMeasurement.update(energy);
   aMeasurement.calculate();
-  // aMeasurement.print();
 
-  *mean_noise = aMeasurement.avg;
-  *max_noise = static_cast<uint8_t>(aMeasurement.max);
+  if (mean_noise) {
+    *mean_noise = aMeasurement.avg;
+  }
+  if (max_noise) {
+    *max_noise = static_cast<uint8_t>(aMeasurement.max);
+  }
   soundSensor.stop();
   soundSensor.disable();
+  return true;
 }
 
 #endif // ESP32

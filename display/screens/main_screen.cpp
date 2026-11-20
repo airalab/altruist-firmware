@@ -599,6 +599,8 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
                 values.voc_level = 1;
             } else if (level == 0) {
                 values.voc_level = 0;
+            } else if (level < 0) {
+                values.voc_level = -1;
             }
         }
         if (bme.containsKey("voc_index")) {

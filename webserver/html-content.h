@@ -28,7 +28,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 	"<link rel='icon' type='image/png' href='/favicon.ico' media='(prefers-color-scheme: light)'>" \
 	"<link rel='icon' type='image/png' href='/favicon-dark.ico' media='(prefers-color-scheme: dark)'>"
 
-#define STATIC_PREFIX "/" INTL_LANG "_s3.144"
+#define STATIC_PREFIX "/" INTL_LANG "_s3.147"
 // Bust browser cache after PNG→SVG / logo changes; `m` reflects build (insight vs urban).
 #define WEB_HEADER_LOGO_SRC STATIC_PREFIX "?r=logo&v=" SOFTWARE_VERSION_STR "&m=" DEVICE_MODEL
 #define WEB_NAV_ICON_LOCAL_SRC STATIC_PREFIX "?r=nav-local&v=" SOFTWARE_VERSION_STR
@@ -45,7 +45,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 #define WEB_METRIC_ICON_NOISE_SRC STATIC_PREFIX "?r=m-noise&v=" SOFTWARE_VERSION_STR
 #define WEB_STATIC_CSS_HREF STATIC_PREFIX "?r=css&v=" SOFTWARE_VERSION_STR
 #define WEB_STATIC_JS_HREF STATIC_PREFIX "?r=js&v=" SOFTWARE_VERSION_STR
-#define WEB_STATIC_PROVISION_JS_HREF STATIC_PREFIX "?r=provision&v=" SOFTWARE_VERSION_STR "&c=6"
+#define WEB_STATIC_PROVISION_JS_HREF STATIC_PREFIX "?r=provision&v=" SOFTWARE_VERSION_STR "&c=7"
 #if defined(ALTRUIST_URBAN_C3_LITE)
 // C3 flash budget: text-only tabs.
 #define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><span class='app-tab__label'>" INTL_HUB_LOCAL_TITLE "</span></a>"
@@ -296,16 +296,96 @@ function load_wifi_list(){var x=new XMLHttpRequest();x.open('GET','/wifi');x.onl
 
 const char WEB_GUEST_WIZARD_SUBMIT_JS[] PROGMEM = "<script>document.addEventListener('submit',function(e){var f=e.target;if(!f.classList||!f.classList.contains('guest-wizard-form'))return;try{var x=new XMLHttpRequest();x.open('POST','/guest_setup_ack',false);x.send();}catch(err){}var btns=f.querySelectorAll('button[type=submit],input[type=submit]');for(var i=0;i<btns.length;i++){var b=btns[i];if(b.disabled)continue;b.disabled=true;b.classList.add('is-loading');}},true);</script>";
 
+const char WEB_PASSWORD_TOGGLE_BTN[] PROGMEM =
+	"<button type='button' class='password-toggle' aria-pressed='false' aria-label='" INTL_GUEST_SHOW_PASSWORD "' "
+	"data-show='" INTL_GUEST_SHOW_PASSWORD "' data-hide='" INTL_GUEST_HIDE_PASSWORD "'>"
+	"<svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.75' "
+	"stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'>"
+	"<path d='M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z'/>"
+	"<circle cx='12' cy='12' r='2.25'/></svg>"
+	"</button>";
+
+const char WEB_PASSWORD_TOGGLE_JS[] PROGMEM =
+	"<style>.password-wrap:not(.is-editing) .password-toggle{display:none}"
+	".password-wrap:not(.is-editing) input{padding-right:12px}</style>"
+	"<script>(function(){"
+	"function wrapOf(el){return el&&el.closest&&el.closest('.password-wrap');}"
+	"function canReveal(inp){"
+	"return !!(inp&&!inp.disabled&&inp.getAttribute('data-keep-mask')!=='1'&&inp.value.length);"
+	"}"
+	"function resetBtn(b){"
+	"if(!b)return;b.classList.remove('is-on');"
+	"b.setAttribute('aria-pressed','false');"
+	"b.setAttribute('aria-label',b.getAttribute('data-show')||'');"
+	"}"
+	"function sync(wrap){"
+	"if(!wrap)return;"
+	"var inp=wrap.querySelector('input');"
+	"var b=wrap.querySelector('.password-toggle');"
+	"var on=canReveal(inp);"
+	"wrap.classList.toggle('is-editing',on);"
+	"if(!on&&inp&&inp.type==='text'){inp.type='password';resetBtn(b);}"
+	"}"
+	"function dropKeepMask(inp){"
+	"if(!inp||inp.getAttribute('data-keep-mask')!=='1')return;"
+	"inp.value='';inp.removeAttribute('data-keep-mask');"
+	"}"
+	"document.addEventListener('click',function(e){"
+	"var b=e.target.closest&&e.target.closest('.password-toggle');if(!b)return;"
+	"e.preventDefault();var wrap=b.closest('.password-wrap');"
+	"var inp=wrap&&wrap.querySelector('input');if(!canReveal(inp))return;"
+	"var show=inp.type==='password';inp.type=show?'text':'password';"
+	"b.classList.toggle('is-on',show);"
+	"b.setAttribute('aria-pressed',show?'true':'false');"
+	"b.setAttribute('aria-label',show?(b.getAttribute('data-hide')||''):(b.getAttribute('data-show')||''));"
+	"},true);"
+	"document.addEventListener('focusin',function(e){dropKeepMask(e.target);sync(wrapOf(e.target));},true);"
+	"document.addEventListener('input',function(e){dropKeepMask(e.target);sync(wrapOf(e.target));},true);"
+	"function init(){var w=document.querySelectorAll('.password-wrap');for(var i=0;i<w.length;i++)sync(w[i]);}"
+	"if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();"
+	"})();</script>";
+
 const char WEB_COPY_IP_JS[] PROGMEM = "<script>function copyText(){const e=document.querySelector('.guest-ip,.ip-address');if(!e)return;var t=e.innerText||e.textContent;if(navigator.clipboard)navigator.clipboard.writeText(t).then((function(){alert('Copied to clipboard')})).catch((function(){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=t,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
 
-const char WEB_GUEST_CONNECT_STATUS[] PROGMEM =
-	"<div class='guest-page guest-page--connecting' id='guest-connecting'>"
-	"<div class='guest-card guest-card--connect'>"
-	"<div class='guest__connect-status guest__connect-status--initial'>"
-	"<div class='loader' aria-hidden='true'></div>"
-	"<h2 class='guest__connect-subtitle'>" INTL_GUEST_CONNECTING "</h2>"
-	"<p class='form-hint guest__connect-hint'>" INTL_GUEST_CONNECTING_HINT "</p>"
-	"</div></div></div>";
+const char WEB_GUEST_CONNECTING_PAGE[] PROGMEM =
+	"<!DOCTYPE html><html lang='" INTL_LANG "'><head><meta charset='utf-8'/>"
+	"<meta name='viewport' content='width=device-width'/>"
+	"<title>" INTL_GUEST_CONNECTING "</title>"
+	"<style>body{margin:0;font-family:system-ui,sans-serif;background:#F4F4F2;color:#111}"
+	".bar{background:#007BFF;color:#fff;padding:22px 24px;border-bottom:1px solid #004EC4}"
+	".bar strong{display:block;font-size:22px;font-weight:700}"
+	".bar span{display:block;margin-top:6px;font-size:13px;opacity:.85}"
+	".card{max-width:22rem;margin:32px auto;background:#fff;border:1px solid #e0e0e0;border-radius:16px;"
+	"padding:28px 22px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.06)}"
+	"h1{margin:0 0 10px;font-size:18px}p{margin:0 0 10px;font-size:14px;line-height:1.45;color:#555}"
+	".loader{width:28px;height:28px;margin:0 auto 16px;border:4px solid #cce0ff;border-top-color:#007bff;"
+	"border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}"
+	".hide{display:none}.err h1{color:#b71c1c}a{color:#007bff}</style></head><body>"
+	"<header class='bar'><strong>" PM_SENSOR_NAME "</strong><span>" INTL_FIRMWARE ": " WEB_FW_BUILD_INFO "</span></header>"
+	"<div id='ok' class='card'><div class='loader' aria-hidden='true'></div>"
+	"<h1>" INTL_GUEST_CONNECTING "</h1>"
+	"<p>" INTL_GUEST_CONNECTING_HINT "</p>"
+	"<p>" INTL_GUEST_CONNECTING_STALL_HINT "</p></div>"
+	"<div id='fail' class='card err hide'><h1>" INTL_GUEST_CONNECT_FAILED "</h1>"
+#ifdef ALTRUIST_INSIGHT
+	"<p>" INTL_GUEST_CONNECT_FAILED_INSIGHT "</p>"
+#else
+	"<p>" INTL_GUEST_CONNECT_FAILED_HINT "</p>"
+#endif
+	"<p>" INTL_GUEST_CONNECTING_STALL_HINT "</p>"
+	"<p><a href='/guest'>" INTL_BACK_TO_HOME "</a></p></div>"
+	"<script>(function(){var t0=Date.now(),lim=60000;"
+	"function fail(){var a=document.getElementById('ok');if(a)a.classList.add('hide');"
+	"var b=document.getElementById('fail');if(b)b.classList.remove('hide');}"
+	"function poll(){if(Date.now()-t0>lim){location.replace('/setup_passwords');return;}"
+	"var x=new XMLHttpRequest();x.open('GET','/guest-wifi-status');x.timeout=5000;"
+	"x.onload=function(){try{var j=JSON.parse(x.responseText||'{}');"
+	"if(j.ready&&j.next){location.replace(j.next);return;}}catch(e){}"
+	"setTimeout(poll,1500);};"
+	"x.onerror=function(){setTimeout(poll,2000);};"
+	"x.ontimeout=function(){setTimeout(poll,2000);};"
+	"x.send();}"
+	"setTimeout(poll,600);})();</script></body></html>";
 
 const char WEB_REMOVE_CONFIG_CONTENT[] PROGMEM =
 "<div class='confirm-action'>"

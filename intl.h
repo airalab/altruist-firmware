@@ -200,6 +200,9 @@
 #ifndef INTL_GUEST_CONNECTING_HINT
 #define INTL_GUEST_CONNECTING_HINT "This usually takes a few seconds. Keep this page open."
 #endif
+#ifndef INTL_GUEST_CONNECTING_STALL_HINT
+#define INTL_GUEST_CONNECTING_STALL_HINT "If this screen stays, reconnect to the device hotspot and open setup again."
+#endif
 #ifndef INTL_GUEST_CONNECT_FAILED
 #define INTL_GUEST_CONNECT_FAILED "Connection failed"
 #endif
@@ -213,13 +216,61 @@
 #define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi connected"
 #endif
 #ifndef INTL_GUEST_SETUP_STEP_1_LABEL
-#define INTL_GUEST_SETUP_STEP_1_LABEL "Step 1 of 2"
+#define INTL_GUEST_SETUP_STEP_1_LABEL "Step 1 of 3"
 #endif
 #ifndef INTL_GUEST_SETUP_STEP_2_LABEL
-#define INTL_GUEST_SETUP_STEP_2_LABEL "Step 2 of 2"
+#define INTL_GUEST_SETUP_STEP_2_LABEL "Step 2 of 3"
+#endif
+#ifndef INTL_GUEST_SETUP_STEP_3_LABEL
+#define INTL_GUEST_SETUP_STEP_3_LABEL "Step 3 of 3"
 #endif
 #ifndef INTL_GUEST_SETUP_STEP_1_TITLE
 #define INTL_GUEST_SETUP_STEP_1_TITLE "Connect to Wi-Fi"
+#endif
+#ifndef INTL_GUEST_SETUP_PASSWORDS_TITLE
+#define INTL_GUEST_SETUP_PASSWORDS_TITLE "Device passwords"
+#endif
+#ifndef INTL_GUEST_SETUP_PASSWORDS_INTRO
+#define INTL_GUEST_SETUP_PASSWORDS_INTRO "Set both passwords before setup finishes. They can be the same."
+#endif
+#ifndef INTL_GUEST_SHOW_PASSWORDS
+#define INTL_GUEST_SHOW_PASSWORDS "Show passwords"
+#endif
+#ifndef INTL_GUEST_SHOW_PASSWORD
+#define INTL_GUEST_SHOW_PASSWORD "Show password"
+#endif
+#ifndef INTL_GUEST_HIDE_PASSWORD
+#define INTL_GUEST_HIDE_PASSWORD "Hide password"
+#endif
+#ifndef INTL_GUEST_FS_PWD_LABEL
+#define INTL_GUEST_FS_PWD_LABEL "Device hotspot password"
+#endif
+#ifndef INTL_GUEST_FS_PWD_HINT
+#define INTL_GUEST_FS_PWD_HINT "This is the password for the device’s own Wi-Fi access point, not your home Wi-Fi. It is used whenever the configuration hotspot opens again."
+#endif
+#ifndef INTL_GUEST_WWW_PWD_LABEL
+#define INTL_GUEST_WWW_PWD_LABEL "Web UI password"
+#endif
+#ifndef INTL_GUEST_WWW_PWD_HINT
+#define INTL_GUEST_WWW_PWD_HINT "Required to export the owner key, download or restore a backup with secrets, and install a device key. Ordinary hub pages stay open."
+#endif
+#ifndef INTL_GUEST_SETUP_PASSWORD_ERROR
+#define INTL_GUEST_SETUP_PASSWORD_ERROR "Both passwords must be at least 8 characters. The hotspot password cannot be the factory default."
+#endif
+#ifndef INTL_FS_PWD_HINT
+#define INTL_FS_PWD_HINT "Password for the device configuration hotspot, not home Wi-Fi."
+#endif
+#ifndef INTL_WWW_PASSWORD_HINT
+#define INTL_WWW_PASSWORD_HINT "Needed for owner key and backup even if page login is off. Default user name is admin."
+#endif
+#ifndef INTL_WWW_PASSWORD_SET_HINT
+#define INTL_WWW_PASSWORD_SET_HINT "Password is set (dots). Leave blank to keep it. Needed for backup even if page login is off. User name is admin unless you changed it."
+#endif
+#ifndef INTL_DEVICE_BACKUP_BAD_PASSWORD
+#define INTL_DEVICE_BACKUP_BAD_PASSWORD "Wrong Web UI password."
+#endif
+#ifndef INTL_DEVICE_BACKUP_NEED_UNLOCK
+#define INTL_DEVICE_BACKUP_NEED_UNLOCK "Enter the Web UI password to download or restore."
 #endif
 #ifndef INTL_GUEST_INSIGHT_FINISH_HINT
 #define INTL_GUEST_INSIGHT_FINISH_HINT "Press Continue to finish setup and restart the device."
@@ -415,6 +466,15 @@
 #endif
 #ifndef INTL_DEVICE_BACKUP_HINT
 #define INTL_DEVICE_BACKUP_HINT "Download a full backup (settings + owner key). You can restore it here or import the same file on sensors.map Login."
+#endif
+#ifndef INTL_DEVICE_BACKUP_AUTH_HINT
+#define INTL_DEVICE_BACKUP_AUTH_HINT "Enter the Web UI password here (user admin unless you changed it). Same password for download and restore."
+#endif
+#ifndef INTL_DEVICE_BACKUP_NEED_PASSWORD
+#define INTL_DEVICE_BACKUP_NEED_PASSWORD "A Web UI password is not set yet, so backup and restore are locked."
+#endif
+#ifndef INTL_DEVICE_BACKUP_NEED_PASSWORD_LINK
+#define INTL_DEVICE_BACKUP_NEED_PASSWORD_LINK "Set it in Authentication"
 #endif
 #ifndef INTL_DEVICE_BACKUP_DOWNLOAD
 #define INTL_DEVICE_BACKUP_DOWNLOAD "Download backup"
@@ -658,6 +718,9 @@
 #endif
 #ifndef INTL_DESK_VOC_NOTE
 #define INTL_DESK_VOC_NOTE "Relative, not lab TVOC"
+#endif
+#ifndef INTL_DESK_VOC_WARMUP
+#define INTL_DESK_VOC_WARMUP "Warm up"
 #endif
 #ifndef INTL_DESK_FOOTER_NOISE
 #define INTL_DESK_FOOTER_NOISE "NOISE"
@@ -1158,10 +1221,10 @@
 #define INTL_DELETE_CONFIG_ALL_DESC "Everything stored on the device"
 #endif
 #ifndef INTL_DELETE_CONFIG_WIFI_DESC
-#define INTL_DELETE_CONFIG_WIFI_DESC "Only forget the saved Wi-Fi network"
+#define INTL_DELETE_CONFIG_WIFI_DESC "Forget the saved Wi-Fi network, the Web UI password, and the device hotspot password (back to factory). Robonomics identity stays. Setup will ask for passwords again."
 #endif
 #ifndef INTL_WIFI_CREDENTIALS_DELETED
-#define INTL_WIFI_CREDENTIALS_DELETED "Wi-Fi credentials were deleted. You can close this page."
+#define INTL_WIFI_CREDENTIALS_DELETED "Wi-Fi, Web UI password, and hotspot password were reset. You can close this page."
 #endif
 #ifndef INTL_PANEL_TITLE_DATA_ENCRYPT
 #define INTL_PANEL_TITLE_DATA_ENCRYPT "Encrypt map values"

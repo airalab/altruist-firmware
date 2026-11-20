@@ -40,7 +40,10 @@ void webserver_provision_page(String& page_content) {
 		"<label class='hub-backup__file-label' for='provision-password'>");
 	page_content += FPSTR(INTL_PROVISION_PASSWORD);
 	page_content += F("</label>"
-		"<input id='provision-password' type='password' autocomplete='off'/>"
+		"<div class='password-wrap'>"
+		"<input id='provision-password' type='password' autocomplete='off'/>");
+	page_content += FPSTR(WEB_PASSWORD_TOGGLE_BTN);
+	page_content += F("</div>"
 		"<p class='form-hint'>");
 	page_content += FPSTR(INTL_PROVISION_PASSWORD_HINT);
 	page_content += F("</p>"

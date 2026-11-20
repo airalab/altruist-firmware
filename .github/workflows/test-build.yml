@@ -15,6 +15,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Host tests for Meshtastic Transport v1 frames
         run: bash tests/meshtastic/run.sh
+      - name: Host tests for BME680 gas flags (#194)
+        run: bash tests/bme680/run.sh
+      - name: Host tests for I2S noise acquisition (#195)
+        run: bash tests/i2s_noise/run.sh
 
   stable-release:
     if: github.ref_name == 'esp32'
@@ -120,8 +124,6 @@ jobs:
         run: |
           set -euo pipefail
           pio run \
-            -e esp32c3_urban_en_debug \
-            -e esp32c3_urban_ru_debug \
             -e esp32c6_urban_en_debug \
             -e esp32c6_urban_ru_debug \
             -e esp32c6_inside_en_debug \

@@ -53,7 +53,7 @@ void render_sensor_section(
 	bool grid_open = false;
 	for (JsonPair measurement : sensorData) {
 		String type = measurement.key().c_str();
-		if (type == "voc_level" || type == "voc_index") {
+		if (type == "voc_level" || type == "voc_index" || type == "voc_ppb_raw") {
 			continue;
 		}
 		JsonObject measurementData = measurement.value().as<JsonObject>();

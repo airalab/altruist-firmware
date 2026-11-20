@@ -903,8 +903,11 @@ static const char *deskBandCo2(float ppm) {
 }
 
 static const char *deskBandVoc(int8_t voc_level, int16_t voc_ppb) {
-	if (voc_level < 0) {
+	if (voc_ppb < 0) {
 		return nullptr;
+	}
+	if (voc_level < 0) {
+		return INTL_DESK_VOC_WARMUP;
 	}
 	if (voc_ppb >= 2000) {
 		return INTL_DESK_BAND_HIGH;
@@ -1120,6 +1123,10 @@ static void deskDrawFace(uint16_t cx, uint16_t cy, uint16_t r, int mood) {
 	}
 }
 
+static bool deskBandIsWarmup(const char *band) {
+	return deskHasText(band) && strcmp(band, INTL_DESK_VOC_WARMUP) == 0;
+}
+
 static void deskDrawCo2(uint16_t content_left, uint16_t area_w,
                         uint16_t stage_top, uint16_t stage_bot,
                         const char *value, const char *unit, const char *band) {
@@ -1127,16 +1134,21 @@ static void deskDrawCo2(uint16_t content_left, uint16_t area_w,
 		unit = "ppm";
 	}
 	const uint16_t ppm_w = deskWidth(unit, &Font24, &font_24_cyrillic, &font_24_ascii);
-	const bool have_face = deskHasText(band);
+	const bool warmup = deskBandIsWarmup(band);
+	const bool have_status = deskHasText(band);
 	uint16_t face_r = 28;
 	const uint16_t word_h = (uint16_t)(Font24.Height + 4);
 	const uint16_t mid_gap = 16;
 	uint16_t face_block = 0;
-	if (have_face) {
-		uint16_t d = (uint16_t)(face_r * 2);
-		face_block = (uint16_t)(mid_gap + d + 8 + word_h);
+	if (have_status) {
+		if (warmup) {
+			face_block = (uint16_t)(mid_gap + word_h + 8);
+		} else {
+			uint16_t d = (uint16_t)(face_r * 2);
+			face_block = (uint16_t)(mid_gap + d + 8 + word_h);
+		}
 	}
-	const uint16_t hero_bot = (have_face && stage_bot > face_block)
+	const uint16_t hero_bot = (have_status && stage_bot > face_block)
 	                              ? (uint16_t)(stage_bot - face_block)
 	                              : stage_bot;
 	const uint16_t hero_h = (hero_bot > stage_top) ? (uint16_t)(hero_bot - stage_top) : 48;
@@ -1165,12 +1177,19 @@ static void deskDrawCo2(uint16_t content_left, uint16_t area_w,
 	}
 	deskDrawString((uint16_t)(gx + huge.w + 8), ppm_y, unit, &Font24, &font_24_cyrillic, &font_24_ascii);
 
-	if (!have_face) {
+	if (!have_status) {
 		return;
 	}
 	const uint16_t split_y = (uint16_t)(hero_bot + mid_gap / 2);
 	deskSplitH(content_left, (uint16_t)(content_left + area_w), split_y);
 	const uint16_t face_top = (uint16_t)(hero_bot + mid_gap);
+	if (warmup) {
+		const uint16_t tw = deskWidth(band, &Font24, &font_24_cyrillic, &font_24_ascii);
+		const uint16_t wx = deskCenterX(content_left, area_w, tw);
+		deskDrawString(wx, (uint16_t)(face_top + 4), band, &Font24, &font_24_cyrillic,
+		               &font_24_ascii);
+		return;
+	}
 	const uint16_t cy = (uint16_t)(face_top + face_r + 3);
 	const uint16_t cx = (uint16_t)(content_left + area_w / 2);
 	deskDrawFace(cx, cy, face_r, deskCo2Mood(band));
@@ -1218,16 +1237,25 @@ static float deskBarV(const analytics_last_hours_t &h, uint8_t i, uint8_t pick,
 	return h.avg[i];
 }
 
-static void deskOverlayLive(analytics_last_hours_t &h, float live, bool ok) {
+static void deskOverlayLive(analytics_last_hours_t &h, float live, bool ok,
+                           bool fill_empty_avg = true) {
 	if (!ok || h.n == 0) {
 		return;
 	}
 	const uint8_t i = (uint8_t)(h.n - 1u);
 	if (!h.has[i]) {
 		h.has[i] = true;
-		h.avg[i] = live;
+		if (fill_empty_avg) {
+			h.avg[i] = live;
+			h.minv[i] = live;
+		} else if (i > 0 && h.has[i - 1]) {
+			h.avg[i] = h.avg[i - 1];
+			h.minv[i] = live;
+		} else {
+			h.avg[i] = live;
+			h.minv[i] = live;
+		}
 		h.maxv[i] = live;
-		h.minv[i] = live;
 		h.found++;
 		return;
 	}
@@ -1282,6 +1310,55 @@ static bool deskHoursEnvelope(const analytics_last_hours_t &h, float *vmin, floa
 		*vmax = hi;
 	}
 	return any;
+}
+
+/**
+ * Line = 3h mean of the hourly (smoothed) averages.
+ * Column = this hour's raw min–max — never copied from neighbours.
+ */
+static void deskVocTwoLayer(analytics_last_hours_t &s) {
+	uint8_t found = 0;
+	for (uint8_t i = 0; i < s.n; i++) {
+		if (!s.has[i]) {
+			continue;
+		}
+		if (s.minv[i] <= 5.f && s.avg[i] > 50.f) {
+			s.minv[i] = s.avg[i];
+		}
+		if (s.minv[i] > s.avg[i]) {
+			s.minv[i] = s.avg[i];
+		}
+		if (s.maxv[i] < s.avg[i]) {
+			s.maxv[i] = s.avg[i];
+		}
+		found++;
+	}
+	s.found = found;
+	if (found < 2) {
+		return;
+	}
+	const analytics_last_hours_t src = s;
+	for (uint8_t i = 0; i < s.n; i++) {
+		if (!src.has[i]) {
+			continue;
+		}
+		float sum = 0.f;
+		uint8_t n = 0;
+		const int lo = (int)i - 1;
+		const int hi = (int)i + 1;
+		for (int j = lo; j <= hi; j++) {
+			if (j < 0 || j >= (int)src.n || !src.has[j]) {
+				continue;
+			}
+			sum += src.avg[j];
+			n++;
+		}
+		if (n > 0) {
+			s.avg[i] = sum / (float)n;
+		}
+		s.maxv[i] = src.maxv[i];
+		s.minv[i] = src.minv[i];
+	}
 }
 
 static bool deskHoursLineEnvelope(const analytics_last_hours_t &h, float *vmin, float *vmax) {
@@ -1567,9 +1644,9 @@ static void deskFillInsight(char *out, size_t n, uint8_t page_id,
 		if (!have_span) {
 			break;
 		}
-		if (peak >= 2000.f) {
+		if (peak_line >= 2000.f) {
 			snprintf(out, n, "%s", INTL_DESK_GRAPH_VOC_HIGH);
-		} else if (last < 250.f && peak < 250.f) {
+		} else if (last < 250.f && peak_line < 250.f) {
 			snprintf(out, n, "%s", INTL_DESK_GRAPH_VOC_CALM);
 		} else if (d >= 250.f) {
 			snprintf(out, n, INTL_DESK_GRAPH_ROSE, (unsigned)lroundf(d), (unsigned)ago);
@@ -1648,7 +1725,7 @@ static void deskFillInsight(char *out, size_t n, uint8_t page_id,
 
 static void deskPrepScaleEnv(const analytics_last_hours_t &h, float floor_min, float floor_max,
                              float min_span, bool pin_floor, float fill_hi, float fill_lo,
-                             float *ymin, float *ymax, float *peak) {
+                             float *ymin, float *ymax, float *peak, bool full_range = false) {
 	float lo = 0.f, hi = 0.f;
 	if (!deskHoursLineEnvelope(h, &lo, &hi)) {
 		*ymin = floor_min;
@@ -1660,13 +1737,18 @@ static void deskPrepScaleEnv(const analytics_last_hours_t &h, float floor_min, f
 	}
 	float ext_lo = lo, ext_hi = hi;
 	if (deskHoursEnvelope(h, &ext_lo, &ext_hi)) {
-		const float span = (hi > lo) ? (hi - lo) : min_span;
-		const float gate = (span * 1.8f > min_span * 2.f) ? span * 1.8f : min_span * 2.f;
-		if (ext_hi <= hi + gate && ext_hi > hi) {
-			hi = ext_hi;
-		}
-		if (ext_lo >= lo - gate && ext_lo < lo) {
+		if (full_range) {
 			lo = ext_lo;
+			hi = ext_hi;
+		} else {
+			const float span = (hi > lo) ? (hi - lo) : min_span;
+			const float gate = (span * 1.8f > min_span * 2.f) ? span * 1.8f : min_span * 2.f;
+			if (ext_hi <= hi + gate && ext_hi > hi) {
+				hi = ext_hi;
+			}
+			if (ext_lo >= lo - gate && ext_lo < lo) {
+				lo = ext_lo;
+			}
 		}
 	}
 	if (peak) {
@@ -1888,6 +1970,91 @@ static bool deskOpenLinePlot(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
 	return true;
 }
 
+static void deskFillRangeBand(const desk_line_plot_t &p, const analytics_last_hours_t &series) {
+	if (series.n == 0) {
+		return;
+	}
+	const int span = (int)p.right - (int)p.left;
+	int half = (series.n > 1) ? (span / (int)(series.n - 1) / 3) : 8;
+	if (half < 5) {
+		half = 5;
+	}
+	if (half > 12) {
+		half = 12;
+	}
+	for (uint8_t i = 0; i < series.n; i++) {
+		if (!series.has[i]) {
+			continue;
+		}
+		const float mx = (series.maxv[i] > series.avg[i]) ? series.maxv[i] : series.avg[i];
+		const float mn = (series.minv[i] < series.avg[i]) ? series.minv[i] : series.avg[i];
+		const int cx = deskLineX(p, series.n, i);
+		int y_hi = (int)deskLineY(p, mx);
+		int y_lo = (int)deskLineY(p, mn);
+		if (y_hi > y_lo) {
+			const int t = y_hi;
+			y_hi = y_lo;
+			y_lo = t;
+		}
+		if (y_lo - y_hi < 4) {
+			continue;
+		}
+		int x0 = cx - half;
+		int x1 = cx + half;
+		if (x0 < (int)p.left) {
+			x0 = (int)p.left;
+		}
+		if (x1 > (int)p.right) {
+			x1 = (int)p.right;
+		}
+		if (y_hi < (int)p.top) {
+			y_hi = (int)p.top;
+		}
+		if (y_lo > (int)p.bottom) {
+			y_lo = (int)p.bottom;
+		}
+		for (int x = x0; x <= x1; x++) {
+			for (int py = y_hi; py <= y_lo; py++) {
+				if ((x & 1) != 0 && (py & 1) != 0) {
+					Paint_SetPixel((UWORD)x, (UWORD)py, BLACK);
+				}
+			}
+		}
+	}
+}
+
+static void deskStrokeEnvelope(const desk_line_plot_t &p, const analytics_last_hours_t &series) {
+	int prev_x = 0;
+	uint16_t prev_hi = 0;
+	uint16_t prev_lo = 0;
+	bool have_prev = false;
+	for (uint8_t i = 0; i < series.n; i++) {
+		if (!series.has[i]) {
+			continue;
+		}
+		const float mx = (series.maxv[i] > series.avg[i]) ? series.maxv[i] : series.avg[i];
+		const float mn = (series.minv[i] < series.avg[i]) ? series.minv[i] : series.avg[i];
+		const int cx = deskLineX(p, series.n, i);
+		const uint16_t y_hi = deskLineY(p, mx);
+		const uint16_t y_lo = deskLineY(p, mn);
+		if (have_prev) {
+			if ((int)prev_hi != (int)y_hi) {
+				Paint_DrawLine((UWORD)prev_x, prev_hi, (UWORD)cx, y_hi, BLACK, DOT_PIXEL_1X1,
+				               LINE_STYLE_DOTTED);
+			}
+			if ((int)prev_lo != (int)y_lo && (int)y_lo != (int)y_hi &&
+			    (int)prev_lo != (int)prev_hi) {
+				Paint_DrawLine((UWORD)prev_x, prev_lo, (UWORD)cx, y_lo, BLACK, DOT_PIXEL_1X1,
+				               LINE_STYLE_DOTTED);
+			}
+		}
+		prev_x = cx;
+		prev_hi = y_hi;
+		prev_lo = y_lo;
+		have_prev = true;
+	}
+}
+
 static void deskFillArea(const desk_line_plot_t &p, const analytics_last_hours_t &series) {
 	int prev_x = 0;
 	int prev_y = 0;
@@ -1921,7 +2088,7 @@ static void deskFillArea(const desk_line_plot_t &p, const analytics_last_hours_t
 static void deskStrokeSeries(const desk_line_plot_t &p, const analytics_last_hours_t &series,
                              LINE_STYLE style, DOT_PIXEL width, const char *unit,
                              bool mark_peak, bool mark_trough, bool annotate, bool fill = true,
-                             bool hollow = false) {
+                             bool hollow = false, bool peak_number_on_ext = true) {
 	if (series.n == 0 || series.found == 0) {
 		return;
 	}
@@ -1961,7 +2128,7 @@ static void deskStrokeSeries(const desk_line_plot_t &p, const analytics_last_hou
 			Paint_DrawCircle((UWORD)cx, cy, 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
 		}
 		const bool is_peak = have_ext && mark_peak && i == peak_i;
-		if (annotate && !is_peak) {
+		if (annotate && (!is_peak || !peak_number_on_ext)) {
 			char lab[12];
 			deskFmtPeak(lab, sizeof(lab), series.avg[i], nullptr);
 			deskDrawPeakTag(p, cx, cy, lab);
@@ -1982,9 +2149,11 @@ static void deskStrokeSeries(const desk_line_plot_t &p, const analytics_last_hou
 		}
 		Paint_DrawCircle((UWORD)cx, y_ext, 4, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
 		Paint_DrawCircle((UWORD)cx, y_ext, 3, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-		char lab[16];
-		deskFmtPeak(lab, sizeof(lab), ext, nullptr);
-		deskDrawPeakTag(p, cx, y_ext, lab);
+		if (peak_number_on_ext) {
+			char lab[16];
+			deskFmtPeak(lab, sizeof(lab), ext, nullptr);
+			deskDrawPeakTag(p, cx, y_ext, lab);
+		}
 	}
 	if (mark_trough && trough_i != peak_i && series.has[trough_i]) {
 		const float avg = series.avg[trough_i];
@@ -2008,16 +2177,39 @@ static float deskSeriesPeak(const analytics_last_hours_t &h) {
 	return (h.maxv[peak_i] > h.avg[peak_i]) ? h.maxv[peak_i] : h.avg[peak_i];
 }
 
+static float deskSeriesLinePeak(const analytics_last_hours_t &h) {
+	float p = NAN;
+	for (uint8_t i = 0; i < h.n; i++) {
+		if (!h.has[i]) {
+			continue;
+		}
+		if (isnan(p) || h.avg[i] > p) {
+			p = h.avg[i];
+		}
+	}
+	return p;
+}
+
 static void deskDrawHourLine(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
                              const analytics_last_hours_t &series, float ymin, float ymax,
                              float fill_hi, float fill_lo, const char *unit, bool hours,
                              const analytics_last_hours_t *overlay = nullptr,
-                             bool overlay_is_max = false) {
+                             bool overlay_is_max = false, bool range_band = false) {
 	const bool dual = overlay && overlay->found && series.found;
 	const float p1 = deskSeriesPeak(series);
 	const float p2 = (overlay && overlay->found) ? deskSeriesPeak(*overlay) : NAN;
 	desk_line_plot_t plot{};
 	if (!deskOpenLinePlot(x, y, w, h, ymin, ymax, fill_hi, fill_lo, hours, &series, &plot)) {
+		return;
+	}
+	if (range_band && !dual) {
+		deskFillRangeBand(plot, series);
+		if (deskThrOn(fill_hi) && fill_hi > plot.ymin && fill_hi < plot.ymax) {
+			const uint16_t ty = deskLineY(plot, fill_hi);
+			Paint_DrawLine(plot.left, ty, plot.right, ty, BLACK, DOT_PIXEL_1X1, LINE_STYLE_DOTTED);
+		}
+		deskStrokeSeries(plot, series, LINE_STYLE_SOLID, DOT_PIXEL_2X2, unit, false, false, true,
+		                 false, false, false);
 		return;
 	}
 	if (dual) {
@@ -2190,7 +2382,7 @@ static void deskDrawGraphPage(const main_screen_values_t &values, uint8_t page_i
 	case DESK_PAGE_VOC:
 		analyticsReadLastHours(analytics_hour_series_t::VocIndex, s);
 		live = (float)values.voc_ppb;
-		live_ok = values.voc_level >= 0 && values.voc_ppb >= 0;
+		live_ok = values.voc_level >= 0 && values.voc_ppb > 0;
 		pin = false;
 		floor_min = 0.f;
 		floor_max = 500.f;
@@ -2243,7 +2435,7 @@ static void deskDrawGraphPage(const main_screen_values_t &values, uint8_t page_i
 	}
 	}
 
-	deskOverlayLive(s, live, live_ok);
+	deskOverlayLive(s, live, live_ok, page_id != DESK_PAGE_VOC);
 	if (apply_temp) {
 		deskHoursApply(s, tempCToDisplay);
 	}
@@ -2301,15 +2493,24 @@ static void deskDrawGraphPage(const main_screen_values_t &values, uint8_t page_i
 		return;
 	}
 
+	analytics_last_hours_t plot_s = s;
+	if (page_id == DESK_PAGE_VOC) {
+		deskVocTwoLayer(plot_s);
+		if (plot_s.found < 2) {
+			deskDrawInsight(x0, w, (uint16_t)(y0 + 40), INTL_DESK_GRAPH_COLLECTING);
+			draw_qr();
+			return;
+		}
+	}
 	float ymin, ymax, peak;
 	if (overlay && overlay->found) {
 		analytics_last_hours_t both{};
 		deskUnionHours(s, *overlay, both);
 		deskPrepScaleEnv(both, floor_min, floor_max, min_span, pin, fill_hi, fill_lo, &ymin, &ymax,
-		                 &peak);
+		                 &peak, page_id == DESK_PAGE_VOC);
 	} else {
-		deskPrepScaleEnv(s, floor_min, floor_max, min_span, pin, fill_hi, fill_lo, &ymin, &ymax,
-		                 &peak);
+		deskPrepScaleEnv(plot_s, floor_min, floor_max, min_span, pin, fill_hi, fill_lo, &ymin, &ymax,
+		                 &peak, page_id == DESK_PAGE_VOC);
 	}
 	(void)peak;
 	if (page_id == DESK_PAGE_CLIMATE || page_id == DESK_PAGE_CLIMATE_INSIGHT) {
@@ -2330,7 +2531,8 @@ static void deskDrawGraphPage(const main_screen_values_t &values, uint8_t page_i
 	{
 		char hero[16];
 		hero[0] = 0;
-		float show = deskSeriesPeak(s);
+		float show = (page_id == DESK_PAGE_VOC) ? deskSeriesLinePeak(plot_s)
+		                                       : deskSeriesPeak(s);
 		if (overlay && overlay->found) {
 			const float p2 = deskSeriesPeak(*overlay);
 			if (!isnan(p2) && (isnan(show) || p2 > show)) {
@@ -2345,9 +2547,13 @@ static void deskDrawGraphPage(const main_screen_values_t &values, uint8_t page_i
 		const uint16_t hero_right = (icon_left > 4) ? (uint16_t)(icon_left - 4) : x0;
 		deskDrawHeroMax(hero_right, (uint16_t)(title_y + 4), hero, unit);
 	}
-	deskDrawHourLine(x0, y0, w, (uint16_t)(plot_bot > y0 ? plot_bot - y0 : 0), s, ymin, ymax,
-	                 fill_hi, fill_lo, unit, true, overlay, overlay_is_max);
-	deskFillInsight(tip, sizeof(tip), page_id, (page_id == DESK_PAGE_NOISE && overlay) ? *overlay : s,
+	deskDrawHourLine(x0, y0, w, (uint16_t)(plot_bot > y0 ? plot_bot - y0 : 0), plot_s, ymin, ymax,
+	                 fill_hi, fill_lo, unit, true, overlay, overlay_is_max,
+	                 page_id == DESK_PAGE_VOC);
+	deskFillInsight(tip, sizeof(tip), page_id,
+	                (page_id == DESK_PAGE_NOISE && overlay)
+	                    ? *overlay
+	                    : (page_id == DESK_PAGE_VOC ? plot_s : s),
 	                pick, fill_hi, fill_lo, nullptr, kDeskBarAvg, NAN, NAN, graph_i);
 	deskDrawInsight(x0, w, (uint16_t)(plot_bot + 4), tip);
 	draw_qr();
@@ -2507,7 +2713,7 @@ void drawDeskMainBody(const main_screen_values_t &values,
 		deskDrawCo2(inner_x0, inner_w, inner_y0, inner_y1, a, "ppm", deskBandCo2(values.co2));
 		break;
 	case DESK_PAGE_VOC:
-		if (values.voc_level < 0 || values.voc_ppb < 0) {
+		if (values.voc_ppb < 0) {
 			snprintf(a, sizeof(a), "%s", INTL_DISP_NO_DATA);
 		} else {
 			deskFormat(a, sizeof(a), (float)values.voc_ppb, 0, false);

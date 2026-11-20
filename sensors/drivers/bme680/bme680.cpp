@@ -28,6 +28,7 @@
  */
 
 #include "bme680.h"
+#include "bme68x_gas_valid.h"
 #include "driver/i2c.h"
 #include <esp_log.h>
 #include <Arduino.h>
@@ -153,7 +154,7 @@ float Adafruit_BME680::readHumidity(void) {
  */
 uint32_t Adafruit_BME680::readGas(void) {
   performReading();
-  return gas_resistance;
+  return gas_valid ? gas_resistance : 0;
 }
 
 /*!
@@ -279,6 +280,7 @@ bool Adafruit_BME680::endReading(void) {
   if (rslt != BME68X_OK)
     return false;
 
+  gas_valid = false;
   if (n_fields) {
     temperature = data.temperature;
     humidity = data.humidity;
@@ -288,12 +290,9 @@ bool Adafruit_BME680::endReading(void) {
     Serial.print(F("data.status 0x"));
     Serial.println(data.status, HEX);
 #endif
-    if (data.status & (BME68X_HEAT_STAB_MSK | BME68X_GASM_VALID_MSK)) {
-      // Serial.print("Gas resistance: "); Serial.println(data.gas_resistance);
+    if (bme68xGasResultValid(data.status, data.gas_resistance)) {
       gas_resistance = data.gas_resistance;
-    } else {
-      gas_resistance = 0;
-      // Serial.println("Gas reading unstable!");
+      gas_valid = true;
     }
   }
 

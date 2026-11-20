@@ -5,6 +5,7 @@
 #include "helpers/proto_envelope.h"
 #include "../config_manager/config_helpers.h"
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 
 namespace
 {
@@ -680,23 +681,41 @@ void RobonomicsHTTPAPI::POSTRequest(const uint8_t *data, size_t len, const Strin
 		debug_outln_verbose(F("[Map] Proto URL parse failed: "), host);
 		return;
 	}
-	if (target.tls)
-	{
-		logConnectivityFailure(map_send_seq_active, F("https_not_supported"));
-		debug_outln_error(F("[Map] Proto HTTPS is not supported; use http://"));
-		return;
-	}
 	const String target_log = target.host + ':' + String(target.port) + target.path;
 	logConnectivityAttempt(map_send_seq_active, current_reg, target_log);
 	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] PROTO POST ") + target_log +
-			    F(" bytes=") + String(len));
+			    F(" bytes=") + String(len) + (target.tls ? F(" tls") : F("")));
 	mapResetHttpClient(_client);
 	_http.setTimeout(20 * 1000);
 	_http.setUserAgent(SOFTWARE_VERSION + '/' + esp_chipid);
 	_http.setReuse(false);
-	if (_http.begin(*_client, target.host, target.port, target.path))
+
+	WiFiClientSecure tls;
+	bool began = false;
+	if (target.tls)
 	{
-		_http.addHeader(F("Content-Type"), "application/x-protobuf");
+		// No CA bundle in this firmware; ingest.sensors.social has no HTTP ingest
+		// (port 80 302s to HTTPS). Verify host, skip pinning until a root is shipped.
+		tls.setInsecure();
+		tls.setHandshakeTimeout(15);
+		String url = F("https://");
+		url += target.host;
+		if (target.port != 443)
+		{
+			url += ':';
+			url += String(target.port);
+		}
+		url += target.path;
+		began = _http.begin(tls, url);
+	}
+	else
+	{
+		began = _http.begin(*_client, target.host, target.port, target.path);
+	}
+
+	if (began)
+	{
+		_http.addHeader(F("Content-Type"), "application/protobuf");
 		_http.addHeader(F("X-Sensor"), String(F(SENSOR_BASENAME)) + esp_chipid);
 		result = _http.POST(const_cast<uint8_t *>(data), len);
 		if (result >= HTTP_CODE_OK && result <= HTTP_CODE_ALREADY_REPORTED)

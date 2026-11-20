@@ -37,6 +37,8 @@ static uint8_t s_portal_wifi_count = 0;
 static unsigned long s_last_portal_wifi_scan_ms = 0;
 static unsigned long s_portal_loop_started_ms = 0;
 static uint8_t s_portal_followup_scans = 0;
+static bool s_portal_sta_join_pending = false;
+static unsigned long s_portal_sta_join_request_ms = 0;
 
 static void wifiReadNetworkInfo(uint8_t scan_index, struct_wifiInfo& out) {
 	String SSID;
@@ -467,23 +469,46 @@ void wifiApplyStaHostname(void) {
 #endif
 }
 
+void wifiGuestPortalRequestStaJoin(void) {
+	s_portal_sta_join_pending = true;
+	s_portal_sta_join_request_ms = millis();
+}
+
+void wifiGuestPortalProcessPendingStaJoin(void) {
+	if (!s_portal_sta_join_pending) {
+		return;
+	}
+	if (msSince(s_portal_sta_join_request_ms) < 800UL) {
+		return;
+	}
+	s_portal_sta_join_pending = false;
+	debug_outln_info(F("[WiFi] Guest portal: STA join started"));
+	wifiGuestPortalPrepareStaJoin();
+	wifiApplyStaHostname();
+	if (cfg::wlannopwd) {
+		debug_outln_info(F("No password"));
+		WiFi.begin(cfg::wlanssid);
+	} else {
+		WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+	}
+}
+
 void wifiGuestPortalPrepareStaJoin(void) {
 #if defined(ESP32) || defined(ESP8266)
 	debug_outln_info(F("[WiFi] Guest portal: preparing STA join"));
-	WiFi.disconnect(true, false);
-	const unsigned long deadline = millis() + 1200UL;
+	// Keep the setup AP up: disconnect(true) turns STA off and can drop the phone.
+	WiFi.disconnect(false, false);
+	const unsigned long deadline = millis() + 400UL;
 	while (millis() < deadline) {
 		yield();
-		delay(50);
-		if (WiFi.status() == WL_DISCONNECTED) {
+		delay(20);
+		if (WiFi.status() == WL_DISCONNECTED || WiFi.status() == WL_IDLE_STATUS) {
 			break;
 		}
 	}
-	delay(80);
 	if (WiFi.getMode() != WIFI_AP_STA) {
 		WiFi.mode(WIFI_AP_STA);
 	}
-	delay(50);
 #endif
 }
 
@@ -607,6 +632,7 @@ void wifiConfig(SensorWebServer &webserver) {
 		dnsServer.processNextRequest();
 		wifiPortalMaybeRescan();
 		webserver.handleClient();
+		wifiGuestPortalProcessPendingStaJoin();
 		improv_serial_loop();
 		wifiProcessImprovProvisionRestart();
 		guestSuccessProcessPendingRestart();

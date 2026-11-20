@@ -7,7 +7,7 @@
 // Custom host / host pool in settings overrides this list.
 // OTA updates these compiled defaults; a filled config field is kept.
 
-#define ROBONOMICS_PROTO_CONNECTIVITY_HOST_STR "http://128.140.46.75/v1/telemetry"
+#define ROBONOMICS_PROTO_CONNECTIVITY_HOST_STR "https://ingest.sensors.social/v1/telemetry"
 
 static const char* const HOST_ROBONOMICS[][2] PROGMEM = {
 	{"connectivity.robonomics.network", REGION_RU},
