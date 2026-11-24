@@ -295,7 +295,8 @@ static uint16_t deskDigitGap(uint8_t scale) {
 	return 3;
 }
 
-static uint16_t deskGlyphAdvance(const Glyph *g, uint32_t cp, const Font *font, uint8_t scale) {
+static uint16_t deskAdvance(const Glyph *g, uint32_t cp, const Font *font, uint8_t scale,
+                            uint16_t gap) {
 	const uint8_t sc = (uint8_t)deskScaleOf(scale);
 	uint16_t ink;
 	if (cp == 0x20) {
@@ -307,10 +308,15 @@ static uint16_t deskGlyphAdvance(const Glyph *g, uint32_t cp, const Font *font, 
 	} else {
 		ink = font ? (uint16_t)((font->line_height / 2) * sc) : 16;
 	}
-	return (uint16_t)(ink + deskDigitGap(sc));
+	return (uint16_t)(ink + gap);
 }
 
-static uint16_t deskHugeWidth(const char *s, const Font *font, uint8_t scale) {
+static uint16_t deskGlyphAdvance(const Glyph *g, uint32_t cp, const Font *font, uint8_t scale) {
+	const uint8_t sc = (uint8_t)deskScaleOf(scale);
+	return deskAdvance(g, cp, font, sc, deskDigitGap(sc));
+}
+
+static uint16_t deskHugeWidthGap(const char *s, const Font *font, uint8_t scale, uint16_t gap) {
 	uint16_t total = 0;
 	uint16_t last_adv = 0;
 	uint16_t last_ink = 0;
@@ -322,7 +328,7 @@ static uint16_t deskHugeWidth(const char *s, const Font *font, uint8_t scale) {
 			break;
 		}
 		const Glyph *g = deskGlyph(font, cp);
-		last_adv = deskGlyphAdvance(g, cp, font, sc);
+		last_adv = deskAdvance(g, cp, font, sc, gap);
 		if (g && cp != 0x20) {
 			last_ink = (uint16_t)(g->width * sc);
 		} else {
@@ -334,6 +340,15 @@ static uint16_t deskHugeWidth(const char *s, const Font *font, uint8_t scale) {
 		total = (uint16_t)(total - (uint16_t)(last_adv - last_ink));
 	}
 	return total;
+}
+
+static uint16_t deskHugeWidth(const char *s, const Font *font, uint8_t scale) {
+	const uint8_t sc = (uint8_t)deskScaleOf(scale);
+	return deskHugeWidthGap(s, font, sc, deskDigitGap(sc));
+}
+
+static uint16_t deskHugeWidthUnit(const char *s, const Font *font, uint8_t scale) {
+	return deskHugeWidthGap(s, font, scale, 0);
 }
 
 static void deskDrawGlyphScaled(const Glyph *g, uint16_t x, uint16_t y, uint8_t scale) {
@@ -367,7 +382,8 @@ static void deskDrawGlyphScaled(const Glyph *g, uint16_t x, uint16_t y, uint8_t 
 	}
 }
 
-static void deskDrawHugeAt(uint16_t x, uint16_t y, const char *s, const Font *font, uint8_t scale) {
+static void deskDrawHugeAtGap(uint16_t x, uint16_t y, const char *s, const Font *font, uint8_t scale,
+                             uint16_t gap) {
 	while (s && *s) {
 		uint32_t cp = 0;
 		s = deskNextCp(s, &cp);
@@ -375,8 +391,17 @@ static void deskDrawHugeAt(uint16_t x, uint16_t y, const char *s, const Font *fo
 		if (g && cp != 0x20) {
 			deskDrawGlyphScaled(g, x, y, scale);
 		}
-		x = (uint16_t)(x + deskGlyphAdvance(g, cp, font, scale));
+		x = (uint16_t)(x + deskAdvance(g, cp, font, scale, gap));
 	}
+}
+
+static void deskDrawHugeAt(uint16_t x, uint16_t y, const char *s, const Font *font, uint8_t scale) {
+	const uint8_t sc = (uint8_t)deskScaleOf(scale);
+	deskDrawHugeAtGap(x, y, s, font, sc, deskDigitGap(sc));
+}
+
+static void deskDrawHugeUnitAt(uint16_t x, uint16_t y, const char *s, const Font *font, uint8_t scale) {
+	deskDrawHugeAtGap(x, y, s, font, scale, 0);
 }
 
 struct DeskHuge {
@@ -415,38 +440,40 @@ static bool deskHugeFits(const char *s, const Font *font, uint8_t scale, uint16_
 	return !(max_w > 0 && w > max_w);
 }
 
+static const struct {
+	const Font *font;
+	uint8_t scale;
+} kDeskHugeCand[] = {
+	{ &font_48_ascii, 3 },
+	{ &font_40_ascii, 3 },
+	{ &font_48_ascii, 2 },
+	{ &font_40_ascii, 2 },
+	{ &font_36_ascii, 2 },
+	{ &font_32_ascii, 2 },
+	{ &font_48_ascii, 1 },
+	{ &font_40_ascii, 1 },
+	{ &font_36_ascii, 1 },
+	{ &font_32_ascii, 1 },
+};
+
 static DeskHuge deskFitHugePair(const char *a, const char *b, uint16_t max_w, uint16_t max_h,
                                uint8_t max_scale) {
-	static const struct {
-		const Font *font;
-		uint8_t scale;
-	} cand[] = {
-		{ &font_48_ascii, 3 },
-		{ &font_40_ascii, 3 },
-		{ &font_48_ascii, 2 },
-		{ &font_40_ascii, 2 },
-		{ &font_36_ascii, 2 },
-		{ &font_32_ascii, 2 },
-		{ &font_48_ascii, 1 },
-		{ &font_40_ascii, 1 },
-		{ &font_36_ascii, 1 },
-		{ &font_32_ascii, 1 },
-	};
 	if (max_scale < 1) {
 		max_scale = 1;
 	}
 	const char *left = (a && a[0] != '\0') ? a : "0";
-	for (uint8_t i = 0; i < sizeof(cand) / sizeof(cand[0]); i++) {
-		if (cand[i].scale > max_scale) {
+	for (uint8_t i = 0; i < sizeof(kDeskHugeCand) / sizeof(kDeskHugeCand[0]); i++) {
+		if (kDeskHugeCand[i].scale > max_scale) {
 			continue;
 		}
-		if (!deskHugeFits(left, cand[i].font, cand[i].scale, max_w, max_h)) {
+		if (!deskHugeFits(left, kDeskHugeCand[i].font, kDeskHugeCand[i].scale, max_w, max_h)) {
 			continue;
 		}
-		if (b && b[0] != '\0' && !deskHugeFits(b, cand[i].font, cand[i].scale, max_w, max_h)) {
+		if (b && b[0] != '\0' &&
+		    !deskHugeFits(b, kDeskHugeCand[i].font, kDeskHugeCand[i].scale, max_w, max_h)) {
 			continue;
 		}
-		return deskHugeOf(left, cand[i].font, cand[i].scale);
+		return deskHugeOf(left, kDeskHugeCand[i].font, kDeskHugeCand[i].scale);
 	}
 	return deskHugeOf(left, &font_48_ascii, 1);
 }
@@ -454,6 +481,29 @@ static DeskHuge deskFitHugePair(const char *a, const char *b, uint16_t max_w, ui
 static DeskHuge deskFitHuge(const char *s, uint16_t max_w, uint16_t max_h, uint8_t max_scale) {
 	return deskFitHugePair(s, nullptr, max_w, max_h, max_scale);
 }
+
+static bool deskHugeCanDraw(const char *s, const Font *font) {
+	if (!s || s[0] == '\0' || !font) {
+		return false;
+	}
+	while (*s) {
+		uint32_t cp = 0;
+		s = deskNextCp(s, &cp);
+		if (cp == 0) {
+			break;
+		}
+		if (cp == 0x20) {
+			continue;
+		}
+		if (!deskGlyph(font, cp)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static uint16_t deskHugeInkTop(const char *s, const Font *font, uint8_t scale);
+static uint16_t deskHugeInkHeight(const char *s, const Font *font, uint8_t scale);
 
 static uint16_t deskHugeInkTop(const char *s, const Font *font, uint8_t scale) {
 	uint16_t top = 0xFFFF;
@@ -587,35 +637,34 @@ static uint16_t deskDrawTitle(uint16_t x, uint16_t y, uint16_t max_x, const unsi
                               const unsigned char *src_icon,
                               const char *leg_solid = nullptr, const char *leg_dot = nullptr,
                               const char *subtitle = nullptr, uint16_t right_reserve = 0,
-                              const char *inline_note = nullptr) {
+                              const char *inline_note = nullptr, uint8_t src_scale = 2) {
 	uint16_t cur = x;
 	if (icon && iw && ih) {
 		Paint_DrawImage(icon, cur, y, iw, ih);
 		cur = (uint16_t)(cur + iw + 6);
 	}
+	const uint16_t src_draw = (src_scale >= 2) ? kDeskSrcDraw : kDeskSrcIcon;
 	uint16_t src_x = max_x;
-	if (src_icon && max_x > kDeskSrcDraw) {
-		src_x = (uint16_t)(max_x - kDeskSrcDraw);
+	if (src_icon && max_x > src_draw) {
+		src_x = (uint16_t)(max_x - src_draw);
 		if (src_x < cur + 8) {
 			src_x = (uint16_t)(cur + 8);
 		}
-		deskDrawSrcIcon2x(src_icon, src_x, y);
+		if (src_scale >= 2) {
+			deskDrawSrcIcon2x(src_icon, src_x, y);
+		} else {
+			Paint_DrawImage(src_icon, src_x, y, kDeskSrcIcon, kDeskSrcIcon);
+		}
 	}
-	sFONT *en = &Font24;
-	const Font *ru = &font_24_cyrillic;
-	const Font *ascii = &font_24_ascii;
+	sFONT *en = &Font20;
+	const Font *ru = &font_20_cyrillic;
+	const Font *ascii = &font_20_ascii;
 	uint16_t title_max = (src_icon && src_x > 6) ? (uint16_t)(src_x - 6) : max_x;
 	if (right_reserve > 0 && title_max > right_reserve) {
 		title_max = (uint16_t)(title_max - right_reserve);
 	}
 	uint16_t avail = (title_max > cur) ? (uint16_t)(title_max - cur) : 0;
 	uint16_t tw = deskWidth(title, en, ru, ascii);
-	if (avail > 0 && tw > avail) {
-		en = &Font20;
-		ru = &font_20_cyrillic;
-		ascii = &font_20_ascii;
-		tw = deskWidth(title, en, ru, ascii);
-	}
 	if (avail > 0 && tw > avail) {
 		en = &Font16;
 		ru = &font_16_cyrillic;
@@ -684,7 +733,14 @@ static uint16_t deskDrawTitle(uint16_t x, uint16_t y, uint16_t max_x, const unsi
 		deskDrawLineLegend(cur, ly, leg_solid, leg_dot);
 		bottom_text = (uint16_t)(ly + Font12.Height);
 	}
-	return (bottom_icon > bottom_text) ? bottom_icon : bottom_text;
+	uint16_t bot = (bottom_icon > bottom_text) ? bottom_icon : bottom_text;
+	if (src_icon) {
+		const uint16_t bottom_src = (uint16_t)(y + src_draw);
+		if (bottom_src > bot) {
+			bot = bottom_src;
+		}
+	}
+	return bot;
 }
 
 static void deskDrawFooter(uint16_t content_left, uint16_t content_right,
@@ -782,6 +838,130 @@ static void deskFitLabel(const char *s, uint16_t max_w, sFONT **en, const Font *
 			return;
 		}
 	}
+}
+
+static void deskFitCaption(const char *s, uint16_t max_w, sFONT **en, const Font **ru,
+                           const Font **ascii) {
+	static const struct {
+		sFONT *en;
+		const Font *ru;
+		const Font *ascii;
+	} cand[] = {
+		{ &Font24, &font_24_cyrillic, &font_24_ascii },
+		{ &Font20, &font_20_cyrillic, &font_20_ascii },
+		{ &Font16, &font_16_cyrillic, &font_16_ascii },
+		{ &Font12, &font_12_cyrillic, &font_12_ascii },
+	};
+	unsigned start = 0;
+	unsigned n = 0;
+	if (s) {
+		while (s[n] != '\0') {
+			n++;
+		}
+	}
+	if (n > 6) {
+		start = 2;
+	}
+	for (unsigned i = start; i < 4; i++) {
+		*en = cand[i].en;
+		*ru = cand[i].ru;
+		*ascii = cand[i].ascii;
+		if (!s || s[0] == '\0' || max_w == 0) {
+			return;
+		}
+		if (deskWidth(s, *en, *ru, *ascii) <= max_w) {
+			return;
+		}
+	}
+}
+
+struct DeskUnitFit {
+	bool huge;
+	const Font *font;
+	uint8_t scale;
+	sFONT *en;
+	const Font *ru;
+	const Font *ascii;
+	uint16_t w;
+	uint16_t ink_h;
+	uint16_t ink_top;
+};
+
+static bool deskUnitFitsCand(const char *u, uint16_t max_w, uint16_t max_h, uint8_t i) {
+	if (!deskHasText(u)) {
+		return true;
+	}
+	const Font *font = kDeskHugeCand[i].font;
+	const uint8_t scale = kDeskHugeCand[i].scale;
+	if (!deskHugeCanDraw(u, font)) {
+		return false;
+	}
+	if (deskHugeWidthUnit(u, font, scale) > max_w) {
+		return false;
+	}
+	if (max_h > 0 && deskHugeInkHeight(u, font, scale) > max_h) {
+		return false;
+	}
+	return true;
+}
+
+static DeskUnitFit deskPickUnitUnder(const char *uL, const char *uR, uint16_t max_w,
+                                    uint8_t after_cand, uint16_t max_h) {
+	DeskUnitFit out;
+	out.huge = false;
+	out.font = &font_32_ascii;
+	out.scale = 1;
+	out.en = &Font20;
+	out.ru = &font_20_cyrillic;
+	out.ascii = &font_20_ascii;
+	out.w = 0;
+	out.ink_h = Font20.Height;
+	out.ink_top = 0;
+	const uint8_t n = (uint8_t)(sizeof(kDeskHugeCand) / sizeof(kDeskHugeCand[0]));
+	uint8_t start = after_cand;
+	if (start >= n) {
+		start = (uint8_t)(n - 1);
+	}
+	for (uint8_t i = start; i < n; i++) {
+		if (!deskUnitFitsCand(uL, max_w, max_h, i) || !deskUnitFitsCand(uR, max_w, max_h, i)) {
+			continue;
+		}
+		out.huge = true;
+		out.font = kDeskHugeCand[i].font;
+		out.scale = kDeskHugeCand[i].scale;
+		const char *sample = deskHasText(uR) ? uR : uL;
+		out.w = deskHugeWidthUnit(sample, out.font, out.scale);
+		out.ink_h = deskHugeInkHeight(sample, out.font, out.scale);
+		out.ink_top = deskHugeInkTop(sample, out.font, out.scale);
+		if (deskHasText(uL) && deskHasText(uR)) {
+			const uint16_t hl = deskHugeInkHeight(uL, out.font, out.scale);
+			const uint16_t hr = deskHugeInkHeight(uR, out.font, out.scale);
+			out.ink_h = (hl > hr) ? hl : hr;
+		}
+		return out;
+	}
+	sFONT *en = &Font20;
+	const Font *ru = &font_20_cyrillic;
+	const Font *ascii = &font_20_ascii;
+	const char *sample = deskHasText(uR) ? uR : uL;
+	deskFitLabel(sample, max_w, &en, &ru, &ascii);
+	if (deskHasText(uL) && deskHasText(uR)) {
+		sFONT *en2 = en;
+		const Font *ru2 = ru;
+		const Font *as2 = ascii;
+		deskFitLabel(uL, max_w, &en2, &ru2, &as2);
+		if (en2->Height < en->Height) {
+			en = en2;
+			ru = ru2;
+			ascii = as2;
+		}
+	}
+	out.en = en;
+	out.ru = ru;
+	out.ascii = ascii;
+	out.ink_h = en->Height;
+	out.w = deskWidth(sample, en, ru, ascii);
+	return out;
 }
 
 static void deskDrawHugeWithSide(uint16_t col_x, uint16_t col_w, uint16_t ink_y,
@@ -973,19 +1153,35 @@ static void deskDrawStatusPair(uint16_t left_x, uint16_t right_x, uint16_t col_w
 	deskDrawStatusWord(x1, col_w, ty, band_r);
 }
 
-static uint16_t deskRowChrome(bool kick, bool cap, bool unit, bool unit_lg) {
+static constexpr uint16_t kDeskTwoCapGap = 10;
+static constexpr uint16_t kDeskTwoUnitGap = 8;
+static constexpr uint16_t kDeskTwoStatusGap = 6;
+static constexpr uint16_t kDeskTwoUnitFloor = 20;
+static constexpr uint16_t kDeskTwoUnitMax = 64;
+
+static uint16_t deskRowChrome(bool kick, uint16_t cap_h, bool unit, uint16_t unit_h) {
 	uint16_t h = 0;
 	if (kick) {
 		h = (uint16_t)(h + deskSrcDrawH(1) + 4);
 	}
-	if (cap) {
-		h = (uint16_t)(h + Font24.Height + 8);
+	if (cap_h) {
+		h = (uint16_t)(h + cap_h + kDeskTwoCapGap);
 	}
 	if (unit) {
-		h = (uint16_t)(h + 6 + Font24.Height);
+		h = (uint16_t)(h + kDeskTwoUnitGap + (unit_h > 0 ? unit_h : 28));
 	}
-	(void)unit_lg;
 	return h;
+}
+
+static uint16_t deskTwoUpMaxNumH(uint16_t stage_h, uint16_t chrome) {
+	uint16_t max_num_h = 96;
+	if (stage_h > chrome + kDeskTwoStatusGap) {
+		const uint16_t room = (uint16_t)(stage_h - chrome - kDeskTwoStatusGap);
+		if (room < max_num_h) {
+			max_num_h = room;
+		}
+	}
+	return max_num_h;
 }
 
 static void deskDrawTwoUp(uint16_t left_x, uint16_t right_x, uint16_t col_w, uint16_t mid,
@@ -1001,24 +1197,51 @@ static void deskDrawTwoUp(uint16_t left_x, uint16_t right_x, uint16_t col_w, uin
 	const bool cap = solo ? deskHasText(cR) : (deskHasText(cL) || deskHasText(cR));
 	const bool unit = solo ? deskHasText(uR) : (deskHasText(uL) || deskHasText(uR));
 	const bool dual = deskHasText(band_l) || deskHasText(band_r);
-	const uint16_t chrome = deskRowChrome(kick, cap, unit, unit_lg);
+	sFONT *c_en = &Font24;
+	const Font *c_ru = &font_24_cyrillic;
+	const Font *c_ascii = &font_24_ascii;
+	uint16_t cap_h = 0;
+	if (cap) {
+		if (!solo) {
+			deskFitCaption(cL, w, &c_en, &c_ru, &c_ascii);
+		}
+		sFONT *r_en = c_en;
+		const Font *r_ru = c_ru;
+		const Font *r_ascii = c_ascii;
+		deskFitCaption(cR, w, &r_en, &r_ru, &r_ascii);
+		if (r_en->Height < c_en->Height) {
+			c_en = r_en;
+			c_ru = r_ru;
+			c_ascii = r_ascii;
+		}
+		cap_h = c_en->Height;
+	}
 	const uint16_t status_h = dual ? (uint16_t)(Font24.Height + 10) : deskStatusH(band);
 	const uint16_t num_bot = (stage_bot > status_h) ? (uint16_t)(stage_bot - status_h) : stage_bot;
 	const uint16_t stage_h = (num_bot > stage_top) ? (uint16_t)(num_bot - stage_top) : 80;
-	uint16_t max_num_h = 72;
-	if (stage_h > chrome + 8) {
-		const uint16_t room = (uint16_t)(stage_h - chrome);
-		if (room < max_num_h) {
-			max_num_h = room;
-		}
-	}
-	const DeskHuge m = solo ? deskFitHuge(vR, w, max_num_h, 2)
-	                        : deskFitHugePair(vL, vR, col_w, max_num_h, 2);
+	const uint16_t kick_h = kick ? (uint16_t)(deskSrcDrawH(1) + 4) : 0;
+	const uint16_t unit_floor = kick ? (uint16_t)44 : (unit_lg ? (uint16_t)52 : kDeskTwoUnitFloor);
+	const uint16_t unit_max = unit_lg ? (uint16_t)80 : kDeskTwoUnitMax;
+	uint16_t chrome = deskRowChrome(kick, cap_h, unit, unit ? unit_floor : 0);
+	uint16_t max_num_h = deskTwoUpMaxNumH(stage_h, chrome);
+	DeskHuge m = solo ? deskFitHuge(vR, w, max_num_h, 2)
+	                  : deskFitHugePair(vL, vR, col_w, max_num_h, 2);
 	const uint16_t ink_h = solo ? deskHugeInkHeight(vR, m.font, m.scale)
 	                            : deskPairInkH(vL, vR, m.font, m.scale);
-	const uint16_t card_h = (uint16_t)(chrome + ink_h);
-	uint16_t extra = (stage_h > card_h) ? (uint16_t)(stage_h - card_h) : 0;
-	uint16_t y = (uint16_t)(stage_top + extra / 2);
+	DeskUnitFit uf{};
+	if (unit) {
+		uint16_t above = (uint16_t)(kick_h + (cap_h ? (uint16_t)(cap_h + kDeskTwoCapGap) : 0) +
+		                            ink_h + kDeskTwoUnitGap);
+		uint16_t unit_room = (stage_h > above + 8)
+		                         ? (uint16_t)(stage_h - above - 8)
+		                         : unit_floor;
+		if (unit_room > unit_max) {
+			unit_room = unit_max;
+		}
+		uf = deskPickUnitUnder(solo ? nullptr : uL, uR, w, 0, unit_room);
+	}
+	(void)chrome;
+	uint16_t y = stage_top;
 
 	if (kick) {
 		const uint16_t kh = (uint16_t)(deskSrcDrawH(1) + 4);
@@ -1030,16 +1253,11 @@ static void deskDrawTwoUp(uint16_t left_x, uint16_t right_x, uint16_t col_w, uin
 		y = (uint16_t)(y + kh);
 	}
 	if (cap) {
-		sFONT *c_en = &Font24;
-		const Font *c_ru = &font_24_cyrillic;
-		const Font *c_ascii = &font_24_ascii;
 		if (!solo) {
-			deskFitLabel(cL, w, &c_en, &c_ru, &c_ascii);
 			deskDrawCentered(left_x, w, y, cL, c_en, c_ru, c_ascii);
 		}
-		deskFitLabel(cR, w, &c_en, &c_ru, &c_ascii);
 		deskDrawCentered(x1, w, y, cR, c_en, c_ru, c_ascii);
-		y = (uint16_t)(y + Font24.Height + 8);
+		y = (uint16_t)(y + cap_h + kDeskTwoCapGap);
 	}
 	if (!solo) {
 		deskDrawHugeWithSide(left_x, w, y, vL, "", m.font, m.scale, true);
@@ -1047,17 +1265,29 @@ static void deskDrawTwoUp(uint16_t left_x, uint16_t right_x, uint16_t col_w, uin
 	deskDrawHugeWithSide(x1, w, y, vR, "", m.font, m.scale, true);
 	uint16_t band_bot = (uint16_t)(y + ink_h);
 	if (unit) {
-		sFONT *uen = &Font24;
-		const Font *uru = &font_24_cyrillic;
-		const Font *uascii = &font_24_ascii;
-		const uint16_t uy = (uint16_t)(y + ink_h + 6);
-		if (!solo) {
-			deskFitLabel(uL, w, &uen, &uru, &uascii);
-			deskDrawCentered(left_x, w, uy, uL, uen, uru, uascii);
+		const uint16_t uy = (uint16_t)(y + ink_h + kDeskTwoUnitGap);
+		if (uf.huge) {
+			auto draw_unit = [&](uint16_t col, const char *u) {
+				if (!deskHasText(u)) {
+					return;
+				}
+				const uint16_t uw = deskHugeWidthUnit(u, uf.font, uf.scale);
+				const uint16_t utop = deskHugeInkTop(u, uf.font, uf.scale);
+				const int dy = (int)uy - (int)utop;
+				deskDrawHugeUnitAt(deskCenterX(col, w, uw), dy < 0 ? 0 : (uint16_t)dy, u, uf.font,
+				                  uf.scale);
+			};
+			if (!solo) {
+				draw_unit(left_x, uL);
+			}
+			draw_unit(x1, uR);
+		} else {
+			if (!solo) {
+				deskDrawCentered(left_x, w, uy, uL, uf.en, uf.ru, uf.ascii);
+			}
+			deskDrawCentered(x1, w, uy, uR, uf.en, uf.ru, uf.ascii);
 		}
-		deskFitLabel(uR, w, &uen, &uru, &uascii);
-		deskDrawCentered(x1, w, uy, uR, uen, uru, uascii);
-		band_bot = (uint16_t)(uy + Font24.Height);
+		band_bot = (uint16_t)(uy + uf.ink_h);
 	}
 	uint16_t split_bot = band_bot;
 	if (status_h && num_bot > band_bot + 4) {
@@ -1133,76 +1363,98 @@ static void deskDrawCo2(uint16_t content_left, uint16_t area_w,
 	if (!unit || unit[0] == '\0') {
 		unit = "ppm";
 	}
-	const uint16_t ppm_w = deskWidth(unit, &Font24, &font_24_cyrillic, &font_24_ascii);
 	const bool warmup = deskBandIsWarmup(band);
 	const bool have_status = deskHasText(band);
-	uint16_t face_r = 28;
-	const uint16_t word_h = (uint16_t)(Font24.Height + 4);
-	const uint16_t mid_gap = 16;
-	uint16_t face_block = 0;
-	if (have_status) {
-		if (warmup) {
-			face_block = (uint16_t)(mid_gap + word_h + 8);
-		} else {
-			uint16_t d = (uint16_t)(face_r * 2);
-			face_block = (uint16_t)(mid_gap + d + 8 + word_h);
-		}
+	const uint16_t face_r = 28;
+	const uint16_t word_h = Font24.Height;
+	uint16_t bot_h = (uint16_t)(face_r * 2 + 10 + word_h + 12);
+	if (warmup) {
+		bot_h = (uint16_t)(word_h + 24);
 	}
-	const uint16_t hero_bot = (have_status && stage_bot > face_block)
-	                              ? (uint16_t)(stage_bot - face_block)
-	                              : stage_bot;
+	if (bot_h < 88) {
+		bot_h = 88;
+	}
+	const uint16_t x1 = (uint16_t)(content_left + area_w);
+	const uint16_t hero_bot = (stage_bot > bot_h + 8) ? (uint16_t)(stage_bot - bot_h) : (uint16_t)(stage_top + 48);
 	const uint16_t hero_h = (hero_bot > stage_top) ? (uint16_t)(hero_bot - stage_top) : 48;
 	uint16_t max_num_h = (hero_h > 8) ? (uint16_t)(hero_h - 8) : 48;
-	if (max_num_h > 96) {
-		max_num_h = 96;
+	const uint16_t icon_reserve = (uint16_t)(kDeskSrcDraw + 8);
+	uint16_t num_w = area_w;
+	if (area_w > icon_reserve + 48) {
+		num_w = (uint16_t)(area_w - icon_reserve);
 	}
-	uint16_t max_num_w = (area_w > ppm_w + 16) ? (uint16_t)(area_w - ppm_w - 16) : area_w;
-	const DeskHuge huge = deskFitHuge(value, max_num_w, max_num_h, 2);
+	const DeskHuge huge = deskFitHuge(value, num_w, max_num_h, 3);
 	const uint16_t ink_h = deskHugeInkHeight(value, huge.font, huge.scale);
-	const uint16_t group_w = (uint16_t)(huge.w + 8 + ppm_w);
-	uint16_t extra = (hero_h > ink_h) ? (uint16_t)(hero_h - ink_h) : 0;
-	uint16_t drop = (uint16_t)(extra / 3);
-	if (drop < 32 && extra >= 32) {
-		drop = 32;
-	}
-	uint16_t y = (uint16_t)(stage_top + drop);
-	const uint16_t gx = deskCenterX(content_left, area_w, group_w);
-	const uint16_t ink_y = y;
 	const uint16_t ink_top = deskHugeInkTop(value, huge.font, huge.scale);
+	uint16_t ink_y = (uint16_t)(stage_top + (hero_h > ink_h ? (hero_h - ink_h) / 3 : 4));
 	const int draw_y = (int)ink_y - (int)ink_top;
-	deskDrawHugeAt(gx, draw_y < 0 ? 0 : (uint16_t)draw_y, value, huge.font, huge.scale);
-	uint16_t ppm_y = ink_y;
-	if (ink_h > Font24.Height) {
-		ppm_y = (uint16_t)(ink_y + (ink_h - Font24.Height) / 2);
-	}
-	deskDrawString((uint16_t)(gx + huge.w + 8), ppm_y, unit, &Font24, &font_24_cyrillic, &font_24_ascii);
+	deskDrawHugeAt(deskCenterX(content_left, num_w, huge.w), draw_y < 0 ? 0 : (uint16_t)draw_y,
+	               value, huge.font, huge.scale);
 
-	if (!have_status) {
-		return;
+	deskSplitH(content_left, x1, hero_bot);
+	const uint16_t mid = (uint16_t)(content_left + area_w / 2);
+	deskSplitV(mid, hero_bot, stage_bot);
+	const uint16_t left_x = content_left;
+	const uint16_t left_w = (mid > left_x + 8) ? (uint16_t)(mid - 8 - left_x) : 80;
+	const uint16_t right_x = (uint16_t)(mid + 8);
+	const uint16_t right_w = (x1 > right_x) ? (uint16_t)(x1 - right_x) : left_w;
+	const uint16_t bot_top = (uint16_t)(hero_bot + 8);
+	const uint16_t bot_inner = (stage_bot > bot_top) ? (uint16_t)(stage_bot - bot_top) : bot_h;
+
+	uint16_t unit_room = (bot_inner > 8) ? (uint16_t)(bot_inner - 8) : 48;
+	if (unit_room > 80) {
+		unit_room = 80;
 	}
-	const uint16_t split_y = (uint16_t)(hero_bot + mid_gap / 2);
-	deskSplitH(content_left, (uint16_t)(content_left + area_w), split_y);
-	const uint16_t face_top = (uint16_t)(hero_bot + mid_gap);
+	DeskUnitFit uf = deskPickUnitUnder(nullptr, unit, left_w, 0, unit_room);
+	if (uf.huge) {
+		const uint16_t uw = deskHugeWidthUnit(unit, uf.font, uf.scale);
+		const uint16_t utop = deskHugeInkTop(unit, uf.font, uf.scale);
+		uint16_t uy = bot_top;
+		if (bot_inner > uf.ink_h) {
+			uy = (uint16_t)(bot_top + (bot_inner - uf.ink_h) / 2);
+		}
+		const int dy = (int)uy - (int)utop;
+		deskDrawHugeUnitAt(deskCenterX(left_x, left_w, uw), dy < 0 ? 0 : (uint16_t)dy, unit, uf.font,
+		                   uf.scale);
+	} else {
+		uint16_t uy = bot_top;
+		if (bot_inner > uf.ink_h) {
+			uy = (uint16_t)(bot_top + (bot_inner - uf.ink_h) / 2);
+		}
+		deskDrawCentered(left_x, left_w, uy, unit, uf.en, uf.ru, uf.ascii);
+	}
+
 	if (warmup) {
 		const uint16_t tw = deskWidth(band, &Font24, &font_24_cyrillic, &font_24_ascii);
-		const uint16_t wx = deskCenterX(content_left, area_w, tw);
-		deskDrawString(wx, (uint16_t)(face_top + 4), band, &Font24, &font_24_cyrillic,
+		uint16_t ty = bot_top;
+		if (bot_inner > word_h) {
+			ty = (uint16_t)(bot_top + (bot_inner - word_h) / 2);
+		}
+		deskDrawString(deskCenterX(right_x, right_w, tw), ty, band, &Font24, &font_24_cyrillic,
 		               &font_24_ascii);
 		return;
 	}
-	const uint16_t cy = (uint16_t)(face_top + face_r + 3);
-	const uint16_t cx = (uint16_t)(content_left + area_w / 2);
+	if (!have_status) {
+		return;
+	}
+	const uint16_t stack_h = (uint16_t)(face_r * 2 + 8 + word_h);
+	uint16_t face_top = bot_top;
+	if (bot_inner > stack_h) {
+		face_top = (uint16_t)(bot_top + (bot_inner - stack_h) / 2);
+	}
+	const uint16_t cy = (uint16_t)(face_top + face_r);
+	const uint16_t cx = (uint16_t)(right_x + right_w / 2);
 	deskDrawFace(cx, cy, face_r, deskCo2Mood(band));
 	const uint16_t tw = deskWidth(band, &Font24, &font_24_cyrillic, &font_24_ascii);
 	const bool warn = deskBandWarn(band);
 	const uint16_t icon = 16;
 	const uint16_t gap = 6;
 	const uint16_t word_w = warn ? (uint16_t)(tw + gap + icon) : tw;
-	const uint16_t wx = deskCenterX(content_left, area_w, word_w);
+	const uint16_t wx = deskCenterX(right_x, right_w, word_w);
 	const uint16_t wy = (uint16_t)(face_top + face_r * 2 + 8);
 	deskDrawString(wx, wy, band, &Font24, &font_24_cyrillic, &font_24_ascii);
 	if (warn) {
-		const uint16_t iy = (uint16_t)(wy + (Font24.Height > icon ? (Font24.Height - icon) / 2 : 0));
+		const uint16_t iy = (uint16_t)(wy + (word_h > icon ? (word_h - icon) / 2 : 0));
 		Paint_DrawImage(warning_new_16x16, (uint16_t)(wx + tw + gap), iy, icon, icon);
 	}
 }
@@ -2654,12 +2906,15 @@ void drawDeskMainBody(const main_screen_values_t &values,
 	}
 	const uint16_t inner_x0 = (uint16_t)(content_left + 6);
 	const uint16_t inner_x1 = (uint16_t)(content_right - 6);
-	const uint16_t inner_y0 = (uint16_t)(title_bot + 10);
+	uint16_t inner_y0 = (uint16_t)(title_bot + 2);
+	if (!is_graph && page_id != DESK_PAGE_PRESSURE && inner_y0 > 22) {
+		inner_y0 = (uint16_t)(inner_y0 - 20);
+	}
 	const uint16_t inner_y1 = (footer_y > 6) ? (uint16_t)(footer_y - 4) : inner_y0;
 	const uint16_t mid = (uint16_t)(inner_x0 + (inner_x1 - inner_x0) / 2);
 	const uint16_t left_x = inner_x0;
-	const uint16_t right_x = (uint16_t)(mid + 8);
-	uint16_t col_w = (mid > left_x + 8) ? (uint16_t)(mid - 8 - left_x) : 80;
+	const uint16_t right_x = (uint16_t)(mid + 6);
+	uint16_t col_w = (mid > left_x + 6) ? (uint16_t)(mid - 6 - left_x) : 80;
 	const uint16_t right_w = (inner_x1 > right_x) ? (uint16_t)(inner_x1 - right_x) : col_w;
 	if (right_w < col_w) {
 		col_w = right_w;
@@ -2685,7 +2940,7 @@ void drawDeskMainBody(const main_screen_values_t &values,
 		deskDrawTwoUp(left_x, right_x, col_w, mid, inner_y0, inner_y1,
 		              "", "PM2.5", a, "µg/m³",
 		              "", "PM10", b, "µg/m³",
-		              deskBandPm(values.pm25, values.pm10), false);
+		              deskBandPm(values.pm25, values.pm10), false, true);
 		break;
 	}
 	case DESK_PAGE_CLIMATE:
@@ -2694,7 +2949,7 @@ void drawDeskMainBody(const main_screen_values_t &values,
 		deskDrawTwoUp(left_x, right_x, col_w, mid, inner_y0, inner_y1,
 		              "", INTL_DISP_TEMPERATURE, a, cfgTempDisplayUnit(),
 		              "", INTL_DISP_HUMIDITY, b, "%",
-		              nullptr, false, true,
+		              nullptr, false, false,
 		              deskBandOneTemp(values.temp_outdoor),
 		              deskBandOneHum(values.hum_outdoor));
 		break;
@@ -2704,7 +2959,7 @@ void drawDeskMainBody(const main_screen_values_t &values,
 		deskDrawTwoUp(left_x, right_x, col_w, mid, inner_y0, inner_y1,
 		              "", INTL_DISP_TEMPERATURE, a, cfgTempDisplayUnit(),
 		              "", INTL_DISP_HUMIDITY, b, "%",
-		              nullptr, false, true,
+		              nullptr, false, false,
 		              deskBandOneTemp(values.temp_indoor),
 		              deskBandOneHum(values.hum_indoor));
 		break;
@@ -2727,7 +2982,7 @@ void drawDeskMainBody(const main_screen_values_t &values,
 		deskDrawTwoUp(left_x, right_x, col_w, mid, inner_y0, inner_y1,
 		              "", "AVG", a, "dBA",
 		              "", "MAX", b, "dBA",
-		              deskBandNoise(values.noise_avg, values.noise_max), false);
+		              deskBandNoise(values.noise_avg, values.noise_max), false, true);
 		break;
 	case DESK_PAGE_PRESSURE:
 	default: {

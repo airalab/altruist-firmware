@@ -660,9 +660,6 @@ void RobonomicsHTTPAPI::POSTRequest(const String &data, const String &host)
 
 void RobonomicsHTTPAPI::POSTRequest(const uint8_t *data, size_t len, const String &host)
 {
-	HTTPClient _http;
-	String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
-	int result = 0;
 	if (!data || len == 0)
 	{
 		logConnectivityFailure(map_send_seq_active, F("payload_empty"));
@@ -686,11 +683,17 @@ void RobonomicsHTTPAPI::POSTRequest(const uint8_t *data, size_t len, const Strin
 	debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] PROTO POST ") + target_log +
 			    F(" bytes=") + String(len) + (target.tls ? F(" tls") : F("")));
 	mapResetHttpClient(_client);
+
+	// tls must outlive HTTPClient: begin(tls) stores a pointer, and ~HTTPClient
+	// still calls stop() after a 403 that closed TCP (#198).
+	WiFiClientSecure tls;
+	HTTPClient _http;
+	String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
+	int result = 0;
 	_http.setTimeout(20 * 1000);
 	_http.setUserAgent(SOFTWARE_VERSION + '/' + esp_chipid);
 	_http.setReuse(false);
 
-	WiFiClientSecure tls;
 	bool began = false;
 	if (target.tls)
 	{
